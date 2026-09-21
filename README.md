@@ -1,144 +1,175 @@
 # Backstage
 
-Aplicativo Flutter do prototipo Backstage, preparado para rodar com dados
-locais durante desenvolvimento e com integracao real usando Firebase
-Authentication, Cloud Firestore e Firebase Hosting.
+Aplicativo Flutter mobile Backstage. O app usa Firebase
+Authentication e Cloud Firestore, com dados mock como fallback quando o
+Firebase nao esta inicializado.
 
-## O que ja esta integrado
+## Plataformas e configuracao Firebase
 
-- Firebase Core para inicializar o app.
-- Firebase Authentication com login, cadastro, logout e recuperacao de senha
-  por e-mail.
-- Cloud Firestore para persistir usuarios, perfis, agenda, interesses,
-  oportunidades, musicos e conversas.
-- Firebase Hosting para publicar o build web em `build/web`.
-- Fallback local com dados mocados quando as credenciais Firebase nao forem
-  informadas.
+O alvo principal e mobile:
+
+- Android: `android/app/google-services.json`
+- iOS: `ios/Runner/GoogleService-Info.plist`
+- Configuracao compartilhada do Flutter: `lib/core/firebase/firebase_options.dart`
+- Inicializacao: `lib/core/firebase/firebase_bootstrap.dart`
+
+As configuracoes foram geradas para o projeto Firebase `backstage-531a9`.
+Chaves Firebase de cliente nao sao senhas, mas devem ser restringidas no
+Google Cloud por aplicativo Android/iOS e pelas APIs necessarias.
+
+O app Web nao e o alvo principal. No Chrome, o Flutter executa como Web mesmo
+quando o `DevicePreview` esta configurado para mostrar um aparelho Android ou
+iOS. O DevicePreview altera dimensoes e aparencia, mas nao simula APIs
+nativas. Para testar Firebase e recursos nativos mobile, use um emulador ou
+dispositivo Android/iOS.
 
 ## Pre-requisitos
 
-Instale e valide:
+Valide o Flutter e o Dart:
 
 ```powershell
 flutter --version
 dart --version
-node --version
-npm --version
-firebase --version
+flutter doctor
 ```
 
-Se a Firebase CLI nao estiver instalada:
-
-```powershell
-npm install -g firebase-tools
-firebase login
-```
-
-No repositorio, instale as dependencias Flutter:
+No repositorio, instale as dependencias:
 
 ```powershell
 flutter pub get
 ```
 
-## 1. Criar o projeto no Firebase
+Para trabalhar com regras e deploy Firebase, instale tambem a Firebase CLI:
 
-1. Acesse o Firebase Console.
-2. Clique em `Add project`.
-3. Crie um projeto, por exemplo `backstage`.
-4. Guarde o `Project ID`; ele sera usado como `FIREBASE_PROJECT_ID`.
+```powershell
+npm install -g firebase-tools
+firebase login
+firebase --version
+```
 
-## 2. Habilitar Authentication
+## Configuracao do Firebase
 
-1. No Firebase Console, abra `Authentication`.
-2. Clique em `Get started`.
-3. Abra a aba `Sign-in method`.
-4. Habilite o provedor `Email/Password`.
-5. Salve.
+No Firebase Console:
 
-O app usa esses metodos:
-
-- `signInWithEmailAndPassword`
-- `createUserWithEmailAndPassword`
-- `sendPasswordResetEmail`
-- `signOut`
-
-## 3. Criar o Cloud Firestore
-
-1. No Firebase Console, abra `Firestore Database`.
-2. Clique em `Create database`.
-3. Escolha uma regiao.
-4. Para comecar com seguranca, escolha modo bloqueado ou producao.
-5. Depois publique as regras locais deste repositorio com:
+1. Use o projeto `backstage-531a9` ou crie um projeto novo.
+2. Em `Authentication > Sign-in method`, habilite `Email/Password`.
+3. Crie o banco em `Firestore Database`.
+4. Publique as regras deste repositorio:
 
 ```powershell
 firebase deploy --only firestore:rules
 ```
 
-As regras estao em `firestore.rules`.
+O app usa login, cadastro, logout e recuperacao de senha por e-mail. O
+Firestore armazena usuarios, perfis, agenda, interesses, oportunidades,
+musicos e conversas.
 
-## 4. Registrar um app Web no Firebase
-
-1. No Firebase Console, abra `Project settings`.
-2. Em `Your apps`, clique no icone Web `</>`.
-3. Informe um nome, por exemplo `backstage-web`.
-4. Registre o app.
-5. Copie os campos do objeto `firebaseConfig`.
-
-Mapeie os campos assim:
-
-| Firebase config | Dart define |
-| --- | --- |
-| `apiKey` | `FIREBASE_API_KEY` |
-| `appId` | `FIREBASE_APP_ID` e `FIREBASE_WEB_APP_ID` |
-| `projectId` | `FIREBASE_PROJECT_ID` |
-| `messagingSenderId` | `FIREBASE_MESSAGING_SENDER_ID` |
-| `authDomain` | `FIREBASE_AUTH_DOMAIN` |
-| `storageBucket` | `FIREBASE_STORAGE_BUCKET` |
-| `measurementId` | `FIREBASE_MEASUREMENT_ID` |
-
-`FIREBASE_MEASUREMENT_ID` e opcional para este app.
-
-## 5. Configurar o projeto local
-
-Copie o arquivo de exemplo:
+Para regenerar as configuracoes nativas depois de trocar o projeto Firebase:
 
 ```powershell
-Copy-Item .firebaserc.example .firebaserc
+dart pub global activate flutterfire_cli
+flutterfire configure --project=backstage-531a9 --platforms=android,ios
 ```
 
-Edite `.firebaserc` e troque `seu-project-id` pelo Project ID real:
+Confirme o package Android `com.backstage.app`. No iOS, o Bundle ID registrado
+no Firebase precisa ser igual ao Bundle ID do projeto Xcode. O arquivo
+`GoogleService-Info.plist` deve permanecer em `ios/Runner/`.
 
-```json
-{
-  "projects": {
-    "default": "backstage"
-  }
-}
-```
+## Android Emulator no Windows
 
-O arquivo `.firebaserc` deve ficar local no seu ambiente. O exemplo pode ser
-versionado, mas o arquivo real normalmente varia por projeto/ambiente.
+Crie e inicialize um AVD pelo Android Studio uma unica vez em `Device Manager`,
+por exemplo `Pixel_6`. Depois disso, o Android Studio nao precisa ser aberto
+para iniciar o emulador.
 
-## 6. Rodar localmente com Firebase real
-
-Execute o app web passando as credenciais por `--dart-define`:
+Configure as variaveis do Android SDK no usuario:
 
 ```powershell
-flutter run -d chrome `
-  --dart-define=FIREBASE_API_KEY=sua-api-key `
-  --dart-define=FIREBASE_APP_ID=seu-web-app-id `
-  --dart-define=FIREBASE_WEB_APP_ID=seu-web-app-id `
-  --dart-define=FIREBASE_PROJECT_ID=seu-project-id `
-  --dart-define=FIREBASE_MESSAGING_SENDER_ID=seu-sender-id `
-  --dart-define=FIREBASE_AUTH_DOMAIN=seu-project-id.firebaseapp.com `
-  --dart-define=FIREBASE_STORAGE_BUCKET=seu-project-id.firebasestorage.app `
-  --dart-define=FIREBASE_MEASUREMENT_ID=seu-measurement-id
+$sdk = "$env:LOCALAPPDATA\Android\Sdk"
+[Environment]::SetEnvironmentVariable("ANDROID_HOME", $sdk, "User")
+[Environment]::SetEnvironmentVariable("ANDROID_SDK_ROOT", $sdk, "User")
 ```
 
-Se nao passar esses defines, o app roda em modo local com os mocks. Isso e
-intencional para facilitar desenvolvimento sem Firebase.
+Adicione ao `Path` do usuario somente estes diretorios:
 
-## 7. Primeiro teste funcional
+```text
+C:\Users\<seu-usuario>\AppData\Local\Android\Sdk\platform-tools
+C:\Users\<seu-usuario>\AppData\Local\Android\Sdk\emulator
+```
+
+Ou execute este comando uma vez para adiciona-los automaticamente sem
+duplicar entradas existentes:
+
+```powershell
+$sdk = "$env:LOCALAPPDATA\Android\Sdk"
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$entries = $userPath -split ";" | Where-Object { $_ }
+$entries += "$sdk\platform-tools"
+$entries += "$sdk\emulator"
+[Environment]::SetEnvironmentVariable(
+  "Path",
+  ($entries | Select-Object -Unique) -join ";",
+  "User"
+)
+```
+
+Feche e abra o PowerShell depois de alterar o `Path`. Confirme o AVD:
+
+```powershell
+emulator -list-avds
+adb devices
+flutter devices
+```
+
+### Execucao rapida do projeto
+
+**Para iniciar seu emulador:**
+
+```powershell
+emulator -avd Pixel_6
+```
+
+**Em outro terminal:**
+
+```powershell
+flutter run
+```
+
+Para selecionar explicitamente o emulador:
+
+```powershell
+flutter run -d emulator-5554
+```
+
+O `google-services.json` configura o Firebase Android. Nao e necessario
+passar `--dart-define` para executar o app Android configurado.
+
+## iOS
+
+O simulador iOS requer macOS e Xcode; ele nao pode ser executado nativamente
+no Windows.
+
+Em um Mac:
+
+```bash
+open -a Simulator
+flutter doctor
+flutter devices
+flutter run -d <id-do-simulador>
+```
+
+Instale as dependencias iOS quando necessario:
+
+```bash
+cd ios
+pod install
+cd ..
+```
+
+O Firebase iOS usa `ios/Runner/GoogleService-Info.plist` e a configuracao Dart
+compartilhada. O Bundle ID precisa estar registrado como aplicativo iOS no
+Firebase.
+
+## Primeiro teste funcional
 
 Com o app rodando com Firebase real:
 
@@ -157,7 +188,7 @@ No primeiro uso, o app cria dados iniciais em:
 
 Isso acontece somente se essas colecoes estiverem vazias.
 
-## 8. Colecoes do Firestore
+## Colecoes do Firestore
 
 O app usa estas colecoes:
 
@@ -172,7 +203,7 @@ O app usa estas colecoes:
 | `disponibilidades` | datas disponiveis da agenda do usuario |
 | `conversas` | conversas e mensagens simples do prototipo |
 
-## 9. Regras de seguranca
+## Regras de seguranca
 
 As regras locais ficam em:
 
@@ -199,20 +230,18 @@ Resumo das regras atuais:
 Para producao, revise principalmente permissoes de escrita em `musicos`,
 `oportunidades` e `conversas`, criando perfis de admin/contratante/artista.
 
-## 10. Build web para Hosting
+## Web e Firebase Hosting (opcional)
 
-Gere o build web com as mesmas credenciais:
+O Hosting permanece configurado para `build/web`, mas o projeto atualmente nao
+tem um aplicativo Web Firebase como alvo principal. Para usar Firebase real no
+Chrome, registre um app Web no Console e configure `FIREBASE_WEB_API_KEY` e
+`FIREBASE_WEB_APP_ID` por `--dart-define`. Sem isso, o Chrome usa o fallback
+local/mock e nao testa a configuracao Android ou iOS.
+
+Para gerar um build Web sem Firebase real:
 
 ```powershell
-flutter build web `
-  --dart-define=FIREBASE_API_KEY=sua-api-key `
-  --dart-define=FIREBASE_APP_ID=seu-web-app-id `
-  --dart-define=FIREBASE_WEB_APP_ID=seu-web-app-id `
-  --dart-define=FIREBASE_PROJECT_ID=seu-project-id `
-  --dart-define=FIREBASE_MESSAGING_SENDER_ID=seu-sender-id `
-  --dart-define=FIREBASE_AUTH_DOMAIN=seu-project-id.firebaseapp.com `
-  --dart-define=FIREBASE_STORAGE_BUCKET=seu-project-id.firebasestorage.app `
-  --dart-define=FIREBASE_MEASUREMENT_ID=seu-measurement-id
+flutter build web
 ```
 
 O build final sera gerado em:
@@ -223,7 +252,7 @@ build/web
 
 O `firebase.json` ja aponta o Hosting para esse diretorio.
 
-## 11. Deploy no Firebase Hosting
+## Deploy no Firebase Hosting
 
 Deploy completo de Hosting e regras:
 
@@ -245,28 +274,52 @@ firebase deploy --only firestore:rules
 
 Depois do deploy, a Firebase CLI exibira a URL publicada.
 
-## 12. Validacao antes de publicar
+## Validacao antes de publicar
 
 Rode:
 
 ```powershell
 flutter analyze
+flutter build apk --debug
 flutter build web
 ```
 
-Para validar com Firebase real, rode o `flutter build web` com os
-`--dart-define` da secao de build.
+Para validar Firebase real, prefira executar o build Android em um emulador ou
+dispositivo. O build Web so usara Firebase real depois que um app Web for
+registrado e os defines Web forem fornecidos.
 
-## 13. Problemas comuns
+## Problemas comuns
 
-### App abre, mas continua usando dados mocados
+### O login mostra falha de conexao no Chrome
 
-Algum `--dart-define` obrigatorio nao foi passado. Confira:
+Chrome executa o app como Web. `DevicePreview` nao muda a plataforma. Se o app
+Web Firebase nao estiver configurado, `FirebaseBootstrap.isEnabled` fica falso
+e o login usa o caminho mock. Teste em Android com:
 
-- `FIREBASE_API_KEY`
-- `FIREBASE_APP_ID`
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_MESSAGING_SENDER_ID`
+```powershell
+emulator -avd Pixel_6
+```
+
+Em outro terminal:
+
+```powershell
+flutter run
+```
+
+### O emulador nao e encontrado
+
+Reabra o PowerShell depois de alterar o `Path` e confirme:
+
+```powershell
+emulator -list-avds
+flutter devices
+```
+
+### App mobile usa dados mocados
+
+Verifique se o emulador Android esta realmente conectado e se o app foi
+executado com `flutter run -d emulator-5554`. Confirme tambem se o
+`android/app/google-services.json` pertence ao projeto Firebase correto.
 
 ### Login/cadastro falha
 

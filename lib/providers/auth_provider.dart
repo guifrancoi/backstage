@@ -39,15 +39,7 @@ class AuthProvider extends ChangeNotifier {
 
       _isLoading = false;
 
-      if (email == 'teste@teste.com' && senha == '123456') {
-        _isLoggedIn = true;
-        _userId = 'mock-user';
-        _userEmail = email;
-        notifyListeners();
-        return true;
-      }
-
-      _errorMessage = 'E-mail ou senha invalidos.';
+      _errorMessage = 'Falha na conexão dos nosso serviços. Por favor, tente novamente mais tarde.';
       notifyListeners();
       return false;
     }

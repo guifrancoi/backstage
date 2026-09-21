@@ -6,6 +6,8 @@ class FirebaseBootstrap {
   static Future<bool> initialize() async {
     if (!DefaultFirebaseOptions.isConfigured) return false;
 
+    if (Firebase.apps.isNotEmpty) return true;
+
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );

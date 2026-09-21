@@ -1,26 +1,43 @@
 {
   "project_info": {
     "project_number": "553548688619",
-    "project_id": "backstage",
-    "storage_bucket": "backstage.firebasestorage.app"
+    "project_id": "backstage-531a9",
+    "storage_bucket": "backstage-531a9.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:553548688619:web:0b7f611f2cc33d1adce2ae",
+        "mobilesdk_app_id": "1:553548688619:android:0eddee8ad9ba82a3dce2ae",
         "android_client_info": {
           "package_name": "com.backstage.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "553548688619-aud1g2rnrk5n0odr9rvjmo4tur8c1fl2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyD2zHkd7shuM8xOROhYt24i4KIijgl9KXg"
+          "current_key": "AIzaSyBpuTN8HWqzd_8tbwvk9JXadkFDj1qThQI"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "553548688619-aud1g2rnrk5n0odr9rvjmo4tur8c1fl2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "553548688619-u3vabp94sl9hjor33ijapf7selnio4ll.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.Backstage"
+              }
+            }
+          ]
         }
       }
     }
