@@ -1,0 +1,58 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /usuarios/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /perfis_musicos/{userId} {
+      allow read: if signedIn();
+      allow write: if isOwner(userId);
+    }
+
+    match /musicos/{musicoId} {
+      allow read, write: if signedIn();
+    }
+
+    match /oportunidades/{oportunidadeId} {
+      allow read, write: if signedIn();
+    }
+
+    match /conversas/{conversaId} {
+      allow read, write: if signedIn();
+    }
+
+    match /interesses_oportunidades/{interesseId} {
+      allow read: if signedIn() && resource.data.usuarioId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.usuarioId == request.auth.uid;
+      allow update, delete: if signedIn()
+        && resource.data.usuarioId == request.auth.uid;
+    }
+
+    match /interesses_musicos/{interesseId} {
+      allow read: if signedIn() && resource.data.usuarioId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.usuarioId == request.auth.uid;
+      allow update, delete: if signedIn()
+        && resource.data.usuarioId == request.auth.uid;
+    }
+
+    match /disponibilidades/{disponibilidadeId} {
+      allow read: if signedIn() && resource.data.usuarioId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.usuarioId == request.auth.uid;
+      allow update, delete: if signedIn()
+        && resource.data.usuarioId == request.auth.uid;
+    }
+  }
+}

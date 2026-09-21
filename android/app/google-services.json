@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "553548688619",
+    "project_id": "backstage",
+    "storage_bucket": "backstage.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:553548688619:web:0b7f611f2cc33d1adce2ae",
+        "android_client_info": {
+          "package_name": "com.backstage.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2zHkd7shuM8xOROhYt24i4KIijgl9KXg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

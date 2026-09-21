@@ -1,0 +1,28 @@
+name: backstage
+description: "Prototipo Backstage"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.0.5
+  image_picker: ^1.1.2
+  url_launcher: ^6.3.0
+  device_preview_plus: ^2.6.1
+  http: ^1.2.2
+  firebase_core: ^4.10.0
+  firebase_auth: ^6.5.2
+  cloud_firestore: ^6.5.0
+  cupertino_icons: ^1.0.9
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

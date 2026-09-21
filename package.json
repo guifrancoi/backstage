@@ -1,0 +1,20 @@
+{
+  "name": "backstage",
+  "version": "1.0.0",
+  "description": "Aplicativo Flutter do prototipo Backstage, preparado para rodar com dados\r locais durante desenvolvimento e com integracao real usando Firebase\r Authentication, Cloud Firestore e Firebase Hosting.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "firebase-admin": "^14.2.0"
+  }
+}
