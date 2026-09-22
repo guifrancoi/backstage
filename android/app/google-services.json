@@ -31,10 +31,10 @@
               "client_type": 3
             },
             {
-              "client_id": "553548688619-u3vabp94sl9hjor33ijapf7selnio4ll.apps.googleusercontent.com",
+              "client_id": "553548688619-f1msjdfp1ihjqfj1gqkjkuffe4gnv4sv.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.Backstage"
+                "bundle_id": "com.backstage.app"
               }
             }
           ]

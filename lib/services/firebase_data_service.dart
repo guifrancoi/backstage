@@ -10,14 +10,21 @@ import '../models/musico.dart';
 import '../models/oportunidade.dart';
 
 class FirebaseDataService {
-  FirebaseDataService({FirebaseAuth? auth, FirebaseFirestore? firestore})
-    : _auth = auth,
-      _firestore = firestore;
+  /// [enabled] sobrescreve `FirebaseBootstrap.isEnabled` — usado em testes
+  /// com instâncias fake de [auth] e [firestore].
+  FirebaseDataService({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+    bool? enabled,
+  }) : _auth = auth,
+       _firestore = firestore,
+       _enabled = enabled;
 
   final FirebaseAuth? _auth;
   final FirebaseFirestore? _firestore;
+  final bool? _enabled;
 
-  bool get isEnabled => FirebaseBootstrap.isEnabled;
+  bool get isEnabled => _enabled ?? FirebaseBootstrap.isEnabled;
 
   FirebaseAuth get auth => _auth ?? FirebaseAuth.instance;
   FirebaseFirestore get firestore => _firestore ?? FirebaseFirestore.instance;

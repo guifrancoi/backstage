@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>553548688619-u3vabp94sl9hjor33ijapf7selnio4ll.apps.googleusercontent.com</string>
+	<string>553548688619-f1msjdfp1ihjqfj1gqkjkuffe4gnv4sv.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.553548688619-u3vabp94sl9hjor33ijapf7selnio4ll</string>
+	<string>com.googleusercontent.apps.553548688619-f1msjdfp1ihjqfj1gqkjkuffe4gnv4sv</string>
 	<key>API_KEY</key>
 	<string>AIzaSyAFnuC6n6IiCxFIiBMZWQ6RGtmb05sHMxc</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +13,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.Backstage</string>
+	<string>com.backstage.app</string>
 	<key>PROJECT_ID</key>
 	<string>backstage-531a9</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +29,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:553548688619:ios:fcdc285eb562c68adce2ae</string>
+	<string>1:553548688619:ios:029d2a48768d8bd2dce2ae</string>
 </dict>
 </plist>

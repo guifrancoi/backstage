@@ -54,6 +54,9 @@ class OportunidadeProvider extends ChangeNotifier {
   String _termoPesquisa = '';
   String _tipoOrdenacao = 'nome_asc';
 
+  String? _generoFiltroOportunidades;
+  String? _cidadeFiltroOportunidades;
+
   List<Musico> get musicos => _musicos;
   List<Oportunidade> get oportunidades => _oportunidades;
   List<Interesse> get interesses => _interesses;
@@ -64,11 +67,12 @@ class OportunidadeProvider extends ChangeNotifier {
   String get termoPesquisa => _termoPesquisa;
   String get tipoOrdenacao => _tipoOrdenacao;
 
+  // Listas de interesse ignoram os filtros de busca ativos.
   List<Oportunidade> get oportunidadesComInteresse =>
-      _oportunidades.where((o) => o.interesseEnviado).toList();
+      _todasOportunidades.where((o) => o.interesseEnviado).toList();
 
   List<Musico> get musicosComInteresse =>
-      _musicos.where((m) => m.interesseEnviado).toList();
+      _todosMusicos.where((m) => m.interesseEnviado).toList();
 
   Future<void> _carregarInteresses() async {
     final usuarioId = _service.currentUserId;
@@ -116,28 +120,21 @@ class OportunidadeProvider extends ChangeNotifier {
   }
 
   void filtrarOportunidades({String? genero, String? cidade}) {
-    _oportunidades = _todasOportunidades.where((o) {
-      final generoValido =
-          genero == null || genero.isEmpty || o.generoMusical == genero;
-
-      final cidadeValida =
-          cidade == null ||
-          cidade.isEmpty ||
-          o.cidade.toLowerCase().contains(cidade.toLowerCase());
-
-      return generoValido && cidadeValida;
-    }).toList();
-
+    _generoFiltroOportunidades = genero;
+    _cidadeFiltroOportunidades = cidade;
+    _aplicarFiltrosAtuais();
     notifyListeners();
   }
 
   void resetarFiltroOportunidades() {
-    _oportunidades = [..._todasOportunidades];
+    _generoFiltroOportunidades = null;
+    _cidadeFiltroOportunidades = null;
+    _aplicarFiltrosAtuais();
     notifyListeners();
   }
 
   bool jaDemonstrouInteresse(String oportunidadeId) {
-    return _oportunidades.any(
+    return _todasOportunidades.any(
       (o) => o.id == oportunidadeId && o.interesseEnviado,
     );
   }
@@ -281,7 +278,20 @@ class OportunidadeProvider extends ChangeNotifier {
     // Aplicar ordenação
     _aplicarOrdenacao();
 
-    _oportunidades = [..._todasOportunidades];
+    _oportunidades = _todasOportunidades.where((o) {
+      final genero = _generoFiltroOportunidades;
+      final cidade = _cidadeFiltroOportunidades;
+
+      final generoValido =
+          genero == null || genero.isEmpty || o.generoMusical == genero;
+
+      final cidadeValida =
+          cidade == null ||
+          cidade.isEmpty ||
+          o.cidade.toLowerCase().contains(cidade.toLowerCase());
+
+      return generoValido && cidadeValida;
+    }).toList();
   }
 
   void _aplicarOrdenacao() {

@@ -34,6 +34,7 @@ class Musico {
     List<String>? datasDisponiveis,
     String? fotoPath,
     bool? interesseEnviado,
+    bool clearFotoPath = false,
   }) {
     return Musico(
       id: id ?? this.id,
@@ -44,7 +45,7 @@ class Musico {
       cacheMedio: cacheMedio ?? this.cacheMedio,
       portfolioLinks: portfolioLinks ?? this.portfolioLinks,
       datasDisponiveis: datasDisponiveis ?? this.datasDisponiveis,
-      fotoPath: fotoPath ?? this.fotoPath,
+      fotoPath: clearFotoPath ? null : (fotoPath ?? this.fotoPath),
       interesseEnviado: interesseEnviado ?? this.interesseEnviado,
     );
   }

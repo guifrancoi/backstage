@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O Backstage precisa acessar suas fotos para você escolher a imagem do seu perfil.</string>
 </dict>
 </plist>
