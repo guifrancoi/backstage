@@ -10,8 +10,20 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    // tipoUsuario só pode ser definido uma vez (onboarding); depois de
+    // setado, não pode ser trocado (musico <-> casaShow), para não deixar
+    // perfis_musicos/estabelecimentos órfãos.
+    function tipoUsuarioNaoMudou() {
+      return !('tipoUsuario' in resource.data) ||
+        (
+          ('tipoUsuario' in request.resource.data) &&
+          request.resource.data.tipoUsuario == resource.data.tipoUsuario
+        );
+    }
+
     match /usuarios/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, create, delete: if isOwner(userId);
+      allow update: if isOwner(userId) && tipoUsuarioNaoMudou();
     }
 
     match /perfis_musicos/{userId} {
@@ -19,14 +31,22 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
-    match /musicos/{musicoId} {
-      allow read, write: if signedIn();
+    match /estabelecimentos/{userId} {
+      allow read: if signedIn();
+      allow write: if isOwner(userId);
     }
 
     match /oportunidades/{oportunidadeId} {
-      allow read, write: if signedIn();
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.donoId == request.auth.uid;
+      allow update, delete: if signedIn()
+        && resource.data.donoId == request.auth.uid;
     }
 
+    // Sem vínculo a participantes reais ainda (Conversa só tem nomeContato +
+    // mensagens embutidas) — restringir por participante é redesenho do
+    // chat, fora deste plano.
     match /conversas/{conversaId} {
       allow read, write: if signedIn();
     }

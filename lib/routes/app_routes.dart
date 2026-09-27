@@ -1,6 +1,7 @@
 class AppRoutes {
   static const login = '/';
   static const cadastro = '/cadastro';
+  static const completarPerfil = '/completar-perfil';
   static const recuperarSenha = '/recuperar-senha';
   static const home = '/home';
   static const perfil = '/perfil';

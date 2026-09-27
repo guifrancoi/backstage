@@ -3,11 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/firebase/firebase_bootstrap.dart';
 import '../data/mock_data.dart';
+import '../models/casa_show.dart';
 import '../models/conversa.dart';
 import '../models/interesse.dart';
 import '../models/interesse_musico.dart';
 import '../models/musico.dart';
 import '../models/oportunidade.dart';
+import '../models/usuario.dart';
 
 class FirebaseDataService {
   /// [enabled] sobrescreve `FirebaseBootstrap.isEnabled` — usado em testes
@@ -89,19 +91,55 @@ class FirebaseDataService {
     required String nome,
     required String email,
     required String telefone,
+    TipoUsuario? tipoUsuario,
+    bool? assinante,
   }) {
     return firestore.collection('usuarios').doc(uid).set({
       'nome': nome,
       'email': email,
       'telefone': telefone,
+      if (tipoUsuario != null) 'tipoUsuario': tipoUsuario.name,
+      'assinante': ?assinante,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> definirTipoUsuario(String uid, TipoUsuario tipoUsuario) {
+    return firestore.collection('usuarios').doc(uid).set({
+      'tipoUsuario': tipoUsuario.name,
+    }, SetOptions(merge: true));
+  }
+
+  Future<Usuario?> carregarUsuario(String uid) async {
+    final doc = await firestore.collection('usuarios').doc(uid).get();
+    final data = doc.data();
+    if (data == null) return null;
+
+    return Usuario.fromMap(doc.id, data);
+  }
+
+  Future<CasaShow?> carregarEstabelecimento(String usuarioId) async {
+    final doc = await firestore
+        .collection('estabelecimentos')
+        .doc(usuarioId)
+        .get();
+    final data = doc.data();
+    if (data == null) return null;
+
+    return CasaShow.fromMap(doc.id, data);
+  }
+
+  Future<void> salvarEstabelecimento(String usuarioId, CasaShow perfil) {
+    return firestore
+        .collection('estabelecimentos')
+        .doc(usuarioId)
+        .set(perfil.toMap(), SetOptions(merge: true));
   }
 
   Future<void> seedDadosIniciais() async {
     await Future.wait([
       _seedCollection(
-        collection: 'musicos',
+        collection: 'perfis_musicos',
         items: {
           for (final musico in MockData.musicos) musico.id: musico.toMap(),
         },
@@ -138,7 +176,7 @@ class FirebaseDataService {
   }
 
   Future<List<Musico>> listarMusicos() async {
-    final snapshot = await firestore.collection('musicos').get();
+    final snapshot = await firestore.collection('perfis_musicos').get();
 
     return snapshot.docs
         .map((doc) => Musico.fromMap(doc.id, doc.data()))
@@ -155,7 +193,7 @@ class FirebaseDataService {
 
   Stream<List<Musico>> streamMusicos() {
     if (!isEnabled) return Stream.value([...MockData.musicos]);
-    return firestore.collection('musicos').snapshots().map(
+    return firestore.collection('perfis_musicos').snapshots().map(
       (s) => s.docs.map((d) => Musico.fromMap(d.id, d.data())).toList(),
     );
   }

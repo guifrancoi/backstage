@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/usuario.dart';
 import '../services/firebase_data_service.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -133,6 +134,40 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } on FirebaseAuthException catch (error) {
       _errorMessage = _mensagemFirebaseAuth(error);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Retorna `true` quando o usuário logado ainda não escolheu um
+  /// `tipoUsuario` (onboarding pendente). No modo mock nunca bloqueia a
+  /// navegação; um erro de leitura também não bloqueia (assume completo).
+  Future<bool> precisaCompletarPerfil() async {
+    if (!_service.isEnabled) return false;
+
+    final uid = _userId;
+    if (uid == null) return false;
+
+    try {
+      final usuario = await _service.carregarUsuario(uid);
+      return usuario?.tipoUsuario == null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> completarCadastro(TipoUsuario tipoUsuario) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _service.definirTipoUsuario(_userId!, tipoUsuario);
+      return true;
+    } on FirebaseException catch (error) {
+      _errorMessage = _mensagemFirebase(error);
       return false;
     } finally {
       _isLoading = false;

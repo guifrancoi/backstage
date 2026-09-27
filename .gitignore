@@ -39,6 +39,8 @@ migrate_working_dir/
 node_modules/
 .firebase/
 serviceAccountKey.json
+firestore-debug.log
+ui-debug.log
 
 # Symbolication related
 app.*.symbols

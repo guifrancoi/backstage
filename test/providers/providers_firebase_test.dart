@@ -1,3 +1,4 @@
+import 'package:backstage/models/usuario.dart';
 import 'package:backstage/providers/agenda_provider.dart';
 import 'package:backstage/providers/auth_provider.dart';
 import 'package:backstage/providers/chat_provider.dart';
@@ -124,6 +125,19 @@ void main() {
 
       expect(provider.errorMessage, 'Sem permissao para salvar os dados do cadastro.');
     });
+
+    test('precisaCompletarPerfil é true sem tipoUsuario e false depois de completarCadastro', () async {
+      final provider = AuthProvider(service: service);
+
+      expect(await provider.precisaCompletarPerfil(), isTrue);
+
+      final ok = await provider.completarCadastro(TipoUsuario.musico);
+
+      expect(ok, isTrue);
+      expect(await provider.precisaCompletarPerfil(), isFalse);
+      final doc = await firestore.collection('usuarios').doc('u1').get();
+      expect(doc.data()?['tipoUsuario'], 'musico');
+    });
   });
 
   group('OportunidadeProvider', () {
@@ -143,7 +157,7 @@ void main() {
 
       expect(provider.jaDemonstrouInteresse('2'), isTrue);
       expect(provider.jaDemonstrouInteresse('1'), isFalse);
-      final musicos = await firestore.collection('musicos').get();
+      final musicos = await firestore.collection('perfis_musicos').get();
       expect(musicos.docs, isNotEmpty);
     });
 
@@ -206,7 +220,7 @@ void main() {
       await _aguardar();
       final antes = provider.musicos.length;
 
-      await firestore.collection('musicos').doc('novo').set({
+      await firestore.collection('perfis_musicos').doc('novo').set({
         'nomeArtistico': 'Nova Banda',
         'generoMusical': 'Jazz',
       });

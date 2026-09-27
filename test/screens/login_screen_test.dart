@@ -20,6 +20,7 @@ Widget _app(AuthProvider auth) {
         AppRoutes.home: (_) => _destino('Tela Home'),
         AppRoutes.cadastro: (_) => _destino('Tela Cadastro'),
         AppRoutes.recuperarSenha: (_) => _destino('Tela Recuperar Senha'),
+        AppRoutes.completarPerfil: (_) => _destino('Tela Completar Perfil'),
       },
     ),
   );
@@ -77,7 +78,27 @@ void main() {
     expect(find.text('Entrar'), findsOneWidget);
   });
 
-  testWidgets('login com Firebase (fake) navega para a Home', (tester) async {
+  testWidgets('login com Firebase (fake) e tipoUsuario já definido navega para a Home', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'musico'});
+    final auth = AuthProvider(
+      service: FirebaseDataService(
+        auth: MockFirebaseAuth(mockUser: MockUser(uid: 'u1', email: 'a@b.com')),
+        firestore: firestore,
+        enabled: true,
+      ),
+    );
+    await tester.pumpWidget(_app(auth));
+
+    await _preencher(tester, email: 'a@b.com', senha: '123456');
+    await tester.tap(find.text('Entrar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tela Home'), findsOneWidget);
+    expect(auth.isLoggedIn, isTrue);
+  });
+
+  testWidgets('login com Firebase (fake) sem tipoUsuario navega para completar perfil', (tester) async {
     final auth = AuthProvider(
       service: FirebaseDataService(
         auth: MockFirebaseAuth(mockUser: MockUser(uid: 'u1', email: 'a@b.com')),
@@ -91,8 +112,7 @@ void main() {
     await tester.tap(find.text('Entrar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tela Home'), findsOneWidget);
-    expect(auth.isLoggedIn, isTrue);
+    expect(find.text('Tela Completar Perfil'), findsOneWidget);
   });
 
   testWidgets('links abrem cadastro e recuperação de senha', (tester) async {

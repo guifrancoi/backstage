@@ -42,7 +42,14 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login realizado com sucesso!')),
       );
-      Navigator.pushReplacementNamed(context, AppRoutes.home);
+
+      final precisaCompletarPerfil = await authProvider.precisaCompletarPerfil();
+      if (!mounted) return;
+
+      Navigator.pushReplacementNamed(
+        context,
+        precisaCompletarPerfil ? AppRoutes.completarPerfil : AppRoutes.home,
+      );
     } else {
       showDialog(
         context: context,

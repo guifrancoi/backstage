@@ -39,6 +39,17 @@ void main() {
     expect(provider.errorMessage, isNull);
   });
 
+  test('precisaCompletarPerfil nunca bloqueia navegação sem Firebase', () async {
+    await provider.cadastrar(
+      nome: 'Músico',
+      email: 'musico@backstage.com',
+      telefone: '16999999999',
+      senha: '123456',
+    );
+
+    expect(await provider.precisaCompletarPerfil(), isFalse);
+  });
+
   test('recuperarSenha simula sucesso', () async {
     expect(await provider.recuperarSenha('a@b.com'), isTrue);
     expect(provider.isLoading, isFalse);

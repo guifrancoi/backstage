@@ -8,7 +8,11 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:rules:run": "node --test rules-tests/firestore.rules.test.js",
+    "test:rules": "firebase emulators:exec --only firestore \"npm run test:rules:run\"",
+    "test:restore:run": "node --test restore.test.js",
+    "test:restore": "firebase emulators:exec --only firestore \"npm run test:restore:run\""
   },
   "keywords": [],
   "author": "",
@@ -16,5 +20,9 @@
   "type": "commonjs",
   "dependencies": {
     "firebase-admin": "^14.2.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0"
   }
 }

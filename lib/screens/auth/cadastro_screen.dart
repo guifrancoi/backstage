@@ -75,7 +75,13 @@ class _CadastroScreenState extends State<CadastroScreen> {
       const SnackBar(content: Text('Cadastro realizado com sucesso!')),
     );
 
-    Navigator.pushReplacementNamed(context, AppRoutes.home);
+    final precisaCompletarPerfil = await authProvider.precisaCompletarPerfil();
+    if (!mounted) return;
+
+    Navigator.pushReplacementNamed(
+      context,
+      precisaCompletarPerfil ? AppRoutes.completarPerfil : AppRoutes.home,
+    );
   }
 
   @override

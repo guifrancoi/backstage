@@ -1,8 +1,10 @@
 import 'package:backstage/data/mock_data.dart';
+import 'package:backstage/models/casa_show.dart';
 import 'package:backstage/models/conversa.dart';
 import 'package:backstage/models/interesse.dart';
 import 'package:backstage/models/interesse_musico.dart';
 import 'package:backstage/models/mensagem.dart';
+import 'package:backstage/models/usuario.dart';
 import 'package:backstage/services/firebase_data_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -117,7 +119,7 @@ void main() {
     test('popula musicos, oportunidades e conversas quando vazias', () async {
       await service.seedDadosIniciais();
 
-      final musicos = await firestore.collection('musicos').get();
+      final musicos = await firestore.collection('perfis_musicos').get();
       final oportunidades = await firestore.collection('oportunidades').get();
       final conversas = await firestore.collection('conversas').get();
 
@@ -127,13 +129,13 @@ void main() {
     });
 
     test('não sobrescreve coleção que já tem documentos', () async {
-      await firestore.collection('musicos').doc('real').set({
+      await firestore.collection('perfis_musicos').doc('real').set({
         'nomeArtistico': 'Artista Real',
       });
 
       await service.seedDadosIniciais();
 
-      final musicos = await firestore.collection('musicos').get();
+      final musicos = await firestore.collection('perfis_musicos').get();
       expect(musicos.docs.map((d) => d.id), ['real']);
       // As demais coleções, vazias, recebem o seed normalmente.
       final oportunidades = await firestore.collection('oportunidades').get();
@@ -159,7 +161,7 @@ void main() {
       final sub = stream.listen((lista) => emissoes.add(lista.length));
 
       await Future<void>.delayed(Duration.zero);
-      await firestore.collection('musicos').doc('m9').set({
+      await firestore.collection('perfis_musicos').doc('m9').set({
         'nomeArtistico': 'Nova Banda',
       });
       await Future<void>.delayed(Duration.zero);
@@ -238,6 +240,90 @@ void main() {
 
       expect(carregado?.id, 'u1');
       expect(carregado?.nomeArtistico, perfil.nomeArtistico);
+    });
+  });
+
+  group('usuário', () {
+    test('carregar retorna null quando não existe', () async {
+      expect(await service.carregarUsuario('u1'), isNull);
+    });
+
+    test('salvar com tipoUsuario e assinante, e carregar de volta', () async {
+      await service.salvarUsuario(
+        uid: 'u1',
+        nome: 'Guilherme',
+        email: 'g@backstage.com',
+        telefone: '16999999999',
+        tipoUsuario: TipoUsuario.musico,
+        assinante: true,
+      );
+
+      final usuario = await service.carregarUsuario('u1');
+
+      expect(usuario?.tipoUsuario, TipoUsuario.musico);
+      expect(usuario?.assinante, isTrue);
+    });
+
+    test('definirTipoUsuario grava sem apagar outros campos', () async {
+      await service.salvarUsuario(
+        uid: 'u1',
+        nome: 'Guilherme',
+        email: 'g@backstage.com',
+        telefone: '16999999999',
+      );
+
+      await service.definirTipoUsuario('u1', TipoUsuario.casaShow);
+
+      final usuario = await service.carregarUsuario('u1');
+      expect(usuario?.tipoUsuario, TipoUsuario.casaShow);
+      expect(usuario?.nome, 'Guilherme');
+      expect(usuario?.telefone, '16999999999');
+    });
+
+    test('salvar sem tipoUsuario não sobrescreve o já gravado (merge)', () async {
+      await service.salvarUsuario(
+        uid: 'u1',
+        nome: 'Guilherme',
+        email: 'g@backstage.com',
+        telefone: '1',
+        tipoUsuario: TipoUsuario.casaShow,
+      );
+
+      await service.salvarUsuario(
+        uid: 'u1',
+        nome: 'Guilherme',
+        email: 'g@backstage.com',
+        telefone: '2',
+      );
+
+      final usuario = await service.carregarUsuario('u1');
+      expect(usuario?.tipoUsuario, TipoUsuario.casaShow);
+      expect(usuario?.telefone, '2');
+    });
+  });
+
+  group('estabelecimento', () {
+    test('carregar retorna null quando não existe', () async {
+      expect(await service.carregarEstabelecimento('u1'), isNull);
+    });
+
+    test('salvar e carregar usam o uid como id do documento', () async {
+      final estabelecimento = CasaShow(
+        id: 'u1',
+        nome: 'Bar Central',
+        cidade: 'Ribeirão Preto',
+        capacidade: 120,
+        estilosDesejados: const ['Rock'],
+        descricao: 'Bar com música ao vivo.',
+        contato: '16999999999',
+        cnpj: '12.345.678/0001-90',
+      );
+
+      await service.salvarEstabelecimento('u1', estabelecimento);
+      final carregado = await service.carregarEstabelecimento('u1');
+
+      expect(carregado?.id, 'u1');
+      expect(carregado?.nome, estabelecimento.nome);
     });
   });
 

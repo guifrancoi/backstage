@@ -32,6 +32,7 @@ Oportunidade _oportunidade({bool interesseEnviado = false}) => Oportunidade(
   dataEvento: DateTime(2026, 3, 7),
   cacheOferecido: 900,
   contratante: 'Bar Central',
+  donoId: 'estabelecimento1',
   logradouro: 'Rua A',
   numero: '1',
   estado: 'SP',

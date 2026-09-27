@@ -7,6 +7,7 @@ class Oportunidade {
   final DateTime dataEvento;
   final double cacheOferecido;
   final String contratante;
+  final String donoId;
   final bool interesseEnviado;
   final String logradouro;
   final String numero;
@@ -22,6 +23,7 @@ class Oportunidade {
     required this.dataEvento,
     required this.cacheOferecido,
     required this.contratante,
+    required this.donoId,
     required this.logradouro,
     required this.numero,
     required this.estado,
@@ -38,6 +40,7 @@ class Oportunidade {
     DateTime? dataEvento,
     double? cacheOferecido,
     String? contratante,
+    String? donoId,
     bool? interesseEnviado,
     String? logradouro,
     String? numero,
@@ -54,6 +57,7 @@ class Oportunidade {
       dataEvento: dataEvento ?? this.dataEvento,
       cacheOferecido: cacheOferecido ?? this.cacheOferecido,
       contratante: contratante ?? this.contratante,
+      donoId: donoId ?? this.donoId,
       interesseEnviado: interesseEnviado ?? this.interesseEnviado,
       logradouro: logradouro ?? this.logradouro,
       numero: numero ?? this.numero,
@@ -72,6 +76,9 @@ class Oportunidade {
       dataEvento: _dateTimeFromValue(map['dataEvento']),
       cacheOferecido: (map['cacheOferecido'] as num?)?.toDouble() ?? 0,
       contratante: map['contratante'] as String? ?? '',
+      // Fallback vazio: oportunidades gravadas antes da migração do Plano 4
+      // ainda não têm dono associado no Firestore.
+      donoId: map['donoId'] as String? ?? '',
       interesseEnviado: map['interesseEnviado'] as bool? ?? false,
       logradouro: map['logradouro'] as String? ?? '',
       numero: map['numero'] as String? ?? '',
@@ -89,6 +96,7 @@ class Oportunidade {
       'dataEvento': dataEvento,
       'cacheOferecido': cacheOferecido,
       'contratante': contratante,
+      'donoId': donoId,
       'interesseEnviado': interesseEnviado,
       'logradouro': logradouro,
       'numero': numero,

@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'routes/app_routes.dart';
 import 'screens/agenda/agenda_screen.dart';
 import 'screens/auth/cadastro_screen.dart';
+import 'screens/auth/completar_perfil_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/recuperar_senha_screen.dart';
 import 'screens/busca/filtro_busca_screen.dart';
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
       routes: {
         AppRoutes.login: (_) => const LoginScreen(),
         AppRoutes.cadastro: (_) => const CadastroScreen(),
+        AppRoutes.completarPerfil: (_) => const CompletarPerfilScreen(),
         AppRoutes.recuperarSenha: (_) => const RecuperarSenhaScreen(),
         AppRoutes.home: (_) => const HomeScreen(),
         AppRoutes.perfil: (_) => const PerfilScreen(),

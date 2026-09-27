@@ -11,6 +11,7 @@ Oportunidade _oportunidade({String? cep = '14010-120'}) => Oportunidade(
   dataEvento: DateTime(2026, 3, 21, 20),
   cacheOferecido: 900,
   contratante: 'Bar Central',
+  donoId: 'estabelecimento1',
   logradouro: 'Rua Barão do Amazonas',
   numero: '520',
   estado: 'SP',
@@ -29,6 +30,7 @@ void main() {
       expect(copia.dataEvento, original.dataEvento);
       expect(copia.cacheOferecido, original.cacheOferecido);
       expect(copia.contratante, original.contratante);
+      expect(copia.donoId, original.donoId);
       expect(copia.logradouro, original.logradouro);
       expect(copia.numero, original.numero);
       expect(copia.estado, original.estado);
@@ -73,6 +75,12 @@ void main() {
 
         expect(o.dataEvento.isBefore(antes), isFalse);
       });
+    });
+
+    test('donoId cai para string vazia quando ausente (dado legado)', () {
+      final o = Oportunidade.fromMap('o1', {});
+
+      expect(o.donoId, '');
     });
 
     group('copyWith', () {
