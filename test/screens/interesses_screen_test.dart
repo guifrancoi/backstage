@@ -1,5 +1,6 @@
 import 'package:backstage/models/interesse.dart';
 import 'package:backstage/providers/auth_provider.dart';
+import 'package:backstage/providers/contratacao_provider.dart';
 import 'package:backstage/providers/interesse_provider.dart';
 import 'package:backstage/routes/app_routes.dart';
 import 'package:backstage/screens/interesses/interesses_screen.dart';
@@ -15,6 +16,7 @@ Widget _app(FirebaseDataService service) {
     providers: [
       ChangeNotifierProvider(create: (_) => AuthProvider(service: service)),
       ChangeNotifierProvider(create: (_) => InteresseProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => ContratacaoProvider(service: service)),
     ],
     child: MaterialApp(
       home: const InteressesScreen(),
@@ -59,7 +61,6 @@ void main() {
     service = FirebaseDataService(
       auth: MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: 'e1')),
       firestore: firestore,
-      enabled: true,
     );
   });
 

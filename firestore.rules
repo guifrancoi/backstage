@@ -95,6 +95,14 @@ service cloud.firestore {
         && request.resource.data.status in ['aceito', 'recusado']
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'respondidoEm', 'conversaId']);
+      // Ou o remetente encerra (sem apagar) o convite pendente — usado quando
+      // o dono remove a oportunidade: o músico ainda vê "Cancelado".
+      allow update: if signedIn()
+        && resource.data.remetenteId == request.auth.uid
+        && resource.data.status == 'pendente'
+        && request.resource.data.status == 'cancelado'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'respondidoEm']);
       // Cancelar = o remetente apaga enquanto ninguém respondeu.
       allow delete: if signedIn()
         && resource.data.remetenteId == request.auth.uid
@@ -120,8 +128,117 @@ service cloud.firestore {
         && request.resource.data.participantes == resource.data.participantes;
     }
 
+    // Contratação (9B): o dono propõe a partir de um interesse aceito em que é
+    // parte; o músico confirma ou recusa. Só as duas partes leem.
+    match /contratacoes/{contratacaoId} {
+      function parte() {
+        return request.auth.uid == resource.data.musicoId
+          || request.auth.uid == resource.data.donoId;
+      }
+
+      function propostaValida(d) {
+        let i = get(/databases/$(database)/documents/interesses/$(d.interesseId)).data;
+        return d.donoId == request.auth.uid
+          && d.musicoId != request.auth.uid
+          && d.status == 'proposta'
+          && d.dia is string
+          && d.dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && i.status == 'aceito'
+          && i.musicoId == d.musicoId
+          && ((i.tipo == 'convite' && i.remetenteId == request.auth.uid)
+            || (i.tipo == 'candidatura' && i.destinatarioId == request.auth.uid));
+      }
+
+      function mudou() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
+
+      function vaiPara(de, para) {
+        return resource.data.status == de && request.resource.data.status == para;
+      }
+
+      // Trava do dia (id = {musicoId}_{dia}), criada/apagada no mesmo batch.
+      function ocupacao() {
+        return /databases/$(database)/documents/ocupacoes/$(resource.data.musicoId + '_' + resource.data.dia);
+      }
+
+      function cancelamentoValido() {
+        return mudou().hasOnly(['status', 'canceladoEm', 'canceladoPor', 'motivoCancelamento'])
+          && request.resource.data.canceladoPor == request.auth.uid;
+      }
+
+      allow read: if signedIn() && parte();
+      allow create: if signedIn() && propostaValida(request.resource.data);
+      allow update: if signedIn() && parte() && (
+        // músico confirma: o dia precisa ficar travado para esta contratação
+        (vaiPara('proposta', 'confirmada')
+          && request.auth.uid == resource.data.musicoId
+          && mudou().hasOnly(['status', 'respondidoEm'])
+          && getAfter(ocupacao()).data.contratacaoId == contratacaoId)
+        // músico recusa
+        || (vaiPara('proposta', 'recusada')
+          && request.auth.uid == resource.data.musicoId
+          && mudou().hasOnly(['status', 'respondidoEm']))
+        // dono retira a proposta
+        || (vaiPara('proposta', 'cancelada')
+          && request.auth.uid == resource.data.donoId
+          && cancelamentoValido())
+        // qualquer parte desfaz a confirmada: o dia tem que ser liberado junto
+        || (vaiPara('confirmada', 'cancelada')
+          && cancelamentoValido()
+          && !existsAfter(ocupacao()))
+      );
+    }
+
+    // "Ocupado" público: uma trava por músico por dia. Criar sobre uma trava
+    // existente é update (proibido) — é isso que impede dois shows no dia.
+    match /ocupacoes/{ocupacaoId} {
+      function contratacao(id) {
+        return getAfter(/databases/$(database)/documents/contratacoes/$(id)).data;
+      }
+
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['musicoId', 'dia', 'contratacaoId'])
+        && request.resource.data.musicoId == request.auth.uid
+        && ocupacaoId == request.resource.data.musicoId + '_' + request.resource.data.dia
+        && contratacao(request.resource.data.contratacaoId).status == 'confirmada'
+        && contratacao(request.resource.data.contratacaoId).musicoId == request.auth.uid
+        && contratacao(request.resource.data.contratacaoId).dia == request.resource.data.dia;
+      allow delete: if signedIn()
+        && contratacao(resource.data.contratacaoId).status == 'cancelada'
+        && (request.auth.uid == contratacao(resource.data.contratacaoId).musicoId
+          || request.auth.uid == contratacao(resource.data.contratacaoId).donoId);
+    }
+
+    // Avisos dentro do app (Plano 11). Só se notifica a outra parte de um
+    // interesse em comum (interesse, conversa e contratação derivam dele).
+    match /notificacoes/{notificacaoId} {
+      function vinculada(d) {
+        let i = get(/databases/$(database)/documents/interesses/$(d.interesseId)).data;
+        return [i.remetenteId, i.destinatarioId].hasAll([request.auth.uid, d.destinatarioId]);
+      }
+
+      allow read, delete: if signedIn()
+        && resource.data.destinatarioId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.destinatarioId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lida']);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'destinatarioId', 'autorId', 'autorNome', 'tipo', 'titulo', 'texto',
+          'interesseId', 'oportunidadeId', 'contratacaoId', 'lida', 'criadaEm'])
+        && request.resource.data.autorId == request.auth.uid
+        && request.resource.data.destinatarioId != request.auth.uid
+        && request.resource.data.lida == false
+        && request.resource.data.interesseId is string
+        && vinculada(request.resource.data);
+    }
+
+    // Leitura pública (agenda do músico no detalhe e aviso no convite);
+    // escrita só do próprio usuário.
     match /disponibilidades/{disponibilidadeId} {
-      allow read: if signedIn() && resource.data.usuarioId == request.auth.uid;
+      allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.usuarioId == request.auth.uid;
       allow update, delete: if signedIn()

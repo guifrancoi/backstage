@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import 'acoes_interesse.dart';
+import 'agenda_publica_secao.dart';
 
 class DetalheMusicoScreen extends StatelessWidget {
   final String musicoId;
@@ -105,19 +106,11 @@ class DetalheMusicoScreen extends StatelessWidget {
                   Text(musico.descricao),
                   const SizedBox(height: 16),
                   const Text(
-                    'Datas disponíveis',
+                    'Agenda',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  if (musico.datasDisponiveis.isEmpty)
-                    const Text('Nenhuma data informada.')
-                  else
-                    ...musico.datasDisponiveis.map(
-                      (data) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text('• $data'),
-                      ),
-                    ),
+                  AgendaPublicaSecao(musicoId: musico.id),
                   const SizedBox(height: 16),
                   const Text(
                     'Portfólio',

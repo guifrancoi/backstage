@@ -3,10 +3,24 @@ import 'package:backstage/routes/app_routes.dart';
 import 'package:backstage/screens/auth/login_screen.dart';
 import 'package:backstage/services/firebase_data_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+
+import '../helpers/firebase_fake.dart';
+
+/// Login que demora e falha, para ver o estado "Entrando..." e o diálogo.
+class _ServicoLoginFalho extends FirebaseDataService {
+  _ServicoLoginFalho() : super(auth: MockFirebaseAuth(), firestore: FakeFirebaseFirestore());
+
+  @override
+  Future<UserCredential> login({required String email, required String senha}) async {
+    await Future<void>.delayed(const Duration(seconds: 1));
+    throw FirebaseAuthException(code: 'wrong-password');
+  }
+}
 
 /// Monta só a LoginScreen com o AuthProvider informado e rotas de destino
 /// simples, sem DevicePreview nem as demais telas do app.
@@ -37,7 +51,7 @@ Future<void> _preencher(WidgetTester tester, {required String email, required St
 
 void main() {
   testWidgets('valida campos vazios sem chamar o login', (tester) async {
-    await tester.pumpWidget(_app(AuthProvider()));
+    await tester.pumpWidget(_app(AuthProvider(service: servicoFake(uid: null))));
 
     await tester.tap(find.text('Entrar'));
     await tester.pump();
@@ -47,7 +61,7 @@ void main() {
   });
 
   testWidgets('valida formato do e-mail e tamanho da senha', (tester) async {
-    await tester.pumpWidget(_app(AuthProvider()));
+    await tester.pumpWidget(_app(AuthProvider(service: servicoFake(uid: null))));
 
     await _preencher(tester, email: 'invalido', senha: '123');
     await tester.tap(find.text('Entrar'));
@@ -57,8 +71,8 @@ void main() {
     expect(find.text('A senha deve ter ao menos 6 caracteres.'), findsOneWidget);
   });
 
-  testWidgets('modo mock: mostra "Entrando..." e depois o diálogo de erro', (tester) async {
-    await tester.pumpWidget(_app(AuthProvider()));
+  testWidgets('mostra "Entrando..." e depois o diálogo de erro', (tester) async {
+    await tester.pumpWidget(_app(AuthProvider(service: _ServicoLoginFalho())));
 
     await _preencher(tester, email: 'a@b.com', senha: '123456');
     await tester.tap(find.text('Entrar'));
@@ -70,7 +84,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Erro'), findsOneWidget);
-    expect(find.textContaining('Falha na conexão'), findsOneWidget);
+    expect(find.text('E-mail ou senha invalidos.'), findsOneWidget);
 
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
@@ -92,7 +106,6 @@ void main() {
       service: FirebaseDataService(
         auth: MockFirebaseAuth(mockUser: MockUser(uid: 'u1', email: 'a@b.com')),
         firestore: firestore,
-        enabled: true,
       ),
     );
     await tester.pumpWidget(_app(auth));
@@ -116,7 +129,6 @@ void main() {
       service: FirebaseDataService(
         auth: MockFirebaseAuth(mockUser: MockUser(uid: 'u1', email: 'a@b.com')),
         firestore: firestore,
-        enabled: true,
       ),
     );
     await tester.pumpWidget(_app(auth));
@@ -133,7 +145,6 @@ void main() {
       service: FirebaseDataService(
         auth: MockFirebaseAuth(mockUser: MockUser(uid: 'u1', email: 'a@b.com')),
         firestore: FakeFirebaseFirestore(),
-        enabled: true,
       ),
     );
     await tester.pumpWidget(_app(auth));
@@ -146,7 +157,7 @@ void main() {
   });
 
   testWidgets('links abrem cadastro e recuperação de senha', (tester) async {
-    await tester.pumpWidget(_app(AuthProvider()));
+    await tester.pumpWidget(_app(AuthProvider(service: servicoFake(uid: null))));
 
     await tester.tap(find.text('Criar conta'));
     await tester.pumpAndSettle();

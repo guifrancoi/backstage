@@ -162,6 +162,10 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
                   Text(
                     'Data do evento: ${_formatarData(oportunidade.dataEvento)}',
                   ),
+                  if (oportunidade.horario.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('Horário: ${oportunidade.horario}'),
+                  ],
                   const SizedBox(height: 8),
                   Text(
                     'Cachê oferecido: R\$ ${oportunidade.cacheOferecido.toStringAsFixed(2)}',

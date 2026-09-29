@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/agenda_publica.dart';
+import '../../models/contratacao.dart';
 import '../../models/musico.dart';
 import '../../models/oportunidade.dart';
+import '../../providers/agenda_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
@@ -10,6 +13,33 @@ import '../../providers/perfil_provider.dart';
 
 /// Ações de candidatura/convite compartilhadas pelas telas de lista e de
 /// detalhe da busca.
+
+/// Aviso (não bloqueia) sobre o dia na agenda do músico: ocupado por outro
+/// show confirmado, ou não marcado como disponível. `null` = sem problema ou
+/// agenda indisponível.
+String? avisoAgenda(AgendaPublica? agenda, DateTime data) {
+  if (agenda == null) return null;
+  final dia = Contratacao.diaDe(data);
+  if (agenda.ocupado(dia)) return 'O músico já tem um show confirmado nesse dia.';
+  if (!agenda.disponivel(dia)) {
+    return 'O músico não marcou esse dia como disponível.';
+  }
+  return null;
+}
+
+/// Lê a agenda pública uma vez; `null` se falhar ou demorar (o aviso some,
+/// mas a ação continua possível).
+Future<AgendaPublica?> carregarAgendaPublica(
+  BuildContext context,
+  String musicoId,
+) async {
+  final agenda = context.read<AgendaProvider>().agendaPublica(musicoId);
+  try {
+    return await agenda.first.timeout(const Duration(seconds: 5));
+  } catch (_) {
+    return null;
+  }
+}
 
 /// Músico (ou admin) se candidata a oportunidade de outro dono (catálogo sem
 /// dono não).
@@ -40,7 +70,9 @@ Future<bool> confirmarRemocao(
     builder: (dialogContext) => AlertDialog(
       title: const Text('Remover oportunidade'),
       content: Text(
-        'Remover "${oportunidade.titulo}"? Essa ação não pode ser desfeita.',
+        'Remover "${oportunidade.titulo}"? Essa ação não pode ser desfeita. '
+        'Candidaturas e convites pendentes serão encerrados e os músicos '
+        'interessados serão avisados.',
       ),
       actions: [
         TextButton(
@@ -124,6 +156,9 @@ Future<void> confirmarConvite(BuildContext context, Musico musico) async {
     auth.userId,
   );
 
+  final agenda = await carregarAgendaPublica(context, musico.id);
+  if (!context.mounted) return;
+
   Oportunidade? escolhida;
   final confirmar = await showDialog<bool>(
     context: context,
@@ -159,6 +194,14 @@ Future<void> confirmarConvite(BuildContext context, Musico musico) async {
                 ],
                 onChanged: (valor) => setDialogState(() => escolhida = valor),
               ),
+              if (escolhida != null &&
+                  avisoAgenda(agenda, escolhida!.dataEvento) != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  avisoAgenda(agenda, escolhida!.dataEvento)!,
+                  style: const TextStyle(color: Colors.orange),
+                ),
+              ],
             ],
           ],
         ),

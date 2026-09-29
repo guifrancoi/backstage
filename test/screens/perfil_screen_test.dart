@@ -44,7 +44,6 @@ Future<(Widget, FakeFirebaseFirestore)> _app({
       ),
     ),
     firestore: firestore,
-    enabled: true,
   );
 
   final app = MultiProvider(
@@ -68,7 +67,6 @@ void main() {
         'descricao': '',
         'cacheMedio': 0,
         'portfolioLinks': [],
-        'datasDisponiveis': [],
         'fotoPath': null,
       },
     );

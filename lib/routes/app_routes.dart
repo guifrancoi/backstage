@@ -16,6 +16,9 @@ class AppRoutes {
   static const minhasOportunidades = '/minhas-oportunidades';
   static const novaOportunidade = '/nova-oportunidade';
   static const editarOportunidade = '/editar-oportunidade';
+  static const contratacoes = '/contratacoes';
+  static const notificacoes = '/notificacoes';
+  static const proporContratacao = '/propor-contratacao';
   static const detalheMusico = '/detalhe-musico';
   static const detalheOportunidade = '/detalhe-oportunidade';
 }

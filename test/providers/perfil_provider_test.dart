@@ -1,69 +1,62 @@
 import 'package:backstage/models/casa_show.dart';
-import 'package:backstage/models/musico.dart';
 import 'package:backstage/providers/perfil_provider.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-void main() {
-  late PerfilProvider provider;
+import '../helpers/firebase_fake.dart';
 
-  setUp(() => provider = PerfilProvider());
-  tearDown(() => provider.dispose());
+// Carregamento por papel, troca de conta e admin: providers_firebase_test.dart.
+void main() {
+  late FakeFirebaseFirestore firestore;
+
+  setUp(() => firestore = FakeFirebaseFirestore());
+
+  CasaShow estabelecimento() => CasaShow(
+    id: '',
+    nome: 'Bar Central',
+    cidade: 'Franca',
+    logradouro: 'Rua A',
+    numero: '10',
+    estado: 'SP',
+    capacidade: 0,
+    estilosDesejados: const [],
+    descricao: '',
+    contato: '16 99999-9999',
+    cnpj: '',
+  );
 
   test('estado inicial sem perfis', () {
+    final provider = PerfilProvider(service: servicoFake(firestore: firestore));
+
     expect(provider.perfilMusico, isNull);
     expect(provider.perfilEstabelecimento, isNull);
-    expect(provider.isLoading, isFalse);
+    provider.dispose();
   });
 
-  test('carregarPerfil usa um perfil de artista em branco no mock', () async {
-    await provider.carregarPerfil();
+  test('salvarPerfilEstabelecimento grava em estabelecimentos/{uid}', () async {
+    await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'casaShow'});
+    final provider = PerfilProvider(service: servicoFake(firestore: firestore));
+    await aguardar();
 
-    expect(provider.perfilMusico?.id, 'mock-user');
-    expect(provider.perfilMusico?.completo, isFalse);
-    expect(provider.isLoading, isFalse);
-  });
-
-  test('salvarPerfilMusico substitui o perfil com o id do usuário', () async {
-    final ok = await provider.salvarPerfilMusico(
-      Musico(
-        id: '',
-        nomeArtistico: 'Nova Banda',
-        generoMusical: 'Jazz',
-        cidade: 'Franca',
-        descricao: 'Trio',
-        cacheMedio: 2500,
-        portfolioLinks: const ['https://exemplo.com'],
-        datasDisponiveis: const [],
-      ),
-    );
+    final ok = await provider.salvarPerfilEstabelecimento(estabelecimento());
 
     expect(ok, isTrue);
-    final perfil = provider.perfilMusico!;
-    expect(perfil.id, 'mock-user');
-    expect(perfil.nomeArtistico, 'Nova Banda');
-    expect(perfil.completo, isTrue);
-    expect(perfil.oculto, isFalse);
-  });
-
-  test('salvarPerfilEstabelecimento guarda o perfil do dono', () async {
-    final ok = await provider.salvarPerfilEstabelecimento(
-      CasaShow(
-        id: '',
-        nome: 'Bar Central',
-        cidade: 'Franca',
-        logradouro: 'Rua A',
-        numero: '10',
-        estado: 'SP',
-        capacidade: 0,
-        estilosDesejados: const [],
-        descricao: '',
-        contato: '16 99999-9999',
-        cnpj: '',
-      ),
-    );
-
-    expect(ok, isTrue);
-    expect(provider.perfilEstabelecimento?.id, 'mock-user');
+    expect(provider.perfilEstabelecimento?.id, 'u1');
     expect(provider.perfilEstabelecimento?.completo, isTrue);
+    final doc = await firestore.collection('estabelecimentos').doc('u1').get();
+    expect(doc.data()?['nome'], 'Bar Central');
+    expect(doc.data()?['oculto'], isFalse);
+    provider.dispose();
+  });
+
+  test('sem ninguém logado salvar não grava nada', () async {
+    final provider = PerfilProvider(
+      service: servicoFake(firestore: firestore, uid: null),
+    );
+    await aguardar();
+
+    expect(await provider.salvarPerfilMusico(musicoTeste()), isFalse);
+    expect((await firestore.collection('perfis_musicos').get()).docs, isEmpty);
+    provider.dispose();
   });
 }

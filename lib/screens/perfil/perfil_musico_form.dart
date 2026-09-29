@@ -109,7 +109,6 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
           .map((link) => link.trim())
           .where((link) => link.isNotEmpty)
           .toList(),
-      datasDisponiveis: widget.inicial?.datasDisponiveis ?? const [],
       fotoPath: _fotoPath,
     );
 

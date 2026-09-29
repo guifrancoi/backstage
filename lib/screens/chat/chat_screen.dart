@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/interesse.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/contratacao_provider.dart';
+import '../../providers/interesse_provider.dart';
+import '../../routes/app_routes.dart';
 import '../../widgets/mensagem_bubble.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -37,9 +41,43 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final meuUid = provider.meuUid;
+    // Tela aberta = conversa lida (também quando chega mensagem nova). O
+    // provider só grava se houver não lidas.
+    if (provider.naoLidas(conversa) > 0) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => provider.marcarComoLida(widget.conversaId),
+      );
+    }
+    final interesseId = conversa.interesseId;
+    final interesse = interesseId == null
+        ? null
+        : context.watch<InteresseProvider>().buscarPorId(interesseId);
+    // O dono formaliza o show daqui, se ainda não há contratação em andamento.
+    final podePropor =
+        interesse != null &&
+        interesse.status == StatusInteresse.aceito &&
+        interesse.donoId == meuUid &&
+        context.watch<ContratacaoProvider>().ativaParaInteresse(
+              interesse.id,
+            ) ==
+            null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(conversa.nomeContato(meuUid))),
+      appBar: AppBar(
+        title: Text(conversa.nomeContato(meuUid)),
+        actions: [
+          if (podePropor)
+            TextButton.icon(
+              onPressed: () => Navigator.pushNamed(
+                context,
+                AppRoutes.proporContratacao,
+                arguments: interesse.id,
+              ),
+              icon: const Icon(Icons.handshake_outlined),
+              label: const Text('Propor show'),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(

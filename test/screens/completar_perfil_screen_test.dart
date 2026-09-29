@@ -16,7 +16,6 @@ FirebaseDataService _service(FakeFirebaseFirestore firestore) {
       mockUser: MockUser(uid: 'u1', email: 'a@b.com'),
     ),
     firestore: firestore,
-    enabled: true,
   );
 }
 

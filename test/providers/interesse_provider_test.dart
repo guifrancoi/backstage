@@ -1,4 +1,3 @@
-import 'package:backstage/data/mock_data.dart';
 import 'package:backstage/models/interesse.dart';
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/models/oportunidade.dart';
@@ -22,7 +21,6 @@ void main() {
       service: FirebaseDataService(
         auth: MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: uid)),
         firestore: firestore,
-        enabled: true,
       ),
     );
   }
@@ -50,7 +48,6 @@ void main() {
     descricao: '',
     cacheMedio: 1000,
     portfolioLinks: const [],
-    datasDisponiveis: const [],
   );
 
   Future<bool> enviarCandidatura() => musico.enviarCandidatura(
@@ -104,7 +101,10 @@ void main() {
     await enviarCandidatura();
     await _aguardar();
 
-    expect(await dono.recusar(dono.recebidos.single), isTrue);
+    expect(
+      await dono.recusar(dono.recebidos.single, nomeDestinatario: 'Bar Central'),
+      isTrue,
+    );
     await _aguardar();
 
     expect(musico.candidaturaPara('o1')?.rotuloStatus, 'Recusado');
@@ -174,7 +174,7 @@ void main() {
   test('logout limpa as listas', () async {
     final auth = MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: 'm1'));
     final provider = InteresseProvider(
-      service: FirebaseDataService(auth: auth, firestore: firestore, enabled: true),
+      service: FirebaseDataService(auth: auth, firestore: firestore),
     );
     await enviarCandidatura();
     await _aguardar();
@@ -187,22 +187,4 @@ void main() {
     provider.dispose();
   });
 
-  group('modo mock', () {
-    test('enviar, cancelar e responder ficam em memória', () async {
-      final mock = InteresseProvider();
-
-      final ok = await mock.enviarCandidatura(
-        oportunidade: MockData.oportunidades.first,
-        remetenteId: 'mock-user',
-        remetenteNome: 'Você',
-        musicoNome: 'Você',
-      );
-      expect(ok, isTrue);
-      expect(mock.enviados, hasLength(1));
-
-      await mock.cancelar(mock.enviados.single);
-      expect(mock.enviados, isEmpty);
-      mock.dispose();
-    });
-  });
 }

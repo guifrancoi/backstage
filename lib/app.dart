@@ -13,8 +13,11 @@ import 'screens/busca/lista_musicos_screen.dart';
 import 'screens/busca/lista_oportunidades_screen.dart';
 import 'screens/chat/chat_screen.dart';
 import 'screens/chat/conversas_screen.dart';
+import 'screens/contratacoes/contratacoes_screen.dart';
+import 'screens/contratacoes/propor_contratacao_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/interesses/interesses_screen.dart';
+import 'screens/notificacoes/notificacoes_screen.dart';
 import 'screens/oportunidades/minhas_oportunidades_screen.dart';
 import 'screens/oportunidades/nova_oportunidade_screen.dart';
 import 'screens/perfil/perfil_screen.dart';
@@ -50,6 +53,8 @@ class MyApp extends StatelessWidget {
         AppRoutes.interesses: (_) => const InteressesScreen(),
         AppRoutes.minhasOportunidades: (_) => const MinhasOportunidadesScreen(),
         AppRoutes.novaOportunidade: (_) => const NovaOportunidadeScreen(),
+        AppRoutes.contratacoes: (_) => const ContratacoesScreen(),
+        AppRoutes.notificacoes: (_) => const NotificacoesScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == AppRoutes.chat) {
@@ -63,6 +68,13 @@ class MyApp extends StatelessWidget {
           final musicoId = settings.arguments as String;
           return MaterialPageRoute(
             builder: (_) => DetalheMusicoScreen(musicoId: musicoId),
+          );
+        }
+
+        if (settings.name == AppRoutes.proporContratacao) {
+          final interesseId = settings.arguments as String;
+          return MaterialPageRoute(
+            builder: (_) => ProporContratacaoScreen(interesseId: interesseId),
           );
         }
 

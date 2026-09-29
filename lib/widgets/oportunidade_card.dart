@@ -23,9 +23,12 @@ class OportunidadeCard extends StatelessWidget {
 
   String get dataFormatada {
     final data = oportunidade.dataEvento;
-    return '${data.day.toString().padLeft(2, '0')}/'
+    final dia =
+        '${data.day.toString().padLeft(2, '0')}/'
         '${data.month.toString().padLeft(2, '0')}/'
         '${data.year}';
+    final horario = oportunidade.horario;
+    return horario.isEmpty ? dia : '$dia, $horario';
   }
 
   @override

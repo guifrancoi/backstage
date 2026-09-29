@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../data/mock_data.dart';
 import '../models/casa_show.dart';
 import '../models/musico.dart';
 import '../models/usuario.dart';
@@ -18,9 +17,7 @@ import '../services/firebase_data_service.dart';
 class PerfilProvider extends ChangeNotifier {
   PerfilProvider({FirebaseDataService? service})
     : _service = service ?? FirebaseDataService() {
-    if (_service.isEnabled) {
-      _authSubscription = _service.authUserIds.listen(_aoTrocarUsuario);
-    }
+    _authSubscription = _service.authUserIds.listen(_aoTrocarUsuario);
   }
 
   final FirebaseDataService _service;
@@ -37,8 +34,6 @@ class PerfilProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> carregarPerfilMock() => carregarPerfil();
-
   /// Ao trocar de conta, descarta os perfis anteriores na hora: senão uma
   /// ação feita antes do novo carregamento usaria o perfil de outra pessoa.
   void _aoTrocarUsuario(String? uid) {
@@ -49,8 +44,7 @@ class PerfilProvider extends ChangeNotifier {
     if (uid != null) carregarPerfil();
   }
 
-  String? get _uid =>
-      _service.isEnabled ? _service.currentUserId : MockData.usuarioMockId;
+  String? get _uid => _service.currentUserId;
 
   Future<void> carregarPerfil() async {
     final uid = _uid;
@@ -60,11 +54,6 @@ class PerfilProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (!_service.isEnabled) {
-        _perfilMusico ??= _perfilMock(uid);
-        return;
-      }
-
       final usuario = await _service.carregarUsuario(uid);
       _isAdmin = await _service.ehAdmin();
       final tipo = usuario?.tipoUsuario;
@@ -91,7 +80,7 @@ class PerfilProvider extends ChangeNotifier {
 
     final salvo = perfil.copyWith(id: uid, oculto: _isAdmin);
     return _salvar(() async {
-      if (_service.isEnabled) await _service.salvarPerfilMusico(uid, salvo);
+      await _service.salvarPerfilMusico(uid, salvo);
       _perfilMusico = salvo;
     });
   }
@@ -102,7 +91,7 @@ class PerfilProvider extends ChangeNotifier {
 
     final salvo = perfil.copyWith(id: uid, oculto: _isAdmin);
     return _salvar(() async {
-      if (_service.isEnabled) await _service.salvarEstabelecimento(uid, salvo);
+      await _service.salvarEstabelecimento(uid, salvo);
       _perfilEstabelecimento = salvo;
     });
   }
@@ -127,18 +116,4 @@ class PerfilProvider extends ChangeNotifier {
     _authSubscription?.cancel();
     super.dispose();
   }
-}
-
-/// Só para o modo mock (sem Firebase).
-Musico _perfilMock(String usuarioId) {
-  return Musico(
-    id: usuarioId,
-    nomeArtistico: 'Artista',
-    generoMusical: '',
-    cidade: '',
-    descricao: '',
-    cacheMedio: 0,
-    portfolioLinks: const [],
-    datasDisponiveis: const [],
-  );
 }

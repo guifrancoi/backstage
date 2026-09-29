@@ -3,33 +3,34 @@ import 'package:flutter/foundation.dart';
 
 import 'firebase_options.dart';
 
+/// Inicializa o Firebase. Não existe mais modo offline/mock (Plano 5): se
+/// devolver `false`, o `main` mostra a tela de erro em vez do app.
 class FirebaseBootstrap {
   static Future<bool> initialize() async {
     if (Firebase.apps.isNotEmpty) return true;
 
-    if (DefaultFirebaseOptions.isConfigured) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      return true;
-    }
+    try {
+      if (DefaultFirebaseOptions.isConfigured) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+        return true;
+      }
 
-    // Android/iOS: usa google-services.json / GoogleService-Info.plist.
-    if (_temConfiguracaoNativa) {
-      try {
+      // Android/iOS: usa google-services.json / GoogleService-Info.plist.
+      if (temConfiguracaoNativa) {
         await Firebase.initializeApp();
         return true;
-      } catch (_) {
-        return false;
       }
+    } catch (_) {
+      return false;
     }
 
+    // Web e desktop só têm configuração via --dart-define.
     return false;
   }
 
-  static bool get isEnabled => Firebase.apps.isNotEmpty;
-
-  static bool get _temConfiguracaoNativa =>
+  static bool get temConfiguracaoNativa =>
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);

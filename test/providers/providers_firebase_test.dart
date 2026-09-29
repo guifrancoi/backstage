@@ -1,4 +1,3 @@
-import 'package:backstage/data/mock_data.dart';
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/models/usuario.dart';
 import 'package:backstage/providers/agenda_provider.dart';
@@ -12,7 +11,9 @@ import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Providers com Firebase "ligado" (enabled: true) sobre instâncias fake.
+import '../helpers/firebase_fake.dart';
+
+/// Providers sobre Firebase fake (FakeFirebaseFirestore + MockFirebaseAuth).
 
 /// Serviço cujo login falha com o erro informado.
 class _ServicoComErroNoLogin extends FirebaseDataService {
@@ -20,7 +21,6 @@ class _ServicoComErroNoLogin extends FirebaseDataService {
     : super(
         auth: MockFirebaseAuth(),
         firestore: FakeFirebaseFirestore(),
-        enabled: true,
       );
 
   final Exception erro;
@@ -38,7 +38,6 @@ final _musicoCompleto = Musico(
   descricao: 'Banda de rock',
   cacheMedio: 1000,
   portfolioLinks: const [],
-  datasDisponiveis: const [],
 );
 
 const _estabelecimentoCompleto = {
@@ -65,7 +64,6 @@ void main() {
         mockUser: MockUser(uid: 'u1', email: 'musico@backstage.com'),
       ),
       firestore: firestore,
-      enabled: true,
     );
   });
 
@@ -85,7 +83,6 @@ void main() {
             mockUser: MockUser(uid: 'u7', email: 'a@b.com'),
           ),
           firestore: firestore,
-          enabled: true,
         ),
       );
 
@@ -100,7 +97,6 @@ void main() {
         service: FirebaseDataService(
           auth: MockFirebaseAuth(),
           firestore: firestore,
-          enabled: true,
         ),
       );
 
@@ -215,7 +211,6 @@ void main() {
             mockUser: MockUser(uid: 'adm', customClaim: {'admin': true}),
           ),
           firestore: firestore,
-          enabled: true,
         ),
       );
 
@@ -244,9 +239,15 @@ void main() {
   group('OportunidadeProvider', () {
     late OportunidadeProvider provider;
 
+    // Catálogo mínimo (antes vinha do seed com MockData, removido no Plano 5).
+    setUp(() => gravarCatalogo(
+      firestore,
+      musicos: [musicoTeste(id: 'cat1')],
+      oportunidades: [oportunidadeTeste(id: 'cat1')],
+    ));
     tearDown(() => provider.dispose());
 
-    test('faz seed e lê músicos e oportunidades do Firestore', () async {
+    test('lê músicos e oportunidades do Firestore', () async {
       provider = OportunidadeProvider(service: service);
       await _aguardar();
 
@@ -261,7 +262,7 @@ void main() {
       await _aguardar();
 
       final ok = await provider.criarOportunidade(
-        MockData.oportunidades.first.copyWith(titulo: 'Minha vaga', donoId: ''),
+        oportunidadeTeste(id: '', titulo: 'Minha vaga', donoId: ''),
         'u1',
       );
       await _aguardar();
@@ -295,7 +296,7 @@ void main() {
         mockUser: MockUser(uid: 'u1', email: 'a@b.com'),
       );
       provider = OportunidadeProvider(
-        service: FirebaseDataService(auth: auth, firestore: firestore, enabled: true),
+        service: FirebaseDataService(auth: auth, firestore: firestore),
       );
       await _aguardar();
       expect(provider.musicos, isNotEmpty);
@@ -312,19 +313,6 @@ void main() {
 
       expect(provider.buscarMusicoPorId('recem-criado'), isNotNull);
       expect(provider.carregandoMusicos, isFalse);
-    });
-
-    test('com Firebase nunca mostra o catálogo do MockData', () {
-      provider = OportunidadeProvider(
-        service: FirebaseDataService(
-          auth: MockFirebaseAuth(),
-          firestore: firestore,
-          enabled: true,
-        ),
-      );
-
-      expect(provider.musicos, isEmpty);
-      expect(provider.oportunidades, isEmpty);
     });
 
     test('itens ocultos (da conta admin) não aparecem para os outros', () async {
@@ -360,7 +348,6 @@ void main() {
             mockUser: MockUser(uid: 'adm', customClaim: {'admin': true}),
           ),
           firestore: firestore,
-          enabled: true,
         ),
       );
       await _aguardar();
@@ -368,7 +355,7 @@ void main() {
       expect(provider.oportunidades.map((o) => o.id), contains('oculta'));
 
       await provider.criarOportunidade(
-        MockData.oportunidades.first.copyWith(titulo: 'Nova do admin'),
+        oportunidadeTeste(id: '', titulo: 'Nova do admin'),
         'adm',
       );
       await _aguardar();
@@ -478,7 +465,7 @@ void main() {
         mockUser: MockUser(uid: 'u1'),
       );
       provider = PerfilProvider(
-        service: FirebaseDataService(auth: auth, firestore: firestore, enabled: true),
+        service: FirebaseDataService(auth: auth, firestore: firestore),
       );
       await _aguardar();
       expect(provider.perfilMusico?.nomeArtistico, 'Banda da Conta Antiga');
@@ -524,7 +511,6 @@ void main() {
             mockUser: MockUser(uid: 'adm', customClaim: {'admin': true}),
           ),
           firestore: firestore,
-          enabled: true,
         ),
       );
       await _aguardar();

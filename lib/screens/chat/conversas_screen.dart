@@ -30,10 +30,22 @@ class ConversasScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final conversa = conversas[index];
 
+                final naoLidas = provider.naoLidas(conversa);
+
                 return ListTile(
                   leading: const CircleAvatar(child: Icon(Icons.person)),
                   title: Text(conversa.nomeContato(provider.meuUid)),
-                  subtitle: Text(conversa.ultimaMensagem),
+                  subtitle: Text(
+                    conversa.ultimaMensagem,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: naoLidas > 0
+                        ? const TextStyle(fontWeight: FontWeight.bold)
+                        : null,
+                  ),
+                  trailing: naoLidas > 0
+                      ? Badge(label: Text('$naoLidas'))
+                      : null,
                   onTap: () {
                     Navigator.pushNamed(
                       context,

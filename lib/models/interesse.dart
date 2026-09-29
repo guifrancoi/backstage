@@ -2,7 +2,9 @@
 /// `convite`: dono → músico (destinatário = o músico).
 enum TipoInteresse { candidatura, convite }
 
-enum StatusInteresse { pendente, aceito, recusado }
+/// `cancelado`: convite pendente encerrado porque o dono removeu a
+/// oportunidade (o cancelamento manual apaga o documento).
+enum StatusInteresse { pendente, aceito, recusado, cancelado }
 
 class Interesse {
   final String id;
@@ -49,11 +51,17 @@ class Interesse {
 
   bool get pendente => status == StatusInteresse.pendente;
 
+  /// Uid do dono de estabelecimento envolvido: quem convidou, ou quem
+  /// recebeu a candidatura.
+  String get donoId =>
+      tipo == TipoInteresse.convite ? remetenteId : destinatarioId;
+
   String get rotuloStatus => switch (status) {
     StatusInteresse.pendente =>
       tipo == TipoInteresse.convite ? 'Convite enviado' : 'Candidatura enviada',
     StatusInteresse.aceito => 'Aceito',
     StatusInteresse.recusado => 'Recusado',
+    StatusInteresse.cancelado => 'Cancelado',
   };
 
   Interesse copyWith({
@@ -81,7 +89,8 @@ class Interesse {
   factory Interesse.fromMap(String id, Map<String, dynamic> map) {
     return Interesse(
       id: id,
-      tipo: _enumFromValue(TipoInteresse.values, map['tipo']) ??
+      tipo:
+          _enumFromValue(TipoInteresse.values, map['tipo']) ??
           TipoInteresse.candidatura,
       remetenteId: map['remetenteId'] as String? ?? '',
       remetenteNome: map['remetenteNome'] as String? ?? '',

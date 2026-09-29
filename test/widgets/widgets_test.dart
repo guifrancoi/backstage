@@ -19,7 +19,6 @@ Musico _musico() => Musico(
   descricao: 'Banda de rock.',
   cacheMedio: 1200,
   portfolioLinks: const [],
-  datasDisponiveis: const [],
 );
 
 Oportunidade _oportunidade() => Oportunidade(

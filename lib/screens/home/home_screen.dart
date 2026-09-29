@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/contratacao_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../../providers/interesse_provider.dart';
+import '../../providers/notificacao_provider.dart';
 import '../../routes/app_routes.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -12,12 +15,25 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final pendentes = context.watch<InteresseProvider>().pendentesRecebidos;
+    final propostas = context.watch<ContratacaoProvider>().propostasPendentes;
+    final naoLidas = context.watch<NotificacaoProvider>().naoLidas;
+    final mensagensNaoLidas = context.watch<ChatProvider>().totalNaoLidas;
     final ehDono = authProvider.atuaComoDono;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Backstage'),
         actions: [
+          IconButton(
+            tooltip: 'Notificações',
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.notificacoes),
+            icon: Badge(
+              isLabelVisible: naoLidas > 0,
+              label: Text('$naoLidas'),
+              child: const Icon(Icons.notifications),
+            ),
+          ),
           IconButton(
             onPressed: () async {
               await authProvider.logout();
@@ -66,6 +82,12 @@ class HomeScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.interesses),
           ),
           _HomeTile(
+            title: 'Contratações',
+            icon: Icons.handshake,
+            contador: propostas,
+            onTap: () => Navigator.pushNamed(context, AppRoutes.contratacoes),
+          ),
+          _HomeTile(
             title: 'Filtro de busca',
             icon: Icons.filter_list,
             onTap: () => Navigator.pushNamed(context, AppRoutes.filtroBusca),
@@ -78,6 +100,7 @@ class HomeScreen extends StatelessWidget {
           _HomeTile(
             title: 'Conversas',
             icon: Icons.chat,
+            contador: mensagensNaoLidas,
             onTap: () => Navigator.pushNamed(context, AppRoutes.conversas),
           ),
           _HomeTile(

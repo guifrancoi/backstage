@@ -1,38 +1,34 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../core/firebase/firebase_bootstrap.dart';
-import '../data/mock_data.dart';
+import '../models/agenda_publica.dart';
 import '../models/casa_show.dart';
+import '../models/contratacao.dart';
 import '../models/conversa.dart';
 import '../models/interesse.dart';
 import '../models/mensagem.dart';
+import '../models/notificacao.dart';
 import '../models/musico.dart';
 import '../models/oportunidade.dart';
 import '../models/usuario.dart';
 
 class FirebaseDataService {
-  /// [enabled] sobrescreve `FirebaseBootstrap.isEnabled` — usado em testes
-  /// com instâncias fake de [auth] e [firestore].
-  FirebaseDataService({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
-    bool? enabled,
-  }) : _auth = auth,
-       _firestore = firestore,
-       _enabled = enabled;
+  /// [auth] e [firestore] são injetados nos testes (fakes); no app vêm das
+  /// instâncias padrão, já inicializadas por `FirebaseBootstrap`.
+  FirebaseDataService({FirebaseAuth? auth, FirebaseFirestore? firestore})
+    : _auth = auth,
+      _firestore = firestore;
 
   final FirebaseAuth? _auth;
   final FirebaseFirestore? _firestore;
-  final bool? _enabled;
-
-  bool get isEnabled => _enabled ?? FirebaseBootstrap.isEnabled;
 
   FirebaseAuth get auth => _auth ?? FirebaseAuth.instance;
   FirebaseFirestore get firestore => _firestore ?? FirebaseFirestore.instance;
 
-  String? get currentUserId => isEnabled ? auth.currentUser?.uid : null;
-  String? get currentUserEmail => isEnabled ? auth.currentUser?.email : null;
+  String? get currentUserId => auth.currentUser?.uid;
+  String? get currentUserEmail => auth.currentUser?.email;
 
   /// Uid atual primeiro, depois cada troca, sem repetição: todo provider que
   /// assinar — cedo ou tarde — recebe o estado atual.
@@ -56,23 +52,21 @@ class FirebaseDataService {
     late final UserCredential credential;
 
     try {
-      credential = await auth.createUserWithEmailAndPassword(
-        email: email,
-        password: senha,
-      ).timeout(const Duration(seconds: 15));
+      credential = await auth
+          .createUserWithEmailAndPassword(email: email, password: senha)
+          .timeout(const Duration(seconds: 15));
     } on FirebaseAuthException catch (error) {
       if (error.code != 'email-already-in-use') rethrow;
 
       // Retoma um cadastro interrompido somente após validar a senha.
-      credential = await auth.signInWithEmailAndPassword(
-        email: email,
-        password: senha,
-      ).timeout(const Duration(seconds: 15));
+      credential = await auth
+          .signInWithEmailAndPassword(email: email, password: senha)
+          .timeout(const Duration(seconds: 15));
     }
 
-    await credential.user?.updateDisplayName(nome).timeout(
-      const Duration(seconds: 15),
-    );
+    await credential.user
+        ?.updateDisplayName(nome)
+        .timeout(const Duration(seconds: 15));
     await salvarUsuario(
       uid: credential.user!.uid,
       nome: nome,
@@ -141,66 +135,21 @@ class FirebaseDataService {
         .set(perfil.toMap(), SetOptions(merge: true));
   }
 
-  Future<void> seedDadosIniciais() async {
-    await Future.wait([
-      _seedCollection(
-        collection: 'perfis_musicos',
-        items: {
-          for (final musico in MockData.musicos) musico.id: musico.toMap(),
-        },
-      ),
-      _seedCollection(
-        collection: 'oportunidades',
-        items: {
-          for (final oportunidade in MockData.oportunidades)
-            oportunidade.id: oportunidade.toMap(),
-        },
-      ),
-    ]);
-  }
-
-  Future<void> _seedCollection({
-    required String collection,
-    required Map<String, Map<String, dynamic>> items,
-  }) async {
-    final snapshot = await firestore.collection(collection).limit(1).get();
-    if (snapshot.docs.isNotEmpty) return;
-
-    final batch = firestore.batch();
-    for (final entry in items.entries) {
-      batch.set(firestore.collection(collection).doc(entry.key), entry.value);
-    }
-    await batch.commit();
-  }
-
-  Future<List<Musico>> listarMusicos() async {
-    final snapshot = await firestore.collection('perfis_musicos').get();
-
-    return snapshot.docs
-        .map((doc) => Musico.fromMap(doc.id, doc.data()))
-        .toList();
-  }
-
-  Future<List<Oportunidade>> listarOportunidades() async {
-    final snapshot = await firestore.collection('oportunidades').get();
-
-    return snapshot.docs
-        .map((doc) => Oportunidade.fromMap(doc.id, doc.data()))
-        .toList();
-  }
-
   Stream<List<Musico>> streamMusicos() {
-    if (!isEnabled) return Stream.value([...MockData.musicos]);
-    return firestore.collection('perfis_musicos').snapshots().map(
-      (s) => s.docs.map((d) => Musico.fromMap(d.id, d.data())).toList(),
-    );
+    return firestore
+        .collection('perfis_musicos')
+        .snapshots()
+        .map((s) => s.docs.map((d) => Musico.fromMap(d.id, d.data())).toList());
   }
 
   Stream<List<Oportunidade>> streamOportunidades() {
-    if (!isEnabled) return Stream.value([...MockData.oportunidades]);
-    return firestore.collection('oportunidades').snapshots().map(
-      (s) => s.docs.map((d) => Oportunidade.fromMap(d.id, d.data())).toList(),
-    );
+    return firestore
+        .collection('oportunidades')
+        .snapshots()
+        .map(
+          (s) =>
+              s.docs.map((d) => Oportunidade.fromMap(d.id, d.data())).toList(),
+        );
   }
 
   /// Admin é uma *custom claim* do Firebase Auth, aplicada só pelo script
@@ -285,7 +234,10 @@ class FirebaseDataService {
     );
 
     final batch = firestore.batch();
-    batch.set(firestore.collection('conversas').doc(conversa.id), conversa.toMap());
+    batch.set(
+      firestore.collection('conversas').doc(conversa.id),
+      conversa.toMap(),
+    );
     batch.update(firestore.collection('interesses').doc(interesse.id), {
       'status': StatusInteresse.aceito.name,
       'respondidoEm': DateTime.now(),
@@ -346,6 +298,239 @@ class FirebaseDataService {
         .delete();
   }
 
+  // ---------------------------------------------------------------------------
+  // Contratações (Plano 9B)
+  // ---------------------------------------------------------------------------
+
+  /// Contratações em que [uid] é o músico ou o dono, mais recentes primeiro.
+  Stream<List<Contratacao>> streamContratacoes(String uid) {
+    Stream<List<Contratacao>> por(String campo) => firestore
+        .collection('contratacoes')
+        .where(campo, isEqualTo: uid)
+        .snapshots()
+        .map(
+          (s) =>
+              s.docs.map((d) => Contratacao.fromMap(d.id, d.data())).toList(),
+        );
+
+    return _combinar(por('musicoId'), por('donoId'), (comoMusico, comoDono) {
+      final porId = {
+        for (final c in [...comoMusico, ...comoDono]) c.id: c,
+      };
+      return porId.values.toList()
+        ..sort((a, b) => b.criadoEm.compareTo(a.criadoEm));
+    });
+  }
+
+  /// Grava a proposta do dono (id automático). Devolve o id.
+  Future<String> proporContratacao(Contratacao contratacao) async {
+    final ref = await firestore
+        .collection('contratacoes')
+        .add(contratacao.copyWith(status: StatusContratacao.proposta).toMap());
+    return ref.id;
+  }
+
+  /// Músico confirma: status + trava do dia no mesmo batch. Se o dia já tem
+  /// outro show confirmado, a trava já existe e as regras recusam o batch.
+  Future<void> confirmarContratacao(Contratacao contratacao) {
+    final batch = firestore.batch();
+    batch.update(firestore.collection('contratacoes').doc(contratacao.id), {
+      'status': StatusContratacao.confirmada.name,
+      'respondidoEm': DateTime.now(),
+    });
+    batch.set(
+      firestore
+          .collection('ocupacoes')
+          .doc(Contratacao.idOcupacao(contratacao.musicoId, contratacao.dia)),
+      {
+        'musicoId': contratacao.musicoId,
+        'dia': contratacao.dia,
+        'contratacaoId': contratacao.id,
+      },
+    );
+    return batch.commit();
+  }
+
+  Future<void> recusarContratacao(String contratacaoId) {
+    return firestore.collection('contratacoes').doc(contratacaoId).update({
+      'status': StatusContratacao.recusada.name,
+      'respondidoEm': DateTime.now(),
+    });
+  }
+
+  /// Dono retira a proposta, ou qualquer parte desfaz a confirmada. Se estava
+  /// confirmada, apaga a trava do dia no mesmo batch (libera a data).
+  Future<void> cancelarContratacao(
+    Contratacao contratacao, {
+    required String canceladoPor,
+    String? motivo,
+  }) {
+    final batch = firestore.batch();
+    batch.update(firestore.collection('contratacoes').doc(contratacao.id), {
+      'status': StatusContratacao.cancelada.name,
+      'canceladoEm': DateTime.now(),
+      'canceladoPor': canceladoPor,
+      if (motivo != null && motivo.trim().isNotEmpty)
+        'motivoCancelamento': motivo.trim(),
+    });
+    if (contratacao.status == StatusContratacao.confirmada) {
+      batch.delete(
+        firestore
+            .collection('ocupacoes')
+            .doc(Contratacao.idOcupacao(contratacao.musicoId, contratacao.dia)),
+      );
+    }
+    return batch.commit();
+  }
+
+  /// Dias disponíveis e ocupados de [musicoId] (leitura pública).
+  Stream<AgendaPublica> streamAgendaPublica(String musicoId) {
+    Stream<Set<String>> dias(
+      String colecao,
+      String campoUsuario,
+      String Function(Map<String, dynamic>) dia,
+    ) => firestore
+        .collection(colecao)
+        .where(campoUsuario, isEqualTo: musicoId)
+        .snapshots()
+        .map((s) => {for (final d in s.docs) dia(d.data())});
+
+    return _combinar(
+      dias(
+        'disponibilidades',
+        'usuarioId',
+        (d) => Contratacao.diaDe(_dateTimeFromValue(d['data'])),
+      ),
+      dias('ocupacoes', 'musicoId', (d) => d['dia'] as String? ?? ''),
+      (disponiveis, ocupados) =>
+          AgendaPublica(disponiveis: disponiveis, ocupados: ocupados),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notificações (Plano 11)
+  // ---------------------------------------------------------------------------
+
+  /// Grava as notificações em batches de até 10: a regra de cada uma lê o
+  /// interesse vinculado, e as regras limitam as leituras por batch.
+  Future<void> notificar(List<Notificacao> notificacoes) async {
+    const porBatch = 10;
+    for (var i = 0; i < notificacoes.length; i += porBatch) {
+      final batch = firestore.batch();
+      for (final n in notificacoes.skip(i).take(porBatch)) {
+        batch.set(firestore.collection('notificacoes').doc(), n.toMap());
+      }
+      await batch.commit();
+    }
+  }
+
+  /// Como [notificar], mas nunca falha: a notificação é secundária à ação
+  /// que a gerou, que já foi gravada. (Registro da falha: Plano 6.)
+  Future<void> tentarNotificar(List<Notificacao> notificacoes) async {
+    if (notificacoes.isEmpty) return;
+    try {
+      await notificar(notificacoes);
+    } catch (_) {}
+  }
+
+  /// Sem `orderBy` (evita índice composto): quem usa ordena.
+  Stream<List<Notificacao>> streamNotificacoes(String uid) {
+    return firestore
+        .collection('notificacoes')
+        .where('destinatarioId', isEqualTo: uid)
+        .snapshots()
+        .map(
+          (s) =>
+              s.docs.map((d) => Notificacao.fromMap(d.id, d.data())).toList(),
+        );
+  }
+
+  Future<void> marcarNotificacoesLidas(List<String> ids) async {
+    const porBatch = 400;
+    for (var i = 0; i < ids.length; i += porBatch) {
+      final batch = firestore.batch();
+      for (final id in ids.skip(i).take(porBatch)) {
+        batch.update(firestore.collection('notificacoes').doc(id), {
+          'lida': true,
+        });
+      }
+      await batch.commit();
+    }
+  }
+
+  Future<void> removerNotificacao(String id) =>
+      firestore.collection('notificacoes').doc(id).delete();
+
+  /// Interesses da oportunidade dos quais [uid] é parte (as regras exigem a
+  /// consulta restrita a remetente ou destinatário).
+  Future<List<Interesse>> interessesDaOportunidade(
+    String uid,
+    String oportunidadeId,
+  ) async {
+    Future<List<Interesse>> por(String campo) async {
+      final snapshot = await firestore
+          .collection('interesses')
+          .where(campo, isEqualTo: uid)
+          .where('oportunidadeId', isEqualTo: oportunidadeId)
+          .get();
+      return snapshot.docs
+          .map((d) => Interesse.fromMap(d.id, d.data()))
+          .toList();
+    }
+
+    final listas = await Future.wait([
+      por('remetenteId'),
+      por('destinatarioId'),
+    ]);
+    return {
+      for (final i in [...listas[0], ...listas[1]]) i.id: i,
+    }.values.toList();
+  }
+
+  /// Contratações ainda ativas (proposta/confirmada) da oportunidade, do dono.
+  Future<List<Contratacao>> contratacoesAtivasDaOportunidade(
+    String donoId,
+    String oportunidadeId,
+  ) async {
+    final snapshot = await firestore
+        .collection('contratacoes')
+        .where('donoId', isEqualTo: donoId)
+        .where('oportunidadeId', isEqualTo: oportunidadeId)
+        .get();
+    return snapshot.docs
+        .map((d) => Contratacao.fromMap(d.id, d.data()))
+        .where((c) => c.ativa)
+        .toList();
+  }
+
+  /// Remove a oportunidade encerrando, no mesmo batch, os interesses pendentes
+  /// dela: candidaturas (o dono é o destinatário) viram `recusado`; convites
+  /// (o dono é o remetente) viram `cancelado`.
+  Future<void> encerrarOportunidade(
+    String oportunidadeId,
+    List<Interesse> interesses,
+  ) {
+    final batch = firestore.batch();
+    final agora = DateTime.now();
+    for (final interesse in interesses.where((i) => i.pendente)) {
+      batch.update(firestore.collection('interesses').doc(interesse.id), {
+        'status': interesse.tipo == TipoInteresse.candidatura
+            ? StatusInteresse.recusado.name
+            : StatusInteresse.cancelado.name,
+        'respondidoEm': agora,
+      });
+    }
+    batch.delete(firestore.collection('oportunidades').doc(oportunidadeId));
+    return batch.commit();
+  }
+
+  /// Registra que [uid] leu a conversa agora (contador de não lidas).
+  Future<void> marcarConversaLida(String conversaId, String uid) {
+    return firestore.collection('conversas').doc(conversaId).update({
+      'lidaEm.$uid': DateTime.now(),
+    });
+  }
+
   Stream<List<Conversa>> streamConversas(String uid) {
     return firestore
         .collection('conversas')
@@ -364,6 +549,48 @@ class FirebaseDataService {
       'atualizadoEm': mensagem.dataHora,
     });
   }
+}
+
+/// Junta dois streams: emite [juntar] com o último valor de cada um, a
+/// partir do momento em que os dois já emitiram.
+Stream<R> _combinar<A, B, R>(
+  Stream<A> a,
+  Stream<B> b,
+  R Function(A, B) juntar,
+) {
+  late StreamController<R> controller;
+  StreamSubscription<A>? subA;
+  StreamSubscription<B>? subB;
+  A? ultimoA;
+  B? ultimoB;
+  var temA = false;
+  var temB = false;
+
+  void emitir() {
+    if (temA && temB) controller.add(juntar(ultimoA as A, ultimoB as B));
+  }
+
+  controller = StreamController<R>(
+    onListen: () {
+      subA = a.listen((v) {
+        ultimoA = v;
+        temA = true;
+        emitir();
+      }, onError: controller.addError);
+      subB = b.listen((v) {
+        ultimoB = v;
+        temB = true;
+        emitir();
+      }, onError: controller.addError);
+    },
+    // Sem await: quem cancela (ex.: `.first`) não precisa esperar o
+    // encerramento das consultas internas.
+    onCancel: () {
+      subA?.cancel();
+      subB?.cancel();
+    },
+  );
+  return controller.stream;
 }
 
 String _disponibilidadeId(String usuarioId, DateTime data) {

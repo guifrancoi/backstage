@@ -8,7 +8,6 @@ class Musico {
   final String descricao;
   final double cacheMedio;
   final List<String> portfolioLinks;
-  final List<String> datasDisponiveis;
   final String? fotoPath;
 
   /// Criado pela conta admin: não aparece para os outros usuários.
@@ -22,7 +21,6 @@ class Musico {
     required this.descricao,
     required this.cacheMedio,
     required this.portfolioLinks,
-    required this.datasDisponiveis,
     this.fotoPath,
     this.oculto = false,
   });
@@ -44,7 +42,6 @@ class Musico {
     String? descricao,
     double? cacheMedio,
     List<String>? portfolioLinks,
-    List<String>? datasDisponiveis,
     String? fotoPath,
     bool? oculto,
     bool clearFotoPath = false,
@@ -57,7 +54,6 @@ class Musico {
       descricao: descricao ?? this.descricao,
       cacheMedio: cacheMedio ?? this.cacheMedio,
       portfolioLinks: portfolioLinks ?? this.portfolioLinks,
-      datasDisponiveis: datasDisponiveis ?? this.datasDisponiveis,
       fotoPath: clearFotoPath ? null : (fotoPath ?? this.fotoPath),
       oculto: oculto ?? this.oculto,
     );
@@ -72,9 +68,6 @@ class Musico {
       descricao: map['descricao'] as String? ?? '',
       cacheMedio: (map['cacheMedio'] as num?)?.toDouble() ?? 0,
       portfolioLinks: List<String>.from(map['portfolioLinks'] as List? ?? []),
-      datasDisponiveis: List<String>.from(
-        map['datasDisponiveis'] as List? ?? [],
-      ),
       fotoPath: map['fotoPath'] as String?,
       oculto: map['oculto'] as bool? ?? false,
     );
@@ -88,7 +81,6 @@ class Musico {
       'descricao': descricao,
       'cacheMedio': cacheMedio,
       'portfolioLinks': portfolioLinks,
-      'datasDisponiveis': datasDisponiveis,
       'fotoPath': fotoPath,
       'oculto': oculto,
     };

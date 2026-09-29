@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/interesse.dart';
 import '../models/musico.dart';
+import '../models/notificacao.dart';
 import '../models/oportunidade.dart';
 import '../services/firebase_data_service.dart';
 
@@ -14,9 +15,7 @@ import '../services/firebase_data_service.dart';
 class InteresseProvider extends ChangeNotifier {
   InteresseProvider({FirebaseDataService? service})
     : _service = service ?? FirebaseDataService() {
-    if (_service.isEnabled) {
-      _authSubscription = _service.authUserIds.listen(_escutar);
-    }
+    _authSubscription = _service.authUserIds.listen(_escutar);
   }
 
   final FirebaseDataService _service;
@@ -53,6 +52,14 @@ class InteresseProvider extends ChangeNotifier {
       _recebidos = lista;
       notifyListeners();
     });
+  }
+
+  /// Interesse enviado ou recebido pelo usuário logado.
+  Interesse? buscarPorId(String id) {
+    for (final interesse in [..._enviados, ..._recebidos]) {
+      if (interesse.id == id) return interesse;
+    }
+    return null;
   }
 
   /// Candidatura já enviada (em qualquer status) para a oportunidade.
@@ -161,85 +168,69 @@ class InteresseProvider extends ChangeNotifier {
     Interesse interesse, {
     required String nomeDestinatario,
   }) async {
-    return _executar<String?>(
-      firebase: () => _service.aceitarInteresse(
+    final conversaId = await _executar<String?>(
+      () => _service.aceitarInteresse(
         interesse,
         nomeDestinatario: nomeDestinatario,
       ),
-      mock: () {
-        _substituirRecebido(
-          interesse.copyWith(
-            status: StatusInteresse.aceito,
-            respondidoEm: DateTime.now(),
-          ),
-        );
-        return interesse.id;
-      },
     );
+    if (conversaId != null) {
+      await _service.tentarNotificar([
+        Notificacao.interesseRespondido(
+          interesse,
+          aceito: true,
+          nomeQuemRespondeu: nomeDestinatario,
+        ),
+      ]);
+    }
+    return conversaId;
   }
 
-  Future<bool> recusar(Interesse interesse) async {
-    final ok = await _executar<bool>(
-      firebase: () async {
-        await _service.recusarInteresse(interesse.id);
-        return true;
-      },
-      mock: () {
-        _substituirRecebido(
-          interesse.copyWith(
-            status: StatusInteresse.recusado,
-            respondidoEm: DateTime.now(),
-          ),
-        );
-        return true;
-      },
-    );
+  Future<bool> recusar(
+    Interesse interesse, {
+    required String nomeDestinatario,
+  }) async {
+    final ok = await _executar<bool>(() async {
+      await _service.recusarInteresse(interesse.id);
+      return true;
+    });
+    if (ok == true) {
+      await _service.tentarNotificar([
+        Notificacao.interesseRespondido(
+          interesse,
+          aceito: false,
+          nomeQuemRespondeu: nomeDestinatario,
+        ),
+      ]);
+    }
     return ok ?? false;
   }
 
   Future<bool> cancelar(Interesse interesse) async {
-    final ok = await _executar<bool>(
-      firebase: () async {
-        await _service.cancelarInteresse(interesse.id);
-        return true;
-      },
-      mock: () {
-        _enviados = _enviados.where((i) => i.id != interesse.id).toList();
-        return true;
-      },
-    );
+    final ok = await _executar<bool>(() async {
+      await _service.cancelarInteresse(interesse.id);
+      return true;
+    });
     return ok ?? false;
   }
 
   Future<bool> _enviar(Interesse interesse) async {
-    final ok = await _executar<bool>(
-      firebase: () async {
-        await _service.enviarInteresse(interesse);
-        return true;
-      },
-      mock: () {
-        _enviados = [
-          ..._enviados.where((i) => i.id != interesse.id),
-          interesse,
-        ];
-        return true;
-      },
-    );
+    final ok = await _executar<bool>(() async {
+      await _service.enviarInteresse(interesse);
+      return true;
+    });
+    if (ok == true) {
+      await _service.tentarNotificar([Notificacao.interesseRecebido(interesse)]);
+    }
     return ok ?? false;
   }
 
-  /// Com Firebase, os streams trazem o resultado de volta; no mock, [mock]
-  /// altera as listas em memória.
-  Future<T?> _executar<T>({
-    required Future<T> Function() firebase,
-    required T Function() mock,
-  }) async {
+  /// Grava no Firestore; os streams trazem o resultado de volta (sem
+  /// atualização otimista). Erro vira [errorMessage] e o retorno é `null`.
+  Future<T?> _executar<T>(Future<T> Function() acao) async {
     _errorMessage = null;
     try {
-      if (_service.isEnabled) return await firebase();
-      final resultado = mock();
-      notifyListeners();
-      return resultado;
+      return await acao();
     } on FirebaseException catch (error) {
       _errorMessage = _mensagemErro(error);
       notifyListeners();
@@ -252,12 +243,6 @@ class InteresseProvider extends ChangeNotifier {
       if (interesse.pendente && criterio(interesse)) return interesse;
     }
     return null;
-  }
-
-  void _substituirRecebido(Interesse atualizado) {
-    _recebidos = [
-      for (final item in _recebidos) item.id == atualizado.id ? atualizado : item,
-    ];
   }
 
   List<Interesse> _maisRecentesPrimeiro(List<Interesse> lista) {

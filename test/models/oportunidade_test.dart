@@ -115,5 +115,19 @@ void main() {
       expect(oculta.oculto, isTrue);
       expect(Oportunidade.fromMap('x', {}).oculto, isFalse);
     });
+
+    test('horário faz ida e volta; ausente em doc antigo', () {
+      final comHorario = Oportunidade.fromMap(
+        'o1',
+        _oportunidade().copyWith(horaInicio: '20:00', horaFim: '23:30').toMap(),
+      );
+      final antiga = Oportunidade.fromMap('o2', {'titulo': 'Show'});
+
+      expect(comHorario.horaInicio, '20:00');
+      expect(comHorario.horario, '20:00 às 23:30');
+      expect(antiga.horaInicio, isNull);
+      expect(antiga.horario, '');
+      expect(antiga.toMap().containsKey('horaInicio'), isFalse);
+    });
   });
 }

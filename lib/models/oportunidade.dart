@@ -13,6 +13,11 @@ class Oportunidade {
   final String estado;
   final String? cep;
 
+  /// Horário do show, `HH:mm`. Opcional só em documentos antigos (antes da
+  /// 9B); o formulário exige os dois.
+  final String? horaInicio;
+  final String? horaFim;
+
   /// Criada pela conta admin: não aparece para os outros usuários.
   final bool oculto;
 
@@ -30,11 +35,17 @@ class Oportunidade {
     required this.numero,
     required this.estado,
     this.cep,
+    this.horaInicio,
+    this.horaFim,
     this.oculto = false,
   });
 
   /// Oportunidades de catálogo/demonstração não têm dono e não recebem candidatura.
   bool get temDono => donoId.isNotEmpty;
+
+  /// "20:00 às 23:00", ou vazio em oportunidade antiga sem horário.
+  String get horario =>
+      horaInicio == null || horaFim == null ? '' : '$horaInicio às $horaFim';
 
   Oportunidade copyWith({
     String? id,
@@ -50,6 +61,8 @@ class Oportunidade {
     String? numero,
     String? estado,
     String? cep,
+    String? horaInicio,
+    String? horaFim,
     bool? oculto,
     bool clearCep = false,
   }) {
@@ -67,6 +80,8 @@ class Oportunidade {
       numero: numero ?? this.numero,
       estado: estado ?? this.estado,
       cep: clearCep ? null : (cep ?? this.cep),
+      horaInicio: horaInicio ?? this.horaInicio,
+      horaFim: horaFim ?? this.horaFim,
       oculto: oculto ?? this.oculto,
     );
   }
@@ -87,6 +102,8 @@ class Oportunidade {
       numero: map['numero'] as String? ?? '',
       estado: map['estado'] as String? ?? '',
       cep: map['cep'] as String?,
+      horaInicio: map['horaInicio'] as String?,
+      horaFim: map['horaFim'] as String?,
       oculto: map['oculto'] as bool? ?? false,
     );
   }
@@ -105,6 +122,8 @@ class Oportunidade {
       'numero': numero,
       'estado': estado,
       'cep': ?cep,
+      'horaInicio': ?horaInicio,
+      'horaFim': ?horaFim,
       'oculto': oculto,
     };
   }

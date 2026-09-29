@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../models/conversa.dart';
 import '../models/mensagem.dart';
 import '../services/firebase_data_service.dart';
@@ -12,17 +11,14 @@ import '../services/firebase_data_service.dart';
 class ChatProvider extends ChangeNotifier {
   ChatProvider({FirebaseDataService? service})
     : _service = service ?? FirebaseDataService() {
-    if (_service.isEnabled) {
-      _conversas = [];
-      _authSubscription = _service.authUserIds.listen(_escutar);
-    }
+    _authSubscription = _service.authUserIds.listen(_escutar);
   }
 
   final FirebaseDataService _service;
   StreamSubscription<String?>? _authSubscription;
   StreamSubscription<List<Conversa>>? _conversasSubscription;
 
-  List<Conversa> _conversas = [...MockData.conversas];
+  List<Conversa> _conversas = [];
   String? _uid;
 
   /// Mais recentes primeiro.
@@ -36,7 +32,7 @@ class ChatProvider extends ChangeNotifier {
     return lista;
   }
 
-  String? get meuUid => _service.isEnabled ? _uid : MockData.usuarioMockId;
+  String? get meuUid => _uid;
 
   void _escutar(String? uid) {
     _conversasSubscription?.cancel();
@@ -49,6 +45,36 @@ class ChatProvider extends ChangeNotifier {
       _conversas = lista;
       notifyListeners();
     });
+  }
+
+  /// Mensagens do outro participante que eu ainda não vi nesta conversa.
+  int naoLidas(Conversa conversa) => conversa.naoLidas(_uid);
+
+  /// Soma de todas as conversas (selo da Home).
+  int get totalNaoLidas =>
+      _conversas.fold(0, (total, c) => total + c.naoLidas(_uid));
+
+  /// Conversas com gravação de leitura em andamento: evita repetir a escrita
+  /// enquanto o stream não traz o `lidaEm` novo.
+  final Set<String> _marcando = {};
+
+  /// Registra a leitura, só se houver não lidas (a tela chama a cada build).
+  Future<void> marcarComoLida(String conversaId) async {
+    final uid = _uid;
+    final conversa = buscarConversaPorId(conversaId);
+    if (uid == null ||
+        conversa == null ||
+        conversa.naoLidas(uid) == 0 ||
+        !_marcando.add(conversaId)) {
+      return;
+    }
+    try {
+      await _service.marcarConversaLida(conversaId, uid);
+    } catch (_) {
+      // Sem registro, o selo só continua aceso; não atrapalha a conversa.
+    } finally {
+      _marcando.remove(conversaId);
+    }
   }
 
   Conversa? buscarConversaPorId(String id) {
@@ -70,22 +96,8 @@ class ChatProvider extends ChangeNotifier {
       dataHora: DateTime.now(),
     );
 
-    if (_service.isEnabled) {
-      // O stream traz a mensagem de volta; não duplica localmente.
-      await _service.enviarMensagem(conversaId, mensagem);
-      return;
-    }
-
-    _conversas = [
-      for (final item in _conversas)
-        item.id == conversaId
-            ? item.copyWith(
-                mensagens: [...item.mensagens, mensagem],
-                atualizadoEm: mensagem.dataHora,
-              )
-            : item,
-    ];
-    notifyListeners();
+    // O stream traz a mensagem de volta; não duplica localmente.
+    await _service.enviarMensagem(conversaId, mensagem);
   }
 
   @override

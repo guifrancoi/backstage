@@ -9,7 +9,6 @@ Musico _musico() => Musico(
   descricao: 'Descrição',
   cacheMedio: 1500,
   portfolioLinks: ['instagram.com/banda'],
-  datasDisponiveis: ['2026-03-20'],
   fotoPath: '/fotos/banda.jpg',
 );
 
@@ -29,7 +28,6 @@ void main() {
       expect(copia.descricao, original.descricao);
       expect(copia.cacheMedio, original.cacheMedio);
       expect(copia.portfolioLinks, original.portfolioLinks);
-      expect(copia.datasDisponiveis, original.datasDisponiveis);
       expect(copia.fotoPath, original.fotoPath);
       expect(map.containsKey('interesseEnviado'), isFalse);
     });
@@ -40,7 +38,6 @@ void main() {
       expect(musico.nomeArtistico, '');
       expect(musico.cacheMedio, 0);
       expect(musico.portfolioLinks, isEmpty);
-      expect(musico.datasDisponiveis, isEmpty);
       expect(musico.fotoPath, isNull);
     });
 

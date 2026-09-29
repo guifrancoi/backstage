@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/utils/data_hora.dart';
 import '../../core/utils/validators.dart';
 import '../../models/oportunidade.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../providers/perfil_provider.dart';
+import '../../widgets/campo_horario.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
 
@@ -35,6 +37,8 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
 
   String? _genero;
   DateTime? _dataEvento;
+  String? _horaInicio;
+  String? _horaFim;
   bool _salvando = false;
 
   /// Oportunidade em edição (null = criando).
@@ -62,6 +66,8 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
             ? o.generoMusical
             : null;
         _dataEvento = o.dataEvento;
+        _horaInicio = o.horaInicio;
+        _horaFim = o.horaFim;
       }
       return;
     }
@@ -116,11 +122,16 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
 
   Future<void> _salvar() async {
     final formOk = _formKey.currentState!.validate();
-    if (!formOk || _dataEvento == null) {
-      if (_dataEvento == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Escolha a data do evento.')),
-        );
+    final faltando = _dataEvento == null
+        ? 'Escolha a data do evento.'
+        : (_horaInicio == null || _horaFim == null)
+        ? 'Escolha o horário de início e de fim.'
+        : null;
+    if (!formOk || faltando != null) {
+      if (faltando != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(faltando)));
       }
       return;
     }
@@ -138,6 +149,8 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
       cidade: _cidadeController.text.trim(),
       generoMusical: _genero!,
       dataEvento: _dataEvento!,
+      horaInicio: _horaInicio,
+      horaFim: _horaFim,
       cacheOferecido: double.parse(
         _cacheController.text.trim().replaceAll(',', '.'),
       ),
@@ -182,8 +195,7 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
     final data = _dataEvento;
     final dataTexto = data == null
         ? 'Escolher data do evento'
-        : 'Data: ${data.day.toString().padLeft(2, '0')}/'
-              '${data.month.toString().padLeft(2, '0')}/${data.year}';
+        : 'Data: ${formatarData(data)}';
 
     if (_editando && _original == null) {
       return Scaffold(
@@ -233,6 +245,26 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
                   icon: const Icon(Icons.calendar_today),
                   label: Text(dataTexto),
                 ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: CampoHorario(
+                      rotulo: 'Início',
+                      valor: _horaInicio,
+                      onChanged: (v) => setState(() => _horaInicio = v),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CampoHorario(
+                      rotulo: 'Fim',
+                      valor: _horaFim,
+                      onChanged: (v) => setState(() => _horaFim = v),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               CustomTextField(

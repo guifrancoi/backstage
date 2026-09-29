@@ -516,3 +516,336 @@ test('disponibilidades: só o próprio usuarioId', async () => {
     }),
   );
 });
+
+test('disponibilidades: qualquer autenticado lê (agenda pública); anônimo não', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'disponibilidades/m1_2026-05-10'), {
+      usuarioId: 'm1',
+      disponivel: true,
+    });
+  });
+  await assertSucceeds(getDoc(doc(asUser('e1'), 'disponibilidades/m1_2026-05-10')));
+  await assertFails(getDoc(doc(asAnon(), 'disponibilidades/m1_2026-05-10')));
+});
+
+// --- contratacoes / ocupacoes (Plano 9B) ----------------------------------
+
+const proposta = {
+  interesseId: 'i1',
+  musicoId: 'm1',
+  donoId: 'e1',
+  dia: '2026-11-20',
+  horaInicio: '20:00',
+  horaFim: '23:00',
+  cacheAcordado: 1500,
+  status: 'proposta',
+};
+
+/** Convite e1 → m1 já aceito (i1) e, se [comProposta], a proposta c1. */
+async function seedContratacao({ comProposta = true, status = 'proposta' } = {}) {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'interesses/i1'), { ...convite, status: 'aceito' });
+    if (comProposta) {
+      await setDoc(doc(db, 'contratacoes/c1'), { ...proposta, status });
+    }
+    if (status === 'confirmada') {
+      await setDoc(doc(db, 'ocupacoes/m1_2026-11-20'), {
+        musicoId: 'm1',
+        dia: '2026-11-20',
+        contratacaoId: 'c1',
+      });
+    }
+  });
+}
+
+function confirmar(db, contratacaoId = 'c1') {
+  const batch = writeBatch(db);
+  batch.update(doc(db, `contratacoes/${contratacaoId}`), {
+    status: 'confirmada',
+    respondidoEm: new Date(),
+  });
+  batch.set(doc(db, 'ocupacoes/m1_2026-11-20'), {
+    musicoId: 'm1',
+    dia: '2026-11-20',
+    contratacaoId,
+  });
+  return batch.commit();
+}
+
+test('contratacoes: dono propõe a partir de interesse aceito seu', async () => {
+  await seedContratacao({ comProposta: false });
+  await assertSucceeds(setDoc(doc(asUser('e1'), 'contratacoes/nova'), proposta));
+});
+
+test('contratacoes: não propõe com interesse pendente, alheio ou em nome de outro', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'interesses/i1'), convite); // ainda pendente
+    await setDoc(doc(db, 'interesses/i2'), {
+      ...convite,
+      remetenteId: 'e2',
+      status: 'aceito',
+    });
+  });
+  const dono = asUser('e1');
+  await assertFails(setDoc(doc(dono, 'contratacoes/a'), proposta));
+  await assertFails(
+    setDoc(doc(dono, 'contratacoes/b'), { ...proposta, interesseId: 'i2' }),
+  );
+  // Músico não propõe (o donoId teria que ser ele).
+  await assertFails(
+    setDoc(doc(asUser('m1'), 'contratacoes/c'), { ...proposta, donoId: 'm1' }),
+  );
+});
+
+test('contratacoes: só as duas partes leem', async () => {
+  await seedContratacao();
+  await assertSucceeds(getDoc(doc(asUser('e1'), 'contratacoes/c1')));
+  await assertSucceeds(getDoc(doc(asUser('m1'), 'contratacoes/c1')));
+  await assertFails(getDoc(doc(asUser('x9'), 'contratacoes/c1')));
+});
+
+test('contratacoes: consultas por músico/dono (como o app faz) passam', async () => {
+  await seedContratacao();
+  const m1 = asUser('m1');
+  await assertSucceeds(
+    getDocs(query(collection(m1, 'contratacoes'), where('musicoId', '==', 'm1'))),
+  );
+  await assertSucceeds(
+    getDocs(query(collection(m1, 'contratacoes'), where('donoId', '==', 'm1'))),
+  );
+});
+
+test('contratacoes: músico confirma travando o dia no mesmo batch', async () => {
+  await seedContratacao();
+  await assertSucceeds(confirmar(asUser('m1')));
+  await assertSucceeds(getDoc(doc(asUser('x9'), 'ocupacoes/m1_2026-11-20')));
+});
+
+test('contratacoes: confirmar sem a trava, ou pelo dono, falha', async () => {
+  await seedContratacao();
+  await assertFails(
+    updateDoc(doc(asUser('m1'), 'contratacoes/c1'), { status: 'confirmada' }),
+  );
+  await assertFails(confirmar(asUser('e1')));
+});
+
+test('contratacoes: segundo show no mesmo dia não confirma', async () => {
+  await seedContratacao({ status: 'confirmada' });
+  await seed(async (db) => {
+    await setDoc(doc(db, 'contratacoes/c2'), { ...proposta, donoId: 'e1' });
+  });
+  await assertFails(confirmar(asUser('m1'), 'c2'));
+});
+
+test('contratacoes: músico recusa; dono retira a proposta', async () => {
+  await seedContratacao();
+  await assertSucceeds(
+    updateDoc(doc(asUser('m1'), 'contratacoes/c1'), { status: 'recusada' }),
+  );
+  await seedContratacao();
+  await assertSucceeds(
+    updateDoc(doc(asUser('e1'), 'contratacoes/c1'), {
+      status: 'cancelada',
+      canceladoPor: 'e1',
+    }),
+  );
+});
+
+test('contratacoes: resposta não altera cachê, dia nem partes', async () => {
+  await seedContratacao();
+  await assertFails(
+    updateDoc(doc(asUser('m1'), 'contratacoes/c1'), {
+      status: 'recusada',
+      cacheAcordado: 1,
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(asUser('e1'), 'contratacoes/c1'), { cacheAcordado: 99999 }),
+  );
+});
+
+test('contratacoes: cancelar confirmada exige liberar o dia junto', async () => {
+  await seedContratacao({ status: 'confirmada' });
+  const m1 = asUser('m1');
+  await assertFails(
+    updateDoc(doc(m1, 'contratacoes/c1'), {
+      status: 'cancelada',
+      canceladoPor: 'm1',
+    }),
+  );
+
+  const batch = writeBatch(m1);
+  batch.update(doc(m1, 'contratacoes/c1'), {
+    status: 'cancelada',
+    canceladoPor: 'm1',
+    motivoCancelamento: 'Imprevisto',
+  });
+  batch.delete(doc(m1, 'ocupacoes/m1_2026-11-20'));
+  await assertSucceeds(batch.commit());
+});
+
+test('ocupacoes: não se cria nem apaga fora do fluxo da contratação', async () => {
+  await seedContratacao({ status: 'confirmada' });
+  // Trava avulsa (sem contratação confirmada) e de outro músico.
+  await assertFails(
+    setDoc(doc(asUser('m1'), 'ocupacoes/m1_2026-12-01'), {
+      musicoId: 'm1',
+      dia: '2026-12-01',
+      contratacaoId: 'c1',
+    }),
+  );
+  // Apagar a trava de contratação ainda confirmada.
+  await assertFails(deleteDoc(doc(asUser('e1'), 'ocupacoes/m1_2026-11-20')));
+  await assertFails(getDoc(doc(asAnon(), 'ocupacoes/m1_2026-11-20')));
+});
+
+// --- notificacoes / interesse cancelado (Plano 11) ---------------------------
+
+const notificacao = {
+  destinatarioId: 'm1',
+  autorId: 'e1',
+  autorNome: 'Bar Central',
+  tipo: 'oportunidadeAlterada',
+  titulo: 'Oportunidade alterada',
+  texto: 'cachê mudou',
+  interesseId: 'i1',
+  lida: false,
+  criadaEm: new Date(),
+};
+
+async function seedInteresseAceito() {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'interesses/i1'), { ...convite, status: 'aceito' });
+  });
+}
+
+test('notificacoes: notifica a outra parte do interesse', async () => {
+  await seedInteresseAceito();
+  await assertSucceeds(setDoc(doc(asUser('e1'), 'notificacoes/n1'), notificacao));
+  // O músico também notifica o dono (ex.: confirmou o show).
+  await assertSucceeds(
+    setDoc(doc(asUser('m1'), 'notificacoes/n2'), {
+      ...notificacao,
+      destinatarioId: 'e1',
+      autorId: 'm1',
+    }),
+  );
+});
+
+test('notificacoes: sem vínculo, com autor falso ou para si mesmo falha', async () => {
+  await seedInteresseAceito();
+  // Estranho notificando uma parte do interesse.
+  await assertFails(
+    setDoc(doc(asUser('x9'), 'notificacoes/a'), { ...notificacao, autorId: 'x9' }),
+  );
+  // Parte do interesse notificando um terceiro.
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'notificacoes/b'), { ...notificacao, destinatarioId: 'x9' }),
+  );
+  // Autor falso.
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'notificacoes/c'), { ...notificacao, autorId: 'm1' }),
+  );
+  // Para si mesmo, já lida ou com campo extra.
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'notificacoes/d'), { ...notificacao, destinatarioId: 'e1' }),
+  );
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'notificacoes/e'), { ...notificacao, lida: true }),
+  );
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'notificacoes/f'), { ...notificacao, extra: 1 }),
+  );
+  // Interesse inexistente.
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'notificacoes/g'), { ...notificacao, interesseId: 'nao' }),
+  );
+});
+
+test('notificacoes: só o destinatário lê, marca como lida e apaga', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'notificacoes/n1'), notificacao);
+  });
+  const m1 = asUser('m1');
+  const e1 = asUser('e1');
+  await assertSucceeds(getDoc(doc(m1, 'notificacoes/n1')));
+  await assertFails(getDoc(doc(e1, 'notificacoes/n1')));
+  await assertSucceeds(
+    getDocs(query(collection(m1, 'notificacoes'), where('destinatarioId', '==', 'm1'))),
+  );
+  await assertFails(updateDoc(doc(m1, 'notificacoes/n1'), { texto: 'outro' }));
+  await assertFails(updateDoc(doc(e1, 'notificacoes/n1'), { lida: true }));
+  await assertSucceeds(updateDoc(doc(m1, 'notificacoes/n1'), { lida: true }));
+  await assertFails(deleteDoc(doc(e1, 'notificacoes/n1')));
+  await assertSucceeds(deleteDoc(doc(m1, 'notificacoes/n1')));
+});
+
+test('interesses: remetente encerra convite pendente como cancelado; destinatário não', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'interesses/i1'), convite);
+  });
+  await assertFails(
+    updateDoc(doc(asUser('m1'), 'interesses/i1'), { status: 'cancelado' }),
+  );
+  await assertSucceeds(
+    updateDoc(doc(asUser('e1'), 'interesses/i1'), {
+      status: 'cancelado',
+      respondidoEm: new Date(),
+    }),
+  );
+  // Depois de encerrado, nada mais muda.
+  await assertFails(
+    updateDoc(doc(asUser('m1'), 'interesses/i1'), { status: 'aceito' }),
+  );
+});
+
+test('interesses: consulta por parte + oportunidade (remoção pelo dono) passa', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'interesses/m1_op_o1'), candidatura);
+  });
+  const e1 = asUser('e1');
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(e1, 'interesses'),
+        where('destinatarioId', '==', 'e1'),
+        where('oportunidadeId', '==', 'o1'),
+      ),
+    ),
+  );
+});
+
+test('conversas: participante registra a leitura (lidaEm)', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'conversas/i1'), {
+      participantes: ['e1', 'm1'],
+      mensagens: [],
+    });
+  });
+  await assertSucceeds(
+    updateDoc(doc(asUser('m1'), 'conversas/i1'), { 'lidaEm.m1': new Date() }),
+  );
+  await assertFails(
+    updateDoc(doc(asUser('x9'), 'conversas/i1'), { 'lidaEm.x9': new Date() }),
+  );
+});
+
+test('oportunidades: dono remove encerrando interesses pendentes no mesmo batch', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'oportunidades/o1'), { titulo: 'Show', donoId: 'e1' });
+    await setDoc(doc(db, 'interesses/m1_op_o1'), candidatura);
+    await setDoc(doc(db, 'interesses/e1_mu_m1_o1'), { ...convite, oportunidadeId: 'o1' });
+  });
+  const e1 = asUser('e1');
+  const batch = writeBatch(e1);
+  batch.update(doc(e1, 'interesses/m1_op_o1'), {
+    status: 'recusado',
+    respondidoEm: new Date(),
+  });
+  batch.update(doc(e1, 'interesses/e1_mu_m1_o1'), {
+    status: 'cancelado',
+    respondidoEm: new Date(),
+  });
+  batch.delete(doc(e1, 'oportunidades/o1'));
+  await assertSucceeds(batch.commit());
+});

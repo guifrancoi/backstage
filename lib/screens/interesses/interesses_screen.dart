@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/interesse.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/contratacao_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../routes/app_routes.dart';
 
@@ -111,6 +112,7 @@ class _InteresseCard extends StatelessWidget {
       StatusInteresse.pendente => recebido ? 'Aguardando sua resposta' : 'Aguardando resposta',
       StatusInteresse.aceito => 'Aceito',
       StatusInteresse.recusado => 'Recusado',
+      StatusInteresse.cancelado => 'Cancelado (oportunidade removida)',
     };
     return '$status • $dia';
   }
@@ -133,7 +135,10 @@ class _InteresseCard extends StatelessWidget {
 
   Future<void> _recusar(BuildContext context) async {
     final provider = context.read<InteresseProvider>();
-    final ok = await provider.recusar(interesse);
+    final ok = await provider.recusar(
+      interesse,
+      nomeDestinatario: context.read<AuthProvider>().nomeExibicao,
+    );
     if (!context.mounted) return;
     _avisar(
       context,
@@ -177,6 +182,12 @@ class _InteresseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final conversaId = interesse.conversaId;
+    final uid = context.watch<AuthProvider>().userId;
+    final podePropor =
+        interesse.status == StatusInteresse.aceito &&
+        interesse.donoId == uid &&
+        context.watch<ContratacaoProvider>().ativaParaInteresse(interesse.id) ==
+            null;
     final verPerfil = recebido && interesse.tipo == TipoInteresse.candidatura;
     final oportunidadeId = interesse.oportunidadeId;
 
@@ -240,6 +251,16 @@ class _InteresseCard extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.chat_bubble_outline),
                     label: const Text('Abrir conversa'),
+                  ),
+                if (podePropor)
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.proporContratacao,
+                      arguments: interesse.id,
+                    ),
+                    icon: const Icon(Icons.handshake_outlined),
+                    label: const Text('Propor show'),
                   ),
               ],
             ),

@@ -1,4 +1,3 @@
-import 'package:backstage/data/mock_data.dart';
 import 'package:backstage/models/casa_show.dart';
 import 'package:backstage/models/conversa.dart';
 import 'package:backstage/models/interesse.dart';
@@ -10,6 +9,8 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../helpers/firebase_fake.dart';
 
 /// Auth fake que simula um cadastro já existente (retomada de cadastro).
 class _AuthComEmailEmUso extends MockFirebaseAuth {
@@ -35,25 +36,13 @@ void main() {
       signedIn: true,
       mockUser: MockUser(uid: 'u1', email: 'musico@backstage.com'),
     );
-    service = FirebaseDataService(auth: auth, firestore: firestore, enabled: true);
+    service = FirebaseDataService(auth: auth, firestore: firestore);
   });
 
   group('estado de autenticação', () {
     test('expõe uid e e-mail do usuário logado', () {
-      expect(service.isEnabled, isTrue);
       expect(service.currentUserId, 'u1');
       expect(service.currentUserEmail, 'musico@backstage.com');
-    });
-
-    test('desabilitado não expõe usuário mesmo com sessão no Auth', () {
-      final desabilitado = FirebaseDataService(
-        auth: auth,
-        firestore: firestore,
-        enabled: false,
-      );
-
-      expect(desabilitado.currentUserId, isNull);
-      expect(desabilitado.currentUserEmail, isNull);
     });
 
     test('authUserIds entrega o uid atual a quem assinar depois', () async {
@@ -85,7 +74,6 @@ void main() {
       final service = FirebaseDataService(
         auth: auth,
         firestore: firestore,
-        enabled: true,
       );
 
       final credential = await service.cadastrar(
@@ -107,7 +95,6 @@ void main() {
       final service = FirebaseDataService(
         auth: _AuthComEmailEmUso(),
         firestore: firestore,
-        enabled: true,
       );
 
       final credential = await service.cadastrar(
@@ -123,46 +110,7 @@ void main() {
     });
   });
 
-  group('seedDadosIniciais', () {
-    test('popula musicos e oportunidades quando vazias; não semeia conversas', () async {
-      await service.seedDadosIniciais();
-
-      final musicos = await firestore.collection('perfis_musicos').get();
-      final oportunidades = await firestore.collection('oportunidades').get();
-      final conversas = await firestore.collection('conversas').get();
-
-      expect(musicos.docs.map((d) => d.id), MockData.musicos.map((m) => m.id));
-      expect(oportunidades.docs, hasLength(MockData.oportunidades.length));
-      expect(conversas.docs, isEmpty);
-    });
-
-    test('não sobrescreve coleção que já tem documentos', () async {
-      await firestore.collection('perfis_musicos').doc('real').set({
-        'nomeArtistico': 'Artista Real',
-      });
-
-      await service.seedDadosIniciais();
-
-      final musicos = await firestore.collection('perfis_musicos').get();
-      expect(musicos.docs.map((d) => d.id), ['real']);
-      // As demais coleções, vazias, recebem o seed normalmente.
-      final oportunidades = await firestore.collection('oportunidades').get();
-      expect(oportunidades.docs, isNotEmpty);
-    });
-  });
-
   group('músicos e oportunidades', () {
-    test('listar lê os documentos com Timestamp convertido', () async {
-      await service.seedDadosIniciais();
-
-      final musicos = await service.listarMusicos();
-      final oportunidades = await service.listarOportunidades();
-
-      expect(musicos.map((m) => m.nomeArtistico), contains('Banda Eclipse'));
-      final primeira = oportunidades.firstWhere((o) => o.id == '1');
-      expect(primeira.dataEvento, MockData.oportunidades.first.dataEvento);
-    });
-
     test('streams refletem alterações no Firestore', () async {
       final stream = service.streamMusicos();
       final emissoes = <int>[];
@@ -179,24 +127,22 @@ void main() {
       expect(emissoes.last, 1);
     });
 
-    test('streams retornam MockData quando desabilitado', () async {
-      final desabilitado = FirebaseDataService(
-        auth: auth,
-        firestore: firestore,
-        enabled: false,
-      );
+    test('streamOportunidades converte Timestamp em DateTime', () async {
+      await firestore.collection('oportunidades').doc('o1').set({
+        'titulo': 'Show',
+        'dataEvento': Timestamp.fromDate(DateTime(2026, 11, 20)),
+      });
 
-      expect(
-        await desabilitado.streamOportunidades().first,
-        hasLength(MockData.oportunidades.length),
-      );
+      final lista = await service.streamOportunidades().first;
+
+      expect(lista.single.dataEvento, DateTime(2026, 11, 20));
     });
   });
 
   group('oportunidades do dono', () {
     test('criarOportunidade grava com id automático e donoId', () async {
       final id = await service.criarOportunidade(
-        MockData.oportunidades.first.copyWith(donoId: 'e1'),
+        oportunidadeTeste(id: '', donoId: 'e1'),
       );
 
       final doc = await firestore.collection('oportunidades').doc(id).get();
@@ -278,7 +224,7 @@ void main() {
     });
 
     test('salvar e carregar usam o uid como id do documento', () async {
-      final perfil = MockData.musicos.first.copyWith(id: 'u1');
+      final perfil = musicoTeste(id: 'u1');
 
       await service.salvarPerfilMusico('u1', perfil);
       final carregado = await service.carregarPerfilMusico('u1');

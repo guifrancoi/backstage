@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../data/mock_data.dart';
+import '../models/interesse.dart';
 import '../models/musico.dart';
+import '../models/notificacao.dart';
 import '../models/oportunidade.dart';
 import '../services/firebase_data_service.dart';
 
@@ -14,14 +15,7 @@ import '../services/firebase_data_service.dart';
 class OportunidadeProvider extends ChangeNotifier {
   OportunidadeProvider({FirebaseDataService? service})
     : _service = service ?? FirebaseDataService() {
-    if (_service.isEnabled) {
-      // Com Firebase nunca mostrar o catálogo de demonstração do MockData:
-      // começa vazio e é preenchido pelo Firestore.
-      _todosMusicos = [];
-      _todasOportunidades = [];
-      _aplicarFiltrosAtuais();
-      _authSubscription = _service.authUserIds.listen(_escutar);
-    }
+    _authSubscription = _service.authUserIds.listen(_escutar);
   }
 
   final FirebaseDataService _service;
@@ -29,10 +23,10 @@ class OportunidadeProvider extends ChangeNotifier {
   StreamSubscription<List<Musico>>? _musicosSubscription;
   StreamSubscription<List<Oportunidade>>? _oportunidadesSubscription;
 
-  List<Musico> _todosMusicos = [...MockData.musicos];
-  List<Oportunidade> _todasOportunidades = [...MockData.oportunidades];
-  List<Musico> _musicos = [...MockData.musicos];
-  List<Oportunidade> _oportunidades = [...MockData.oportunidades];
+  List<Musico> _todosMusicos = [];
+  List<Oportunidade> _todasOportunidades = [];
+  List<Musico> _musicos = [];
+  List<Oportunidade> _oportunidades = [];
 
   bool _carregandoMusicos = false;
   bool _carregandoOportunidades = false;
@@ -99,7 +93,6 @@ class OportunidadeProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
-    _service.seedDadosIniciais().catchError((_) {});
   }
 
   String? _generoSelecionadoMusicos;
@@ -128,77 +121,122 @@ class OportunidadeProvider extends ChangeNotifier {
       ..sort((a, b) => a.dataEvento.compareTo(b.dataEvento));
   }
 
-  /// Grava a oportunidade com `donoId` = [donoId]. Com Firebase, o stream traz
-  /// o documento de volta; no mock, entra direto na lista. O que a conta admin
-  /// cria sai `oculto`.
+  /// Grava a oportunidade com `donoId` = [donoId]; o stream traz o documento
+  /// de volta. O que a conta admin cria sai `oculto`.
   Future<bool> criarOportunidade(Oportunidade oportunidade, String donoId) async {
     final comDono = oportunidade.copyWith(donoId: donoId, oculto: _isAdmin);
-    _errorMessage = null;
-
-    if (!_service.isEnabled) {
-      _todasOportunidades = [
-        ..._todasOportunidades,
-        comDono.copyWith(id: 'mock-${DateTime.now().millisecondsSinceEpoch}'),
-      ];
-      _aplicarFiltrosAtuais();
-      notifyListeners();
-      return true;
-    }
-
-    try {
-      await _service.criarOportunidade(comDono);
-      return true;
-    } on FirebaseException catch (error) {
-      _errorMessage = error.code == 'permission-denied'
-          ? 'Sem permissão para criar oportunidade.'
-          : 'Não foi possível salvar a oportunidade.';
-      notifyListeners();
-      return false;
-    }
+    return _gravar(() => _service.criarOportunidade(comDono), acao: 'criar');
   }
 
   /// Edita uma oportunidade existente (dono ou admin, pelas regras). Mantém
-  /// `donoId` e `oculto` originais.
+  /// `donoId` e `oculto` originais. Se mudou data, horário, cachê ou local,
+  /// avisa os músicos com interesse pendente ou aceito nela.
   Future<bool> atualizarOportunidade(Oportunidade oportunidade) async {
     final original = buscarOportunidadePorId(oportunidade.id);
     final editada = oportunidade.copyWith(
       donoId: original?.donoId,
       oculto: original?.oculto,
     );
-    return _alterar(
-      firebase: () => _service.atualizarOportunidade(editada),
-      mock: () => [
-        for (final o in _todasOportunidades) o.id == editada.id ? editada : o,
-      ],
+    final ok = await _gravar(
+      () => _service.atualizarOportunidade(editada),
       acao: 'editar',
     );
+    final uid = _service.currentUserId;
+    // Admin editando a de outro dono não lê os interesses alheios.
+    if (ok &&
+        original != null &&
+        uid == original.donoId &&
+        Notificacao.mudancas(original, editada).isNotEmpty) {
+      final interessados = await _interessadosSemFalhar(uid!, editada.id);
+      await _service.tentarNotificar([
+        for (final interesse in interessados)
+          ?Notificacao.oportunidadeAlterada(
+            interesse,
+            antes: original,
+            depois: editada,
+            nomeDono: editada.contratante,
+          ),
+      ]);
+    }
+    return ok;
   }
 
-  Future<bool> removerOportunidade(String oportunidadeId) {
-    return _alterar(
-      firebase: () => _service.removerOportunidade(oportunidadeId),
-      mock: () =>
-          _todasOportunidades.where((o) => o.id != oportunidadeId).toList(),
-      acao: 'remover',
-    );
+  /// Remove a oportunidade. Do próprio dono: bloqueia se houver contratação
+  /// em andamento; senão encerra os interesses pendentes (candidatura →
+  /// recusada, convite → cancelado) no mesmo batch e avisa os interessados.
+  /// Admin removendo a de outro dono só apaga (não lê interesses alheios).
+  Future<bool> removerOportunidade(String oportunidadeId) async {
+    final original = buscarOportunidadePorId(oportunidadeId);
+    final uid = _service.currentUserId;
+    if (original == null || uid == null || original.donoId != uid) {
+      return _gravar(
+        () => _service.removerOportunidade(oportunidadeId),
+        acao: 'remover',
+      );
+    }
+
+    var bloqueada = false;
+    var interessados = <Interesse>[];
+    final ok = await _gravar(() async {
+      final ativas = await _service.contratacoesAtivasDaOportunidade(
+        uid,
+        oportunidadeId,
+      );
+      if (ativas.isNotEmpty) {
+        bloqueada = true;
+        return;
+      }
+      interessados = (await _service.interessesDaOportunidade(
+        uid,
+        oportunidadeId,
+      )).where(_ativo).toList();
+      await _service.encerrarOportunidade(oportunidadeId, interessados);
+    }, acao: 'remover');
+
+    if (bloqueada) {
+      _errorMessage =
+          'Há contratação em andamento para esta oportunidade. '
+          'Cancele-a antes de remover.';
+      notifyListeners();
+      return false;
+    }
+    if (ok) {
+      await _service.tentarNotificar([
+        for (final interesse in interessados)
+          Notificacao.oportunidadeRemovida(
+            interesse,
+            tituloOportunidade: original.titulo,
+            nomeDono: original.contratante,
+          ),
+      ]);
+    }
+    return ok;
   }
 
-  Future<bool> _alterar({
-    required Future<void> Function() firebase,
-    required List<Oportunidade> Function() mock,
+  /// Interesse que ainda importa ao músico: pendente ou aceito.
+  static bool _ativo(Interesse i) =>
+      i.status == StatusInteresse.pendente || i.status == StatusInteresse.aceito;
+
+  Future<List<Interesse>> _interessadosSemFalhar(
+    String uid,
+    String oportunidadeId,
+  ) async {
+    try {
+      final lista = await _service.interessesDaOportunidade(uid, oportunidadeId);
+      return lista.where(_ativo).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Grava no Firestore; o stream traz o resultado de volta.
+  Future<bool> _gravar(
+    Future<void> Function() gravacao, {
     required String acao,
   }) async {
     _errorMessage = null;
-
-    if (!_service.isEnabled) {
-      _todasOportunidades = mock();
-      _aplicarFiltrosAtuais();
-      notifyListeners();
-      return true;
-    }
-
     try {
-      await firebase();
+      await gravacao();
       return true;
     } on FirebaseException catch (error) {
       _errorMessage = error.code == 'permission-denied'

@@ -1,55 +1,120 @@
-import 'package:backstage/data/mock_data.dart';
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// Sem Firebase inicializado, FirebaseDataService.isEnabled == false e o
-// provider opera com MockData.
+import '../helpers/firebase_fake.dart';
+
+final _musicos = [
+  musicoTeste(
+    id: '1',
+    nomeArtistico: 'Banda Eclipse',
+    generoMusical: 'Rock',
+    cidade: 'Ribeirão Preto',
+    descricao: 'Rock autoral',
+    cacheMedio: 1500,
+  ),
+  musicoTeste(
+    id: '2',
+    nomeArtistico: 'Duo Acústico Sol',
+    generoMusical: 'MPB',
+    cidade: 'Franca',
+    descricao: 'Voz e violão para eventos intimistas',
+    cacheMedio: 800,
+  ),
+  musicoTeste(
+    id: '3',
+    nomeArtistico: 'DJ Pulse',
+    generoMusical: 'Eletrônica',
+    cidade: 'Ribeirão Preto',
+    descricao: 'Sets de música eletrônica',
+    cacheMedio: 1200,
+  ),
+];
+
+final _oportunidades = [
+  oportunidadeTeste(
+    id: '1',
+    generoMusical: 'Rock',
+    cidade: 'Ribeirão Preto',
+    contratante: 'Bar Central',
+    donoId: 'e2',
+  ),
+  oportunidadeTeste(
+    id: '2',
+    generoMusical: 'MPB',
+    cidade: 'Franca',
+    contratante: 'Café Cultural',
+    donoId: '',
+  ),
+  oportunidadeTeste(
+    id: '3',
+    generoMusical: 'Rock',
+    cidade: 'Sertãozinho',
+    contratante: 'Pub 16',
+    donoId: 'e3',
+  ),
+];
+
 void main() {
+  late FakeFirebaseFirestore firestore;
   late OportunidadeProvider provider;
 
-  setUp(() => provider = OportunidadeProvider());
+  setUp(() async {
+    firestore = FakeFirebaseFirestore();
+    await gravarCatalogo(
+      firestore,
+      musicos: _musicos,
+      oportunidades: _oportunidades,
+    );
+    provider = OportunidadeProvider(service: servicoFake(firestore: firestore));
+    await aguardar();
+  });
   tearDown(() => provider.dispose());
 
   List<String> nomes(List<Musico> musicos) =>
       musicos.map((m) => m.nomeArtistico).toList();
 
-  test('inicia com músicos e oportunidades do MockData', () {
-    expect(provider.musicos, hasLength(MockData.musicos.length));
-    expect(provider.oportunidades, hasLength(MockData.oportunidades.length));
+  test('carrega músicos e oportunidades do Firestore', () {
+    expect(provider.musicos, hasLength(_musicos.length));
+    expect(provider.oportunidades, hasLength(_oportunidades.length));
     expect(provider.tipoOrdenacao, 'nome_asc');
-  });
-
-  test('no modo mock não fica carregando nem em erro', () {
     expect(provider.carregandoMusicos, isFalse);
     expect(provider.carregandoOportunidades, isFalse);
     expect(provider.erroMusicos, isFalse);
     expect(provider.erroOportunidades, isFalse);
   });
 
+  test('sem ninguém logado as listas ficam vazias', () async {
+    final deslogado = OportunidadeProvider(
+      service: servicoFake(firestore: firestore, uid: null),
+    );
+    await aguardar();
+
+    expect(deslogado.musicos, isEmpty);
+    expect(deslogado.oportunidades, isEmpty);
+    expect(deslogado.carregandoMusicos, isFalse);
+    deslogado.dispose();
+  });
+
   group('filtros de músicos', () {
     test('filtra por gênero exato', () {
       provider.filtrarMusicos(genero: 'Rock');
 
-      expect(provider.musicos, isNotEmpty);
-      expect(provider.musicos.every((m) => m.generoMusical == 'Rock'), isTrue);
+      expect(nomes(provider.musicos), ['Banda Eclipse']);
       expect(provider.generoSelecionadoMusicos, 'Rock');
     });
 
     test('filtra por trecho da cidade sem diferenciar maiúsculas', () {
       provider.filtrarMusicos(cidade: 'ribeirão');
 
-      expect(provider.musicos, isNotEmpty);
-      expect(
-        provider.musicos.every((m) => m.cidade.toLowerCase().contains('ribeirão')),
-        isTrue,
-      );
+      expect(nomes(provider.musicos), ['Banda Eclipse', 'DJ Pulse']);
     });
 
     test('gênero vazio não filtra', () {
       provider.filtrarMusicos(genero: '');
 
-      expect(provider.musicos, hasLength(MockData.musicos.length));
+      expect(provider.musicos, hasLength(_musicos.length));
     });
 
     test('pesquisa por nome artístico ou descrição', () {
@@ -73,7 +138,7 @@ void main() {
         ..ordenarMusicos('cache_menor')
         ..resetarFiltroMusicos();
 
-      expect(provider.musicos, hasLength(MockData.musicos.length));
+      expect(provider.musicos, hasLength(_musicos.length));
       expect(provider.generoSelecionadoMusicos, isNull);
       expect(provider.cidadeFiltroMusicos, isNull);
       expect(provider.termoPesquisa, '');
@@ -92,8 +157,7 @@ void main() {
 
   group('ordenação de músicos', () {
     test('nome_asc e nome_desc', () {
-      final esperado = nomes(MockData.musicos)
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      const esperado = ['Banda Eclipse', 'DJ Pulse', 'Duo Acústico Sol'];
 
       provider.ordenarMusicos('nome_asc');
       expect(nomes(provider.musicos), esperado);
@@ -104,12 +168,10 @@ void main() {
 
     test('cache_maior e cache_menor', () {
       provider.ordenarMusicos('cache_maior');
-      final maior = provider.musicos.map((m) => m.cacheMedio).toList();
-      expect(maior, [...maior]..sort((a, b) => b.compareTo(a)));
+      expect(provider.musicos.map((m) => m.cacheMedio), [1500, 1200, 800]);
 
       provider.ordenarMusicos('cache_menor');
-      final menor = provider.musicos.map((m) => m.cacheMedio).toList();
-      expect(menor, [...menor]..sort());
+      expect(provider.musicos.map((m) => m.cacheMedio), [800, 1200, 1500]);
     });
 
     test('ordenação é mantida ao aplicar filtro', () {
@@ -117,21 +179,20 @@ void main() {
         ..ordenarMusicos('cache_menor')
         ..filtrarMusicos(genero: '');
 
-      final caches = provider.musicos.map((m) => m.cacheMedio).toList();
-      expect(caches, [...caches]..sort());
+      expect(provider.musicos.map((m) => m.cacheMedio), [800, 1200, 1500]);
     });
   });
 
   group('filtros de oportunidades', () {
     test('filtra por gênero e cidade e reseta', () {
       provider.filtrarOportunidades(genero: 'Rock');
-      expect(provider.oportunidades.every((o) => o.generoMusical == 'Rock'), isTrue);
+      expect(provider.oportunidades.map((o) => o.id), unorderedEquals(['1', '3']));
 
       provider.filtrarOportunidades(cidade: 'SERTÃOZINHO');
       expect(provider.oportunidades.map((o) => o.cidade), ['Sertãozinho']);
 
       provider.resetarFiltroOportunidades();
-      expect(provider.oportunidades, hasLength(MockData.oportunidades.length));
+      expect(provider.oportunidades, hasLength(_oportunidades.length));
     });
   });
 
@@ -152,36 +213,25 @@ void main() {
       expect(soRock(provider), isTrue);
     });
 
-    test('ao criar uma oportunidade', () async {
+    test('ao criar uma oportunidade (volta pelo stream)', () async {
       provider.filtrarOportunidades(genero: 'Rock');
 
       await provider.criarOportunidade(
-        MockData.oportunidades.first.copyWith(generoMusical: 'MPB'),
-        'e1',
+        oportunidadeTeste(id: '', generoMusical: 'MPB'),
+        'u1',
       );
+      await aguardar();
 
       expect(soRock(provider), isTrue);
+      expect(provider.minhasOportunidades('u1'), hasLength(1));
     });
   });
 
-  group('oportunidades do dono (modo mock)', () {
-    test('criarOportunidade grava com o donoId e aparece em minhasOportunidades', () async {
-      final ok = await provider.criarOportunidade(
-        MockData.oportunidades.first.copyWith(titulo: 'Minha vaga'),
-        'e1',
-      );
-
-      final minhas = provider.minhasOportunidades('e1');
-      expect(ok, isTrue);
-      expect(minhas.map((o) => o.titulo), ['Minha vaga']);
-      expect(minhas.single.donoId, 'e1');
-      expect(provider.oportunidades, hasLength(MockData.oportunidades.length + 1));
-    });
-
-    test('minhasOportunidades ignora as de outros donos e uid nulo', () {
-      expect(provider.minhasOportunidades('e1'), isEmpty);
+  group('oportunidades do dono', () {
+    test('minhasOportunidades filtra pelo dono e ignora uid nulo', () {
+      expect(provider.minhasOportunidades('e2').map((o) => o.id), ['1']);
+      expect(provider.minhasOportunidades('u1'), isEmpty);
       expect(provider.minhasOportunidades(null), isEmpty);
-      expect(provider.minhasOportunidades('mock-estabelecimento-1'), hasLength(1));
     });
   });
 
@@ -194,7 +244,7 @@ void main() {
     });
 
     test('encontra oportunidade mesmo fora do filtro atual', () {
-      provider.filtrarOportunidades(genero: 'Rock');
+      provider.filtrarOportunidades(genero: 'MPB');
 
       expect(provider.buscarOportunidadePorId('1')?.contratante, 'Bar Central');
       expect(provider.buscarOportunidadePorId('nao-existe'), isNull);

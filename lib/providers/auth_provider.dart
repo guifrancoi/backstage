@@ -9,7 +9,7 @@ import '../services/firebase_data_service.dart';
 class AuthProvider extends ChangeNotifier {
   AuthProvider({FirebaseDataService? service})
     : _service = service ?? FirebaseDataService() {
-    if (_service.isEnabled && _service.currentUserId != null) {
+    if (_service.currentUserId != null) {
       _isLoggedIn = true;
       _userEmail = _service.currentUserEmail;
       _userId = _service.currentUserId;
@@ -67,16 +67,6 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    if (!_service.isEnabled) {
-      await Future.delayed(const Duration(seconds: 1));
-
-      _isLoading = false;
-
-      _errorMessage = 'Falha na conexão dos nosso serviços. Por favor, tente novamente mais tarde.';
-      notifyListeners();
-      return false;
-    }
-
     try {
       final credential = await _service.login(email: email, senha: senha);
       _userId = credential.user?.uid;
@@ -108,18 +98,6 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
-    if (!_service.isEnabled) {
-      await Future.delayed(const Duration(seconds: 1));
-
-      _isLoading = false;
-      _isLoggedIn = true;
-      _userId = 'mock-user';
-      _userEmail = email;
-      notifyListeners();
-
-      return true;
-    }
 
     try {
       final credential = await _service.cadastrar(
@@ -153,14 +131,6 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    if (!_service.isEnabled) {
-      await Future.delayed(const Duration(seconds: 1));
-
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    }
-
     try {
       await _service.recuperarSenha(email);
       return true;
@@ -175,11 +145,8 @@ class AuthProvider extends ChangeNotifier {
 
   /// Retorna `true` quando o onboarding está pendente: sem `tipoUsuario`, ou
   /// o perfil do tipo não existe / não está `completo`. Admin nunca passa
-  /// pelo onboarding. No modo mock nunca bloqueia a navegação; um erro de
-  /// leitura também não bloqueia (assume completo).
+  /// pelo onboarding. Um erro de leitura não bloqueia (assume completo).
   Future<bool> precisaCompletarPerfil() async {
-    if (!_service.isEnabled) return false;
-
     final uid = _userId;
     if (uid == null) return false;
 
@@ -220,9 +187,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    if (_service.isEnabled) {
-      await _service.logout();
-    }
+    await _service.logout();
 
     _isLoggedIn = false;
     _userId = null;

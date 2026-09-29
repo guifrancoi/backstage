@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/utils/data_hora.dart';
+import '../../models/agenda_publica.dart';
+import '../../providers/agenda_provider.dart';
+
+/// Próximos dias disponíveis e ocupados de um músico (substitui o antigo
+/// `Musico.datasDisponiveis`). Lê `disponibilidades` + `ocupacoes`.
+class AgendaPublicaSecao extends StatefulWidget {
+  const AgendaPublicaSecao({super.key, required this.musicoId});
+
+  final String musicoId;
+
+  @override
+  State<AgendaPublicaSecao> createState() => _AgendaPublicaSecaoState();
+}
+
+class _AgendaPublicaSecaoState extends State<AgendaPublicaSecao> {
+  // Criado uma vez: um stream novo a cada build reiniciaria a leitura.
+  late final Stream<AgendaPublica> _agenda = context
+      .read<AgendaProvider>()
+      .agendaPublica(widget.musicoId);
+
+  /// Só dias de hoje em diante, em ordem.
+  List<DateTime> _futuros(Iterable<String> dias) {
+    final agora = DateTime.now();
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    return dias
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .where((d) => !d.isBefore(hoje))
+        .toList()
+      ..sort();
+  }
+
+  Widget _linha(String titulo, List<DateTime> dias, Color cor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(titulo),
+          const SizedBox(height: 4),
+          if (dias.isEmpty)
+            const Text('—', style: TextStyle(color: Colors.grey))
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final dia in dias.take(12))
+                  Chip(
+                    label: Text(formatarData(dia)),
+                    backgroundColor: cor.withValues(alpha: 0.15),
+                    side: BorderSide(color: cor),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AgendaPublica>(
+      stream: _agenda,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Text('Não foi possível carregar a agenda.');
+        }
+        final agenda = snapshot.data;
+        if (agenda == null) {
+          return const LinearProgressIndicator();
+        }
+
+        final ocupados = _futuros(agenda.ocupados);
+        final disponiveis = _futuros(
+          agenda.disponiveis.where((d) => !agenda.ocupado(d)),
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _linha('Disponível', disponiveis, Colors.green),
+            _linha('Ocupado', ocupados, Colors.deepPurple),
+          ],
+        );
+      },
+    );
+  }
+}
