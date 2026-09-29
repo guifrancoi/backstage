@@ -4,15 +4,22 @@ import '../models/mensagem.dart';
 class MensagemBubble extends StatelessWidget {
   final Mensagem mensagem;
 
-  const MensagemBubble({super.key, required this.mensagem});
+  /// Calculado pela tela (`mensagem.remetenteId == uid logado`).
+  final bool enviadaPorMim;
+
+  const MensagemBubble({
+    super.key,
+    required this.mensagem,
+    required this.enviadaPorMim,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final alignment = mensagem.enviadaPorMim
+    final alignment = enviadaPorMim
         ? CrossAxisAlignment.end
         : CrossAxisAlignment.start;
 
-    final color = mensagem.enviadaPorMim
+    final color = enviadaPorMim
         ? Colors.deepPurple.shade100
         : Colors.grey.shade300;
 

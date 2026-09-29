@@ -1,3 +1,5 @@
+import '../core/constants/app_strings.dart';
+
 class Musico {
   final String id;
   final String nomeArtistico;
@@ -8,7 +10,9 @@ class Musico {
   final List<String> portfolioLinks;
   final List<String> datasDisponiveis;
   final String? fotoPath;
-  final bool interesseEnviado;
+
+  /// Criado pela conta admin: não aparece para os outros usuários.
+  final bool oculto;
 
   Musico({
     required this.id,
@@ -20,8 +24,17 @@ class Musico {
     required this.portfolioLinks,
     required this.datasDisponiveis,
     this.fotoPath,
-    bool? interesseEnviado,
-  }) : interesseEnviado = interesseEnviado ?? false;
+    this.oculto = false,
+  });
+
+  /// Campos obrigatórios do perfil (os mesmos do formulário de edição):
+  /// nome artístico, gênero da lista, cidade, cachê e descrição.
+  bool get completo =>
+      nomeArtistico.trim().isNotEmpty &&
+      AppStrings.generosMusicais.contains(generoMusical) &&
+      cidade.trim().isNotEmpty &&
+      descricao.trim().isNotEmpty &&
+      cacheMedio >= 0;
 
   Musico copyWith({
     String? id,
@@ -33,7 +46,7 @@ class Musico {
     List<String>? portfolioLinks,
     List<String>? datasDisponiveis,
     String? fotoPath,
-    bool? interesseEnviado,
+    bool? oculto,
     bool clearFotoPath = false,
   }) {
     return Musico(
@@ -46,7 +59,7 @@ class Musico {
       portfolioLinks: portfolioLinks ?? this.portfolioLinks,
       datasDisponiveis: datasDisponiveis ?? this.datasDisponiveis,
       fotoPath: clearFotoPath ? null : (fotoPath ?? this.fotoPath),
-      interesseEnviado: interesseEnviado ?? this.interesseEnviado,
+      oculto: oculto ?? this.oculto,
     );
   }
 
@@ -63,7 +76,7 @@ class Musico {
         map['datasDisponiveis'] as List? ?? [],
       ),
       fotoPath: map['fotoPath'] as String?,
-      interesseEnviado: map['interesseEnviado'] as bool? ?? false,
+      oculto: map['oculto'] as bool? ?? false,
     );
   }
 
@@ -77,7 +90,7 @@ class Musico {
       'portfolioLinks': portfolioLinks,
       'datasDisponiveis': datasDisponiveis,
       'fotoPath': fotoPath,
-      'interesseEnviado': interesseEnviado,
+      'oculto': oculto,
     };
   }
 }

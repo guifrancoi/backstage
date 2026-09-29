@@ -1,35 +1,26 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../data/mock_data.dart';
-import '../models/interesse.dart';
-import '../models/interesse_musico.dart';
 import '../models/musico.dart';
 import '../models/oportunidade.dart';
 import '../services/firebase_data_service.dart';
 
+/// Catálogo de músicos e oportunidades (busca, filtros, ordenação) e as
+/// oportunidades criadas pelo dono logado. Interesses ficam no
+/// `InteresseProvider`.
 class OportunidadeProvider extends ChangeNotifier {
   OportunidadeProvider({FirebaseDataService? service})
     : _service = service ?? FirebaseDataService() {
-    musicosStream = _service.streamMusicos();
-    oportunidadesStream = _service.streamOportunidades();
-
     if (_service.isEnabled) {
-      _musicosSubscription = _service.streamMusicos().listen((lista) {
-        _todosMusicos = lista;
-        _aplicarStatusInteresses();
-        _aplicarFiltrosAtuais();
-        notifyListeners();
-      });
-      _oportunidadesSubscription = _service.streamOportunidades().listen((lista) {
-        _todasOportunidades = lista;
-        _aplicarStatusInteresses();
-        _aplicarFiltrosAtuais();
-        notifyListeners();
-      });
-      _authSubscription = _service.authUserIds.listen((_) => _carregarInteresses());
-      _service.seedDadosIniciais().then((_) => _carregarInteresses());
+      // Com Firebase nunca mostrar o catálogo de demonstração do MockData:
+      // começa vazio e é preenchido pelo Firestore.
+      _todosMusicos = [];
+      _todasOportunidades = [];
+      _aplicarFiltrosAtuais();
+      _authSubscription = _service.authUserIds.listen(_escutar);
     }
   }
 
@@ -38,16 +29,78 @@ class OportunidadeProvider extends ChangeNotifier {
   StreamSubscription<List<Musico>>? _musicosSubscription;
   StreamSubscription<List<Oportunidade>>? _oportunidadesSubscription;
 
-  late final Stream<List<Musico>> musicosStream;
-  late final Stream<List<Oportunidade>> oportunidadesStream;
-
   List<Musico> _todosMusicos = [...MockData.musicos];
   List<Oportunidade> _todasOportunidades = [...MockData.oportunidades];
   List<Musico> _musicos = [...MockData.musicos];
   List<Oportunidade> _oportunidades = [...MockData.oportunidades];
 
-  List<Interesse> _interesses = [];
-  List<InteresseMusico> _interessesMusicos = [];
+  bool _carregandoMusicos = false;
+  bool _carregandoOportunidades = false;
+  bool _erroMusicos = false;
+  bool _erroOportunidades = false;
+
+  /// Admin enxerga os itens `oculto` (criados por ele); os outros não.
+  bool _isAdmin = false;
+
+  bool get carregandoMusicos => _carregandoMusicos;
+  bool get carregandoOportunidades => _carregandoOportunidades;
+  bool get erroMusicos => _erroMusicos;
+  bool get erroOportunidades => _erroOportunidades;
+
+  /// As regras exigem login para ler o catálogo: no logout o Firestore
+  /// encerra os listeners, e sem reassinar a lista ficaria congelada no
+  /// próximo login. Por isso reassina a cada troca de conta.
+  void _escutar(String? uid) {
+    _musicosSubscription?.cancel();
+    _oportunidadesSubscription?.cancel();
+    _musicosSubscription = null;
+    _oportunidadesSubscription = null;
+    _todosMusicos = [];
+    _todasOportunidades = [];
+    _erroMusicos = false;
+    _erroOportunidades = false;
+    _carregandoMusicos = uid != null;
+    _carregandoOportunidades = uid != null;
+    _isAdmin = false;
+    _aplicarFiltrosAtuais();
+    notifyListeners();
+    if (uid == null) return;
+
+    _service.ehAdmin().then((admin) {
+      if (!admin || _service.currentUserId != uid) return;
+      _isAdmin = true;
+      _aplicarFiltrosAtuais();
+      notifyListeners();
+    }, onError: (_) {});
+
+    _musicosSubscription = _service.streamMusicos().listen(
+      (lista) {
+        _todosMusicos = lista;
+        _carregandoMusicos = false;
+        _aplicarFiltrosAtuais();
+        notifyListeners();
+      },
+      onError: (_) {
+        _carregandoMusicos = false;
+        _erroMusicos = true;
+        notifyListeners();
+      },
+    );
+    _oportunidadesSubscription = _service.streamOportunidades().listen(
+      (lista) {
+        _todasOportunidades = lista;
+        _carregandoOportunidades = false;
+        _aplicarFiltrosAtuais();
+        notifyListeners();
+      },
+      onError: (_) {
+        _carregandoOportunidades = false;
+        _erroOportunidades = true;
+        notifyListeners();
+      },
+    );
+    _service.seedDadosIniciais().catchError((_) {});
+  }
 
   String? _generoSelecionadoMusicos;
   String? _cidadeFiltroMusicos;
@@ -57,38 +110,103 @@ class OportunidadeProvider extends ChangeNotifier {
   String? _generoFiltroOportunidades;
   String? _cidadeFiltroOportunidades;
 
+  String? _errorMessage;
+
   List<Musico> get musicos => _musicos;
   List<Oportunidade> get oportunidades => _oportunidades;
-  List<Interesse> get interesses => _interesses;
-  List<InteresseMusico> get interessesMusicos => _interessesMusicos;
 
   String? get generoSelecionadoMusicos => _generoSelecionadoMusicos;
   String? get cidadeFiltroMusicos => _cidadeFiltroMusicos;
   String get termoPesquisa => _termoPesquisa;
   String get tipoOrdenacao => _tipoOrdenacao;
+  String? get errorMessage => _errorMessage;
 
-  // Listas de interesse ignoram os filtros de busca ativos.
-  List<Oportunidade> get oportunidadesComInteresse =>
-      _todasOportunidades.where((o) => o.interesseEnviado).toList();
+  /// Oportunidades do dono [donoId], da mais próxima para a mais distante.
+  List<Oportunidade> minhasOportunidades(String? donoId) {
+    if (donoId == null) return [];
+    return _todasOportunidades.where((o) => o.donoId == donoId).toList()
+      ..sort((a, b) => a.dataEvento.compareTo(b.dataEvento));
+  }
 
-  List<Musico> get musicosComInteresse =>
-      _todosMusicos.where((m) => m.interesseEnviado).toList();
+  /// Grava a oportunidade com `donoId` = [donoId]. Com Firebase, o stream traz
+  /// o documento de volta; no mock, entra direto na lista. O que a conta admin
+  /// cria sai `oculto`.
+  Future<bool> criarOportunidade(Oportunidade oportunidade, String donoId) async {
+    final comDono = oportunidade.copyWith(donoId: donoId, oculto: _isAdmin);
+    _errorMessage = null;
 
-  Future<void> _carregarInteresses() async {
-    final usuarioId = _service.currentUserId;
-    if (usuarioId == null) return;
-
-    try {
-      final results = await Future.wait([
-        _service.listarInteresses(usuarioId),
-        _service.listarInteressesMusicos(usuarioId),
-      ]);
-      _interesses = results[0] as List<Interesse>;
-      _interessesMusicos = results[1] as List<InteresseMusico>;
-      _aplicarStatusInteresses();
+    if (!_service.isEnabled) {
+      _todasOportunidades = [
+        ..._todasOportunidades,
+        comDono.copyWith(id: 'mock-${DateTime.now().millisecondsSinceEpoch}'),
+      ];
       _aplicarFiltrosAtuais();
       notifyListeners();
-    } catch (_) {}
+      return true;
+    }
+
+    try {
+      await _service.criarOportunidade(comDono);
+      return true;
+    } on FirebaseException catch (error) {
+      _errorMessage = error.code == 'permission-denied'
+          ? 'Sem permissão para criar oportunidade.'
+          : 'Não foi possível salvar a oportunidade.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Edita uma oportunidade existente (dono ou admin, pelas regras). Mantém
+  /// `donoId` e `oculto` originais.
+  Future<bool> atualizarOportunidade(Oportunidade oportunidade) async {
+    final original = buscarOportunidadePorId(oportunidade.id);
+    final editada = oportunidade.copyWith(
+      donoId: original?.donoId,
+      oculto: original?.oculto,
+    );
+    return _alterar(
+      firebase: () => _service.atualizarOportunidade(editada),
+      mock: () => [
+        for (final o in _todasOportunidades) o.id == editada.id ? editada : o,
+      ],
+      acao: 'editar',
+    );
+  }
+
+  Future<bool> removerOportunidade(String oportunidadeId) {
+    return _alterar(
+      firebase: () => _service.removerOportunidade(oportunidadeId),
+      mock: () =>
+          _todasOportunidades.where((o) => o.id != oportunidadeId).toList(),
+      acao: 'remover',
+    );
+  }
+
+  Future<bool> _alterar({
+    required Future<void> Function() firebase,
+    required List<Oportunidade> Function() mock,
+    required String acao,
+  }) async {
+    _errorMessage = null;
+
+    if (!_service.isEnabled) {
+      _todasOportunidades = mock();
+      _aplicarFiltrosAtuais();
+      notifyListeners();
+      return true;
+    }
+
+    try {
+      await firebase();
+      return true;
+    } on FirebaseException catch (error) {
+      _errorMessage = error.code == 'permission-denied'
+          ? 'Sem permissão para $acao esta oportunidade.'
+          : 'Não foi possível $acao a oportunidade.';
+      notifyListeners();
+      return false;
+    }
   }
 
   void filtrarMusicos({String? genero, String? cidade}) {
@@ -133,130 +251,23 @@ class OportunidadeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool jaDemonstrouInteresse(String oportunidadeId) {
-    return _todasOportunidades.any(
-      (o) => o.id == oportunidadeId && o.interesseEnviado,
-    );
-  }
-
-  Future<void> demonstrarInteresse({
-    required String oportunidadeId,
-    required String usuarioId,
-  }) async {
-    final index = _oportunidades.indexWhere((o) => o.id == oportunidadeId);
-    if (index == -1 || _oportunidades[index].interesseEnviado) return;
-
-    final idUsuario = _usuarioId(usuarioId);
-    final interesse = Interesse(
-      id: '${idUsuario}_$oportunidadeId',
-      oportunidadeId: oportunidadeId,
-      usuarioId: idUsuario,
-      dataHora: DateTime.now(),
-    );
-
-    _interesses.add(interesse);
-    _marcarOportunidade(oportunidadeId, interesseEnviado: true);
-    notifyListeners();
-
-    if (_service.isEnabled) {
-      await _service.salvarInteresse(interesse);
-    }
-  }
-
-  Future<void> removerInteresse(String oportunidadeId) async {
-    final interesse = _interesses
-        .where((i) => i.oportunidadeId == oportunidadeId)
-        .firstOrNull;
-
-    _interesses.removeWhere((i) => i.oportunidadeId == oportunidadeId);
-    _marcarOportunidade(oportunidadeId, interesseEnviado: false);
-    notifyListeners();
-
-    if (_service.isEnabled && interesse != null) {
-      await _service.removerInteresse(interesse.id);
-    }
-  }
-
-  Future<void> demonstrarInteresseEmMusico({
-    required String musicoId,
-    required String usuarioId,
-  }) async {
-    final index = _musicos.indexWhere((m) => m.id == musicoId);
-    if (index == -1 || _musicos[index].interesseEnviado) return;
-
-    final idUsuario = _usuarioId(usuarioId);
-    final interesse = InteresseMusico(
-      id: '${idUsuario}_$musicoId',
-      musicoId: musicoId,
-      usuarioId: idUsuario,
-      dataHora: DateTime.now(),
-    );
-
-    _interessesMusicos.add(interesse);
-    _marcarMusico(musicoId, interesseEnviado: true);
-    notifyListeners();
-
-    if (_service.isEnabled) {
-      await _service.salvarInteresseMusico(interesse);
-    }
-  }
-
-  Future<void> removerInteresseEmMusico(String musicoId) async {
-    final interesse = _interessesMusicos
-        .where((i) => i.musicoId == musicoId)
-        .firstOrNull;
-
-    _interessesMusicos.removeWhere((i) => i.musicoId == musicoId);
-    _marcarMusico(musicoId, interesseEnviado: false);
-    notifyListeners();
-
-    if (_service.isEnabled && interesse != null) {
-      await _service.removerInteresseMusico(interesse.id);
-    }
-  }
-
   Musico? buscarMusicoPorId(String id) {
-    try {
-      return _musicos.firstWhere((m) => m.id == id);
-    } catch (_) {
-      try {
-        return _todosMusicos.firstWhere((m) => m.id == id);
-      } catch (_) {
-        return null;
-      }
+    for (final musico in _todosMusicos) {
+      if (musico.id == id) return musico;
     }
+    return null;
   }
 
   Oportunidade? buscarOportunidadePorId(String id) {
-    try {
-      return _oportunidades.firstWhere((o) => o.id == id);
-    } catch (_) {
-      try {
-        return _todasOportunidades.firstWhere((o) => o.id == id);
-      } catch (_) {
-        return null;
-      }
+    for (final oportunidade in _todasOportunidades) {
+      if (oportunidade.id == id) return oportunidade;
     }
-  }
-
-  void _aplicarStatusInteresses() {
-    _todosMusicos = _todosMusicos.map((musico) {
-      final interesseExiste = _interessesMusicos.any(
-        (interesse) => interesse.musicoId == musico.id,
-      );
-      return musico.copyWith(interesseEnviado: interesseExiste);
-    }).toList();
-
-    _todasOportunidades = _todasOportunidades.map((oportunidade) {
-      final interesseExiste = _interesses.any(
-        (interesse) => interesse.oportunidadeId == oportunidade.id,
-      );
-      return oportunidade.copyWith(interesseEnviado: interesseExiste);
-    }).toList();
+    return null;
   }
 
   void _aplicarFiltrosAtuais() {
     _musicos = _todosMusicos.where((m) {
+      if (m.oculto && !_isAdmin) return false;
       final genero = _generoSelecionadoMusicos;
       final cidade = _cidadeFiltroMusicos;
 
@@ -268,17 +279,18 @@ class OportunidadeProvider extends ChangeNotifier {
           cidade.isEmpty ||
           m.cidade.toLowerCase().contains(cidade.toLowerCase());
 
-      final pesquisaValida = _termoPesquisa.isEmpty ||
+      final pesquisaValida =
+          _termoPesquisa.isEmpty ||
           m.nomeArtistico.toLowerCase().contains(_termoPesquisa.toLowerCase()) ||
           m.descricao.toLowerCase().contains(_termoPesquisa.toLowerCase());
 
       return generoValido && cidadeValida && pesquisaValida;
     }).toList();
 
-    // Aplicar ordenação
     _aplicarOrdenacao();
 
     _oportunidades = _todasOportunidades.where((o) {
+      if (o.oculto && !_isAdmin) return false;
       final genero = _generoFiltroOportunidades;
       final cidade = _cidadeFiltroOportunidades;
 
@@ -297,12 +309,18 @@ class OportunidadeProvider extends ChangeNotifier {
   void _aplicarOrdenacao() {
     switch (_tipoOrdenacao) {
       case 'nome_asc':
-        _musicos.sort((a, b) =>
-            a.nomeArtistico.toLowerCase().compareTo(b.nomeArtistico.toLowerCase()));
+        _musicos.sort(
+          (a, b) => a.nomeArtistico.toLowerCase().compareTo(
+            b.nomeArtistico.toLowerCase(),
+          ),
+        );
         break;
       case 'nome_desc':
-        _musicos.sort((a, b) =>
-            b.nomeArtistico.toLowerCase().compareTo(a.nomeArtistico.toLowerCase()));
+        _musicos.sort(
+          (a, b) => b.nomeArtistico.toLowerCase().compareTo(
+            a.nomeArtistico.toLowerCase(),
+          ),
+        );
         break;
       case 'cache_maior':
         _musicos.sort((a, b) => b.cacheMedio.compareTo(a.cacheMedio));
@@ -311,35 +329,6 @@ class OportunidadeProvider extends ChangeNotifier {
         _musicos.sort((a, b) => a.cacheMedio.compareTo(b.cacheMedio));
         break;
     }
-  }
-
-  void _marcarMusico(String musicoId, {required bool interesseEnviado}) {
-    _todosMusicos = _todosMusicos
-        .map(
-          (musico) => musico.id == musicoId
-              ? musico.copyWith(interesseEnviado: interesseEnviado)
-              : musico,
-        )
-        .toList();
-    _aplicarFiltrosAtuais();
-  }
-
-  void _marcarOportunidade(
-    String oportunidadeId, {
-    required bool interesseEnviado,
-  }) {
-    _todasOportunidades = _todasOportunidades
-        .map(
-          (oportunidade) => oportunidade.id == oportunidadeId
-              ? oportunidade.copyWith(interesseEnviado: interesseEnviado)
-              : oportunidade,
-        )
-        .toList();
-    _aplicarFiltrosAtuais();
-  }
-
-  String _usuarioId(String fallback) {
-    return _service.currentUserId ?? fallback;
   }
 
   @override

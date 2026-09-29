@@ -10,6 +10,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    // Custom claim aplicada só pelo Admin SDK (definir-admin.js). Um campo
+    // "admin" em usuarios não vale: o próprio usuário consegue gravar lá.
+    function ehAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
     // tipoUsuario só pode ser definido uma vez (onboarding); depois de
     // setado, não pode ser trocado (musico <-> casaShow), para não deixar
     // perfis_musicos/estabelecimentos órfãos.
@@ -40,31 +46,78 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.donoId == request.auth.uid;
-      allow update, delete: if signedIn()
-        && resource.data.donoId == request.auth.uid;
+      allow update, delete: if ehAdmin()
+        || (signedIn() && resource.data.donoId == request.auth.uid);
     }
 
-    // Sem vínculo a participantes reais ainda (Conversa só tem nomeContato +
-    // mensagens embutidas) — restringir por participante é redesenho do
-    // chat, fora deste plano.
+    function tipoDoUsuario() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipoUsuario;
+    }
+
+    function donoDaOportunidade(oportunidadeId) {
+      return get(/databases/$(database)/documents/oportunidades/$(oportunidadeId)).data.donoId;
+    }
+
+    // Candidatura: músico -> oportunidade; o destinatário é o dono dela.
+    function candidaturaValida(d) {
+      return d.tipo == 'candidatura'
+        && (ehAdmin() || tipoDoUsuario() == 'musico')
+        && d.musicoId == request.auth.uid
+        && d.oportunidadeId is string
+        && donoDaOportunidade(d.oportunidadeId) == d.destinatarioId;
+    }
+
+    // Convite: dono -> músico de verdade (catálogo de demonstração não tem
+    // conta em usuarios); se citar uma oportunidade, tem que ser dele.
+    function conviteValido(d) {
+      return d.tipo == 'convite'
+        && (ehAdmin() || tipoDoUsuario() == 'casaShow')
+        && d.destinatarioId == d.musicoId
+        && get(/databases/$(database)/documents/usuarios/$(d.musicoId)).data.tipoUsuario == 'musico'
+        && (!('oportunidadeId' in d)
+          || donoDaOportunidade(d.oportunidadeId) == request.auth.uid);
+    }
+
+    match /interesses/{interesseId} {
+      allow read: if signedIn()
+        && (resource.data.remetenteId == request.auth.uid
+          || resource.data.destinatarioId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.remetenteId == request.auth.uid
+        && request.resource.data.destinatarioId != request.auth.uid
+        && request.resource.data.status == 'pendente'
+        && (candidaturaValida(request.resource.data)
+          || conviteValido(request.resource.data));
+      // Só o destinatário responde, uma vez, e só mexe na resposta.
+      allow update: if signedIn()
+        && resource.data.destinatarioId == request.auth.uid
+        && resource.data.status == 'pendente'
+        && request.resource.data.status in ['aceito', 'recusado']
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'respondidoEm', 'conversaId']);
+      // Cancelar = o remetente apaga enquanto ninguém respondeu.
+      allow delete: if signedIn()
+        && resource.data.remetenteId == request.auth.uid
+        && resource.data.status == 'pendente';
+    }
+
+    // A conversa nasce quando o destinatário aceita um interesse (mesmo id,
+    // mesmo batch) e só os dois participantes enxergam ou escrevem nela.
     match /conversas/{conversaId} {
-      allow read, write: if signedIn();
-    }
+      function interesseAceito() {
+        return getAfter(/databases/$(database)/documents/interesses/$(conversaId)).data;
+      }
 
-    match /interesses_oportunidades/{interesseId} {
-      allow read: if signedIn() && resource.data.usuarioId == request.auth.uid;
+      allow read: if signedIn()
+        && request.auth.uid in resource.data.participantes;
       allow create: if signedIn()
-        && request.resource.data.usuarioId == request.auth.uid;
-      allow update, delete: if signedIn()
-        && resource.data.usuarioId == request.auth.uid;
-    }
-
-    match /interesses_musicos/{interesseId} {
-      allow read: if signedIn() && resource.data.usuarioId == request.auth.uid;
-      allow create: if signedIn()
-        && request.resource.data.usuarioId == request.auth.uid;
-      allow update, delete: if signedIn()
-        && resource.data.usuarioId == request.auth.uid;
+        && interesseAceito().destinatarioId == request.auth.uid
+        && interesseAceito().status == 'aceito'
+        && request.resource.data.participantes
+          == [interesseAceito().remetenteId, request.auth.uid];
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participantes
+        && request.resource.data.participantes == resource.data.participantes;
     }
 
     match /disponibilidades/{disponibilidadeId} {

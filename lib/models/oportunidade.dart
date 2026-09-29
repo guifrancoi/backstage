@@ -8,11 +8,13 @@ class Oportunidade {
   final double cacheOferecido;
   final String contratante;
   final String donoId;
-  final bool interesseEnviado;
   final String logradouro;
   final String numero;
   final String estado;
   final String? cep;
+
+  /// Criada pela conta admin: não aparece para os outros usuários.
+  final bool oculto;
 
   Oportunidade({
     required this.id,
@@ -27,9 +29,12 @@ class Oportunidade {
     required this.logradouro,
     required this.numero,
     required this.estado,
-    bool? interesseEnviado,
     this.cep,
-  }) : interesseEnviado = interesseEnviado ?? false;
+    this.oculto = false,
+  });
+
+  /// Oportunidades de catálogo/demonstração não têm dono e não recebem candidatura.
+  bool get temDono => donoId.isNotEmpty;
 
   Oportunidade copyWith({
     String? id,
@@ -41,11 +46,11 @@ class Oportunidade {
     double? cacheOferecido,
     String? contratante,
     String? donoId,
-    bool? interesseEnviado,
     String? logradouro,
     String? numero,
     String? estado,
     String? cep,
+    bool? oculto,
     bool clearCep = false,
   }) {
     return Oportunidade(
@@ -58,11 +63,11 @@ class Oportunidade {
       cacheOferecido: cacheOferecido ?? this.cacheOferecido,
       contratante: contratante ?? this.contratante,
       donoId: donoId ?? this.donoId,
-      interesseEnviado: interesseEnviado ?? this.interesseEnviado,
       logradouro: logradouro ?? this.logradouro,
       numero: numero ?? this.numero,
       estado: estado ?? this.estado,
       cep: clearCep ? null : (cep ?? this.cep),
+      oculto: oculto ?? this.oculto,
     );
   }
 
@@ -76,14 +81,13 @@ class Oportunidade {
       dataEvento: _dateTimeFromValue(map['dataEvento']),
       cacheOferecido: (map['cacheOferecido'] as num?)?.toDouble() ?? 0,
       contratante: map['contratante'] as String? ?? '',
-      // Fallback vazio: oportunidades gravadas antes da migração do Plano 4
-      // ainda não têm dono associado no Firestore.
+      // Vazio nas oportunidades de catálogo restauradas do backup (sem dono).
       donoId: map['donoId'] as String? ?? '',
-      interesseEnviado: map['interesseEnviado'] as bool? ?? false,
       logradouro: map['logradouro'] as String? ?? '',
       numero: map['numero'] as String? ?? '',
       estado: map['estado'] as String? ?? '',
       cep: map['cep'] as String?,
+      oculto: map['oculto'] as bool? ?? false,
     );
   }
 
@@ -97,11 +101,11 @@ class Oportunidade {
       'cacheOferecido': cacheOferecido,
       'contratante': contratante,
       'donoId': donoId,
-      'interesseEnviado': interesseEnviado,
       'logradouro': logradouro,
       'numero': numero,
       'estado': estado,
-      if (cep != null) 'cep': cep,
+      'cep': ?cep,
+      'oculto': oculto,
     };
   }
 }

@@ -59,5 +59,43 @@ void main() {
       expect(alterado.nome, original.nome);
       expect(original.cidade, 'Ribeirão Preto');
     });
+
+    test('endereço, cep e oculto fazem ida e volta no mapa', () {
+      final original = _casaShow().copyWith(
+        logradouro: 'Rua A',
+        numero: '10',
+        estado: 'SP',
+        cep: '14400-000',
+        oculto: true,
+      );
+
+      final copia = CasaShow.fromMap('e1', original.toMap());
+
+      expect(copia.logradouro, 'Rua A');
+      expect(copia.numero, '10');
+      expect(copia.estado, 'SP');
+      expect(copia.cep, '14400-000');
+      expect(copia.oculto, isTrue);
+      expect(_casaShow().toMap().containsKey('cep'), isFalse);
+      expect(CasaShow.fromMap('x', {}).oculto, isFalse);
+    });
+
+    test('completo exige nome, cidade, endereço e contato', () {
+      final semEndereco = _casaShow();
+      final completo = semEndereco.copyWith(
+        logradouro: 'Rua A',
+        numero: '10',
+        estado: 'SP',
+      );
+
+      expect(semEndereco.completo, isFalse);
+      expect(completo.completo, isTrue);
+      expect(completo.copyWith(contato: ' ').completo, isFalse);
+      // Opcionais vazios não atrapalham.
+      expect(
+        completo.copyWith(cnpj: '', descricao: '', estilosDesejados: []).completo,
+        isTrue,
+      );
+    });
   });
 }

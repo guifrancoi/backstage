@@ -8,6 +8,7 @@ import 'core/firebase/firebase_bootstrap.dart';
 import 'providers/agenda_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/interesse_provider.dart';
 import 'providers/oportunidade_provider.dart';
 import 'providers/perfil_provider.dart';
 import 'services/location_service.dart';
@@ -26,6 +27,7 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => OportunidadeProvider()),
           ChangeNotifierProvider(create: (_) => AgendaProvider()),
           ChangeNotifierProvider(create: (_) => ChatProvider()),
+          ChangeNotifierProvider(create: (_) => InteresseProvider()),
           Provider<LocationService>(
             create: (_) => LocationService(),
             dispose: (_, s) => s.dispose(),

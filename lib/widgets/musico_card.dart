@@ -3,19 +3,25 @@ import '../models/musico.dart';
 
 class MusicoCard extends StatelessWidget {
   final Musico musico;
-  final VoidCallback onDemonstrarInteresse;
   final VoidCallback onVerDetalhes;
+
+  /// `null` esconde o botão (ex.: quem vê não é dono de estabelecimento).
+  final VoidCallback? onConvidar;
+
+  /// Rótulo do convite já enviado; quando presente o botão fica desabilitado.
+  final String? statusConvite;
 
   const MusicoCard({
     super.key,
     required this.musico,
-    required this.onDemonstrarInteresse,
     required this.onVerDetalhes,
+    this.onConvidar,
+    this.statusConvite,
   });
 
   @override
   Widget build(BuildContext context) {
-    final interesseEnviado = musico.interesseEnviado == true;
+    final mostrarAcao = onConvidar != null || statusConvite != null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -46,15 +52,15 @@ class MusicoCard extends StatelessWidget {
                     child: const Text('Ver detalhes'),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: interesseEnviado ? null : onDemonstrarInteresse,
-                    child: Text(
-                      interesseEnviado ? 'Interesse enviado' : 'Interessar-se',
+                if (mostrarAcao) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: statusConvite == null ? onConvidar : null,
+                      child: Text(statusConvite ?? 'Convidar'),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ],

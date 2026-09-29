@@ -1,66 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/musico.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/musico_card.dart';
+import 'acoes_interesse.dart';
 
 class ListaMusicosScreen extends StatelessWidget {
   const ListaMusicosScreen({super.key});
 
-  Future<void> _confirmarInteresse(
-    BuildContext context, {
-    required String musicoId,
-  }) async {
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Demonstrar interesse'),
-        content: const Text('Deseja demonstrar interesse neste artista?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmar != true || !context.mounted) return;
-
-    await context.read<OportunidadeProvider>().demonstrarInteresseEmMusico(
-      musicoId: musicoId,
-      usuarioId: 'casa_show_logada_1',
-    );
-
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Interesse no artista enviado com sucesso!'),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<OportunidadeProvider>();
+    final auth = context.watch<AuthProvider>();
+    final interesses = context.watch<InteresseProvider>();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Lista de músicos')),
-      body: StreamBuilder<List<Musico>>(
-        stream: provider.musicosStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              provider.musicos.isEmpty) {
+      body: Builder(
+        builder: (context) {
+          if (provider.carregandoMusicos && provider.musicos.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
+          if (provider.erroMusicos) {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
@@ -90,10 +54,13 @@ class ListaMusicosScreen extends StatelessWidget {
             itemCount: musicos.length,
             itemBuilder: (context, index) {
               final musico = musicos[index];
+              final pode = podeConvidar(auth, musico);
               return MusicoCard(
                 musico: musico,
-                onDemonstrarInteresse: () =>
-                    _confirmarInteresse(context, musicoId: musico.id),
+                onConvidar: pode ? () => confirmarConvite(context, musico) : null,
+                statusConvite: pode
+                    ? interesses.convitePara(musico.id)?.rotuloStatus
+                    : null,
                 onVerDetalhes: () {
                   Navigator.pushNamed(
                     context,

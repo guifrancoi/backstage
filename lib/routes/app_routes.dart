@@ -12,8 +12,10 @@ class AppRoutes {
   static const conversas = '/conversas';
   static const chat = '/chat';
   static const sobre = '/sobre';
-  static const meusInteresses = '/meus-interesses';
-  static const meusArtistasInteresse = '/meus-artistas-interesse';
+  static const interesses = '/interesses';
+  static const minhasOportunidades = '/minhas-oportunidades';
+  static const novaOportunidade = '/nova-oportunidade';
+  static const editarOportunidade = '/editar-oportunidade';
   static const detalheMusico = '/detalhe-musico';
   static const detalheOportunidade = '/detalhe-oportunidade';
 }

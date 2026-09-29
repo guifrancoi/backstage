@@ -300,10 +300,15 @@ e o login usa o caminho mock. Teste em Android com:
 emulator -avd Pixel_6
 ```
 
+Para iniciar sem ser de um estado salvo (snapshot):
+```powershell
+emulator -avd Pixel_6 -no-snapshot-load
+```
+
 Em outro terminal:
 
 ```powershell
-flutter run
+flutter run -d emulator-5554
 ```
 
 ### O emulador nao e encontrado

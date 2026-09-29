@@ -78,9 +78,16 @@ void main() {
     expect(find.text('Entrar'), findsOneWidget);
   });
 
-  testWidgets('login com Firebase (fake) e tipoUsuario já definido navega para a Home', (tester) async {
+  testWidgets('login com Firebase (fake) e perfil completo navega para a Home', (tester) async {
     final firestore = FakeFirebaseFirestore();
     await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'musico'});
+    await firestore.collection('perfis_musicos').doc('u1').set({
+      'nomeArtistico': 'Banda',
+      'generoMusical': 'Rock',
+      'cidade': 'Franca',
+      'descricao': 'Banda de rock',
+      'cacheMedio': 1000,
+    });
     final auth = AuthProvider(
       service: FirebaseDataService(
         auth: MockFirebaseAuth(mockUser: MockUser(uid: 'u1', email: 'a@b.com')),
@@ -96,6 +103,29 @@ void main() {
 
     expect(find.text('Tela Home'), findsOneWidget);
     expect(auth.isLoggedIn, isTrue);
+  });
+
+  testWidgets('login com tipoUsuario mas perfil em branco volta ao onboarding', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'musico'});
+    await firestore.collection('perfis_musicos').doc('u1').set({
+      'nomeArtistico': 'Musico Teste',
+      'generoMusical': '',
+    });
+    final auth = AuthProvider(
+      service: FirebaseDataService(
+        auth: MockFirebaseAuth(mockUser: MockUser(uid: 'u1', email: 'a@b.com')),
+        firestore: firestore,
+        enabled: true,
+      ),
+    );
+    await tester.pumpWidget(_app(auth));
+
+    await _preencher(tester, email: 'a@b.com', senha: '123456');
+    await tester.tap(find.text('Entrar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tela Completar Perfil'), findsOneWidget);
   });
 
   testWidgets('login com Firebase (fake) sem tipoUsuario navega para completar perfil', (tester) async {

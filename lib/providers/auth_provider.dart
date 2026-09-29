@@ -13,6 +13,7 @@ class AuthProvider extends ChangeNotifier {
       _isLoggedIn = true;
       _userEmail = _service.currentUserEmail;
       _userId = _service.currentUserId;
+      _carregarUsuario();
     }
   }
 
@@ -23,12 +24,43 @@ class AuthProvider extends ChangeNotifier {
   String? _userId;
   String? _userEmail;
   String? _errorMessage;
+  Usuario? _usuario;
+  bool _isAdmin = false;
 
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _isLoggedIn;
   String? get userId => _userId;
   String? get userEmail => _userEmail;
   String? get errorMessage => _errorMessage;
+  Usuario? get usuario => _usuario;
+  TipoUsuario? get tipoUsuario => _usuario?.tipoUsuario;
+
+  /// Conta de testes com os dois papéis (custom claim `admin`).
+  bool get isAdmin => _isAdmin;
+
+  /// Pode agir como músico (se candidatar, ter perfil de artista).
+  bool get atuaComoMusico => _isAdmin || tipoUsuario == TipoUsuario.musico;
+
+  /// Pode agir como dono (criar oportunidades, convidar, ter estabelecimento).
+  bool get atuaComoDono => _isAdmin || tipoUsuario == TipoUsuario.casaShow;
+
+  /// Nome para exibir aos outros (ex.: em um interesse enviado).
+  String get nomeExibicao {
+    final nome = _usuario?.nome ?? '';
+    return nome.isNotEmpty ? nome : (_userEmail ?? 'Usuário');
+  }
+
+  Future<void> _carregarUsuario() async {
+    final uid = _userId;
+    if (uid == null) return;
+    try {
+      _usuario = await _service.carregarUsuario(uid);
+      _isAdmin = await _service.ehAdmin();
+      notifyListeners();
+    } catch (_) {
+      // Sem o documento, o app só esconde as ações que dependem do papel.
+    }
+  }
 
   Future<bool> login({required String email, required String senha}) async {
     _isLoading = true;
@@ -141,9 +173,10 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Retorna `true` quando o usuário logado ainda não escolheu um
-  /// `tipoUsuario` (onboarding pendente). No modo mock nunca bloqueia a
-  /// navegação; um erro de leitura também não bloqueia (assume completo).
+  /// Retorna `true` quando o onboarding está pendente: sem `tipoUsuario`, ou
+  /// o perfil do tipo não existe / não está `completo`. Admin nunca passa
+  /// pelo onboarding. No modo mock nunca bloqueia a navegação; um erro de
+  /// leitura também não bloqueia (assume completo).
   Future<bool> precisaCompletarPerfil() async {
     if (!_service.isEnabled) return false;
 
@@ -151,8 +184,18 @@ class AuthProvider extends ChangeNotifier {
     if (uid == null) return false;
 
     try {
-      final usuario = await _service.carregarUsuario(uid);
-      return usuario?.tipoUsuario == null;
+      _usuario = await _service.carregarUsuario(uid);
+      _isAdmin = await _service.ehAdmin();
+      notifyListeners();
+      if (_isAdmin) return false;
+
+      return switch (_usuario?.tipoUsuario) {
+        null => true,
+        TipoUsuario.musico =>
+          !((await _service.carregarPerfilMusico(uid))?.completo ?? false),
+        TipoUsuario.casaShow =>
+          !((await _service.carregarEstabelecimento(uid))?.completo ?? false),
+      };
     } catch (_) {
       return false;
     }
@@ -165,6 +208,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _service.definirTipoUsuario(_userId!, tipoUsuario);
+      _usuario = await _service.carregarUsuario(_userId!);
       return true;
     } on FirebaseException catch (error) {
       _errorMessage = _mensagemFirebase(error);
@@ -183,6 +227,8 @@ class AuthProvider extends ChangeNotifier {
     _isLoggedIn = false;
     _userId = null;
     _userEmail = null;
+    _usuario = null;
+    _isAdmin = false;
     _errorMessage = null;
     notifyListeners();
   }

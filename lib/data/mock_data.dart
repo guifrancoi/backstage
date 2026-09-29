@@ -4,6 +4,9 @@ import '../models/musico.dart';
 import '../models/oportunidade.dart';
 
 class MockData {
+  /// Uid usado pelo `AuthProvider` no cadastro simulado.
+  static const usuarioMockId = 'mock-user';
+
   static List<Musico> musicos = [
     Musico(
       id: '1',
@@ -14,7 +17,6 @@ class MockData {
       cacheMedio: 1200,
       portfolioLinks: ['instagram.com/bandaeclipse'],
       datasDisponiveis: ['2026-03-20', '2026-03-25'],
-      interesseEnviado: false,
     ),
     Musico(
       id: '2',
@@ -25,7 +27,6 @@ class MockData {
       cacheMedio: 800,
       portfolioLinks: ['youtube.com/duosol'],
       datasDisponiveis: ['2026-03-18', '2026-03-22'],
-      interesseEnviado: false,
     ),
   ];
 
@@ -44,7 +45,6 @@ class MockData {
       numero: '520',
       estado: 'SP',
       cep: '14010-120',
-      interesseEnviado: false,
     ),
     Oportunidade(
       id: '2',
@@ -60,28 +60,26 @@ class MockData {
       numero: '1100',
       estado: 'SP',
       cep: '14174-000',
-      interesseEnviado: false,
     ),
   ];
 
   static List<Conversa> conversas = [
     Conversa(
       id: '1',
-      nomeContato: 'Bar Central',
+      participantes: [usuarioMockId, 'mock-estabelecimento-1'],
+      nomes: {usuarioMockId: 'Você', 'mock-estabelecimento-1': 'Bar Central'},
       mensagens: [
         Mensagem(
           id: '1',
-          remetenteId: 'bar1',
+          remetenteId: 'mock-estabelecimento-1',
           texto: 'Olá, temos interesse no seu trabalho.',
           dataHora: DateTime.now(),
-          enviadaPorMim: false,
         ),
         Mensagem(
           id: '2',
-          remetenteId: 'me',
+          remetenteId: usuarioMockId,
           texto: 'Que ótimo! Podemos conversar sobre datas.',
           dataHora: DateTime.now(),
-          enviadaPorMim: true,
         ),
       ],
     ),

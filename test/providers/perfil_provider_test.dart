@@ -1,3 +1,5 @@
+import 'package:backstage/models/casa_show.dart';
+import 'package:backstage/models/musico.dart';
 import 'package:backstage/providers/perfil_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,52 +9,61 @@ void main() {
   setUp(() => provider = PerfilProvider());
   tearDown(() => provider.dispose());
 
-  test('não carrega perfil automaticamente no modo mock', () {
+  test('estado inicial sem perfis', () {
     expect(provider.perfilMusico, isNull);
+    expect(provider.perfilEstabelecimento, isNull);
     expect(provider.isLoading, isFalse);
   });
 
-  test('carregarPerfil cria o perfil inicial do usuário mock', () async {
+  test('carregarPerfil usa um perfil de artista em branco no mock', () async {
     await provider.carregarPerfil();
 
     expect(provider.perfilMusico?.id, 'mock-user');
-    expect(provider.perfilMusico?.nomeArtistico, isNotEmpty);
+    expect(provider.perfilMusico?.completo, isFalse);
     expect(provider.isLoading, isFalse);
   });
 
-  test('atualizarPerfil substitui os campos editáveis', () async {
-    await provider.carregarPerfil();
-
-    await provider.atualizarPerfil(
-      nomeArtistico: 'Novo Nome',
-      generoMusical: 'Jazz',
-      cidade: 'Franca',
-      cacheMedio: 2500,
-      descricao: 'Nova descrição',
-      portfolioLinks: ['https://exemplo.com'],
-      fotoPath: '/foto.jpg',
+  test('salvarPerfilMusico substitui o perfil com o id do usuário', () async {
+    final ok = await provider.salvarPerfilMusico(
+      Musico(
+        id: '',
+        nomeArtistico: 'Nova Banda',
+        generoMusical: 'Jazz',
+        cidade: 'Franca',
+        descricao: 'Trio',
+        cacheMedio: 2500,
+        portfolioLinks: const ['https://exemplo.com'],
+        datasDisponiveis: const [],
+      ),
     );
 
+    expect(ok, isTrue);
     final perfil = provider.perfilMusico!;
     expect(perfil.id, 'mock-user');
-    expect(perfil.nomeArtistico, 'Novo Nome');
-    expect(perfil.generoMusical, 'Jazz');
-    expect(perfil.cidade, 'Franca');
-    expect(perfil.cacheMedio, 2500);
-    expect(perfil.portfolioLinks, ['https://exemplo.com']);
-    expect(perfil.fotoPath, '/foto.jpg');
+    expect(perfil.nomeArtistico, 'Nova Banda');
+    expect(perfil.completo, isTrue);
+    expect(perfil.oculto, isFalse);
   });
 
-  test('atualizarPerfil sem perfil carregado não faz nada', () async {
-    await provider.atualizarPerfil(
-      nomeArtistico: 'X',
-      generoMusical: 'Rock',
-      cidade: 'Y',
-      cacheMedio: 1,
-      descricao: 'Z',
-      portfolioLinks: const [],
+  test('salvarPerfilEstabelecimento guarda o perfil do dono', () async {
+    final ok = await provider.salvarPerfilEstabelecimento(
+      CasaShow(
+        id: '',
+        nome: 'Bar Central',
+        cidade: 'Franca',
+        logradouro: 'Rua A',
+        numero: '10',
+        estado: 'SP',
+        capacidade: 0,
+        estilosDesejados: const [],
+        descricao: '',
+        contato: '16 99999-9999',
+        cnpj: '',
+      ),
     );
 
-    expect(provider.perfilMusico, isNull);
+    expect(ok, isTrue);
+    expect(provider.perfilEstabelecimento?.id, 'mock-user');
+    expect(provider.perfilEstabelecimento?.completo, isTrue);
   });
 }

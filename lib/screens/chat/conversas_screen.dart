@@ -10,28 +10,40 @@ class ConversasScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ChatProvider>();
+    final conversas = provider.conversas;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Conversas')),
-      body: ListView.builder(
-        itemCount: provider.conversas.length,
-        itemBuilder: (context, index) {
-          final conversa = provider.conversas[index];
+      body: conversas.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Nenhuma conversa ainda. Uma conversa começa quando um '
+                  'interesse é aceito.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          : ListView.builder(
+              itemCount: conversas.length,
+              itemBuilder: (context, index) {
+                final conversa = conversas[index];
 
-          return ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(conversa.nomeContato),
-            subtitle: Text(conversa.ultimaMensagem),
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                AppRoutes.chat,
-                arguments: conversa.id,
-              );
-            },
-          );
-        },
-      ),
+                return ListTile(
+                  leading: const CircleAvatar(child: Icon(Icons.person)),
+                  title: Text(conversa.nomeContato(provider.meuUid)),
+                  subtitle: Text(conversa.ultimaMensagem),
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.chat,
+                      arguments: conversa.id,
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }

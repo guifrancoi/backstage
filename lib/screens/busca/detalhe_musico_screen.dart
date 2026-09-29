@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/utils/local_image_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
+import 'acoes_interesse.dart';
 
 class DetalheMusicoScreen extends StatelessWidget {
   final String musicoId;
@@ -34,60 +37,11 @@ class DetalheMusicoScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _confirmarInteresse(BuildContext context) async {
-    final provider = context.read<OportunidadeProvider>();
-    final musico = provider.buscarMusicoPorId(musicoId);
-
-    if (musico == null) return;
-
-    if (musico.interesseEnviado == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Você já demonstrou interesse neste artista.'),
-        ),
-      );
-      return;
-    }
-
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Demonstrar interesse'),
-        content: Text(
-          'Deseja demonstrar interesse no artista "${musico.nomeArtistico}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmar != true || !context.mounted) return;
-
-    await provider.demonstrarInteresseEmMusico(
-      musicoId: musicoId,
-      usuarioId: 'casa_show_logada_1',
-    );
-
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Interesse no artista enviado com sucesso!'),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<OportunidadeProvider>();
+    final auth = context.watch<AuthProvider>();
+    final interesses = context.watch<InteresseProvider>();
     final musico = provider.buscarMusicoPorId(musicoId);
 
     if (musico == null) {
@@ -99,7 +53,8 @@ class DetalheMusicoScreen extends StatelessWidget {
 
     final imageProvider = localImageProvider(musico.fotoPath);
     final temFoto = imageProvider != null;
-    final interesseEnviado = musico.interesseEnviado == true;
+    final pode = podeConvidar(auth, musico);
+    final convite = interesses.convitePara(musico.id);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalhes do músico')),
@@ -191,21 +146,19 @@ class DetalheMusicoScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: interesseEnviado
-                  ? null
-                  : () => _confirmarInteresse(context),
-              icon: const Icon(Icons.favorite_border),
-              label: Text(
-                interesseEnviado
-                    ? 'Interesse já enviado'
-                    : 'Demonstrar interesse',
+          if (pode) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: convite == null
+                    ? () => confirmarConvite(context, musico)
+                    : null,
+                icon: const Icon(Icons.mail_outline),
+                label: Text(convite?.rotuloStatus ?? 'Convidar para tocar'),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

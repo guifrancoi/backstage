@@ -11,7 +11,6 @@ Musico _musico() => Musico(
   portfolioLinks: ['instagram.com/banda'],
   datasDisponiveis: ['2026-03-20'],
   fotoPath: '/fotos/banda.jpg',
-  interesseEnviado: true,
 );
 
 void main() {
@@ -32,7 +31,7 @@ void main() {
       expect(copia.portfolioLinks, original.portfolioLinks);
       expect(copia.datasDisponiveis, original.datasDisponiveis);
       expect(copia.fotoPath, original.fotoPath);
-      expect(copia.interesseEnviado, isTrue);
+      expect(map.containsKey('interesseEnviado'), isFalse);
     });
 
     test('fromMap aplica valores padrão para campos ausentes', () {
@@ -43,28 +42,12 @@ void main() {
       expect(musico.portfolioLinks, isEmpty);
       expect(musico.datasDisponiveis, isEmpty);
       expect(musico.fotoPath, isNull);
-      expect(musico.interesseEnviado, isFalse);
     });
 
     test('fromMap converte cacheMedio inteiro para double', () {
       final musico = Musico.fromMap('x', {'cacheMedio': 900});
 
       expect(musico.cacheMedio, 900.0);
-    });
-
-    test('interesseEnviado é false por padrão no construtor', () {
-      final musico = Musico(
-        id: '1',
-        nomeArtistico: 'A',
-        generoMusical: 'MPB',
-        cidade: 'B',
-        descricao: 'C',
-        cacheMedio: 1,
-        portfolioLinks: const [],
-        datasDisponiveis: const [],
-      );
-
-      expect(musico.interesseEnviado, isFalse);
     });
 
     test('copyWith altera só os campos informados', () {
@@ -98,6 +81,23 @@ void main() {
       final semFoto = _musico().copyWith(fotoPath: '/nova.jpg', clearFotoPath: true);
 
       expect(semFoto.fotoPath, isNull);
+    });
+
+    test('completo exige os campos obrigatórios e gênero da lista', () {
+      expect(_musico().completo, isTrue);
+      expect(_musico().copyWith(portfolioLinks: []).completo, isTrue);
+      expect(_musico().copyWith(generoMusical: '').completo, isFalse);
+      expect(_musico().copyWith(generoMusical: 'Inventado').completo, isFalse);
+      expect(_musico().copyWith(cidade: ' ').completo, isFalse);
+      expect(_musico().copyWith(descricao: '').completo, isFalse);
+      expect(_musico().copyWith(cacheMedio: -1).completo, isFalse);
+    });
+
+    test('oculto faz ida e volta e é false por padrão', () {
+      final oculto = Musico.fromMap('m1', _musico().copyWith(oculto: true).toMap());
+
+      expect(oculto.oculto, isTrue);
+      expect(Musico.fromMap('x', {}).oculto, isFalse);
     });
   });
 }

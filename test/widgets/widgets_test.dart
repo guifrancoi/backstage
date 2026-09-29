@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 Widget _app(Widget child) => MaterialApp(home: Scaffold(body: child));
 
-Musico _musico({bool interesseEnviado = false}) => Musico(
+Musico _musico() => Musico(
   id: '1',
   nomeArtistico: 'Banda Eclipse',
   generoMusical: 'Rock',
@@ -20,10 +20,9 @@ Musico _musico({bool interesseEnviado = false}) => Musico(
   cacheMedio: 1200,
   portfolioLinks: const [],
   datasDisponiveis: const [],
-  interesseEnviado: interesseEnviado,
 );
 
-Oportunidade _oportunidade({bool interesseEnviado = false}) => Oportunidade(
+Oportunidade _oportunidade() => Oportunidade(
   id: '1',
   titulo: 'Show de sexta',
   descricao: 'Bar no centro.',
@@ -36,24 +35,19 @@ Oportunidade _oportunidade({bool interesseEnviado = false}) => Oportunidade(
   logradouro: 'Rua A',
   numero: '1',
   estado: 'SP',
-  interesseEnviado: interesseEnviado,
 );
 
-ElevatedButton _botaoInteresse(WidgetTester tester) => tester.widget(
-  find.ancestor(
-    of: find.textContaining('Interess'),
-    matching: find.byType(ElevatedButton),
-  ),
-);
+ElevatedButton _botao(WidgetTester tester) =>
+    tester.widget<ElevatedButton>(find.byType(ElevatedButton));
 
 void main() {
   group('MusicoCard', () {
     testWidgets('exibe dados e dispara os callbacks', (tester) async {
-      var interesse = 0;
+      var convites = 0;
       var detalhes = 0;
       await tester.pumpWidget(_app(MusicoCard(
         musico: _musico(),
-        onDemonstrarInteresse: () => interesse++,
+        onConvidar: () => convites++,
         onVerDetalhes: () => detalhes++,
       )));
 
@@ -61,22 +55,33 @@ void main() {
       expect(find.text('Rock • Franca'), findsOneWidget);
       expect(find.text('R\$ 1200'), findsOneWidget);
 
-      await tester.tap(find.text('Interessar-se'));
+      await tester.tap(find.text('Convidar'));
       await tester.tap(find.text('Ver detalhes'));
 
-      expect(interesse, 1);
+      expect(convites, 1);
       expect(detalhes, 1);
     });
 
-    testWidgets('desabilita o botão quando o interesse já foi enviado', (tester) async {
+    testWidgets('desabilita o botão com o status do convite enviado', (tester) async {
       await tester.pumpWidget(_app(MusicoCard(
-        musico: _musico(interesseEnviado: true),
-        onDemonstrarInteresse: () => fail('não deveria ser chamado'),
+        musico: _musico(),
+        onConvidar: () => fail('não deveria ser chamado'),
+        statusConvite: 'Convite enviado',
         onVerDetalhes: () {},
       )));
 
-      expect(find.text('Interesse enviado'), findsOneWidget);
-      expect(_botaoInteresse(tester).onPressed, isNull);
+      expect(find.text('Convite enviado'), findsOneWidget);
+      expect(_botao(tester).onPressed, isNull);
+    });
+
+    testWidgets('sem onConvidar nem status, o botão some', (tester) async {
+      await tester.pumpWidget(_app(MusicoCard(
+        musico: _musico(),
+        onVerDetalhes: () {},
+      )));
+
+      expect(find.byType(ElevatedButton), findsNothing);
+      expect(find.text('Ver detalhes'), findsOneWidget);
     });
   });
 
@@ -84,24 +89,35 @@ void main() {
     testWidgets('formata data dd/MM/yyyy e cachê com centavos', (tester) async {
       await tester.pumpWidget(_app(OportunidadeCard(
         oportunidade: _oportunidade(),
-        onDemonstrarInteresse: () {},
+        onCandidatar: () {},
         onVerDetalhes: () {},
       )));
 
       expect(find.text('Data: 07/03/2026'), findsOneWidget);
       expect(find.text('Cachê: R\$ 900.00'), findsOneWidget);
       expect(find.text('Contratante: Bar Central'), findsOneWidget);
+      expect(find.text('Candidatar-se'), findsOneWidget);
     });
 
-    testWidgets('desabilita o botão quando o interesse já foi enviado', (tester) async {
+    testWidgets('desabilita o botão com o status da candidatura', (tester) async {
       await tester.pumpWidget(_app(OportunidadeCard(
-        oportunidade: _oportunidade(interesseEnviado: true),
-        onDemonstrarInteresse: () {},
+        oportunidade: _oportunidade(),
+        onCandidatar: () {},
+        statusCandidatura: 'Recusado',
         onVerDetalhes: () {},
       )));
 
-      expect(find.text('Interesse enviado'), findsOneWidget);
-      expect(_botaoInteresse(tester).onPressed, isNull);
+      expect(find.text('Recusado'), findsOneWidget);
+      expect(_botao(tester).onPressed, isNull);
+    });
+
+    testWidgets('sem onCandidatar nem status, o botão some', (tester) async {
+      await tester.pumpWidget(_app(OportunidadeCard(
+        oportunidade: _oportunidade(),
+        onVerDetalhes: () {},
+      )));
+
+      expect(find.byType(ElevatedButton), findsNothing);
     });
   });
 
@@ -149,23 +165,26 @@ void main() {
   });
 
   group('MensagemBubble', () {
-    Mensagem mensagem({required bool minha}) => Mensagem(
+    final mensagem = Mensagem(
       id: '1',
       remetenteId: 'u1',
       texto: 'Olá',
       dataHora: DateTime(2026),
-      enviadaPorMim: minha,
     );
 
     testWidgets('alinha à direita as mensagens enviadas por mim', (tester) async {
-      await tester.pumpWidget(_app(MensagemBubble(mensagem: mensagem(minha: true))));
+      await tester.pumpWidget(
+        _app(MensagemBubble(mensagem: mensagem, enviadaPorMim: true)),
+      );
 
       final coluna = tester.widget<Column>(find.byType(Column).first);
       expect(coluna.crossAxisAlignment, CrossAxisAlignment.end);
     });
 
     testWidgets('alinha à esquerda as mensagens recebidas', (tester) async {
-      await tester.pumpWidget(_app(MensagemBubble(mensagem: mensagem(minha: false))));
+      await tester.pumpWidget(
+        _app(MensagemBubble(mensagem: mensagem, enviadaPorMim: false)),
+      );
 
       final coluna = tester.widget<Column>(find.byType(Column).first);
       expect(coluna.crossAxisAlignment, CrossAxisAlignment.start);

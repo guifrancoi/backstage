@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/interesse_provider.dart';
 import '../../routes/app_routes.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -10,6 +11,8 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final pendentes = context.watch<InteresseProvider>().pendentesRecebidos;
+    final ehDono = authProvider.atuaComoDono;
 
     return Scaffold(
       appBar: AppBar(
@@ -44,21 +47,23 @@ class HomeScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.listaMusicos),
           ),
           _HomeTile(
-            title: 'Meus artistas de interesse',
-            icon: Icons.star,
-            onTap: () =>
-                Navigator.pushNamed(context, AppRoutes.meusArtistasInteresse),
-          ),
-          _HomeTile(
             title: 'Lista de oportunidades',
             icon: Icons.event,
             onTap: () =>
                 Navigator.pushNamed(context, AppRoutes.listaOportunidades),
           ),
+          if (ehDono)
+            _HomeTile(
+              title: 'Minhas oportunidades',
+              icon: Icons.storefront,
+              onTap: () =>
+                  Navigator.pushNamed(context, AppRoutes.minhasOportunidades),
+            ),
           _HomeTile(
-            title: 'Meus interesses',
+            title: 'Interesses',
             icon: Icons.favorite,
-            onTap: () => Navigator.pushNamed(context, AppRoutes.meusInteresses),
+            contador: pendentes,
+            onTap: () => Navigator.pushNamed(context, AppRoutes.interesses),
           ),
           _HomeTile(
             title: 'Filtro de busca',
@@ -91,17 +96,25 @@ class _HomeTile extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
+  /// Quantidade de itens pendentes; 0 esconde o selo.
+  final int contador;
+
   const _HomeTile({
     required this.title,
     required this.icon,
     required this.onTap,
+    this.contador = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        leading: Icon(icon),
+        leading: Badge(
+          isLabelVisible: contador > 0,
+          label: Text('$contador'),
+          child: Icon(icon),
+        ),
         title: Text(title),
         trailing: const Icon(Icons.arrow_forward_ios, size: 18),
         onTap: onTap,

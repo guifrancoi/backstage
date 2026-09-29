@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../providers/auth_provider.dart';
+import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
+import '../../routes/app_routes.dart';
 import '../../services/location_service.dart';
+import 'acoes_interesse.dart';
 
 class DetalheOportunidadeScreen extends StatefulWidget {
   final String oportunidadeId;
@@ -22,56 +26,6 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
     return '${data.day.toString().padLeft(2, '0')}/'
         '${data.month.toString().padLeft(2, '0')}/'
         '${data.year}';
-  }
-
-  Future<void> _confirmarInteresse(BuildContext context) async {
-    final provider = context.read<OportunidadeProvider>();
-    final oportunidade =
-        provider.buscarOportunidadePorId(widget.oportunidadeId);
-
-    if (oportunidade == null) return;
-
-    if (oportunidade.interesseEnviado) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Você já demonstrou interesse nesta oportunidade.'),
-        ),
-      );
-      return;
-    }
-
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Demonstrar interesse'),
-        content: Text(
-          'Deseja demonstrar interesse na oportunidade "${oportunidade.titulo}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmar != true || !context.mounted) return;
-
-    await provider.demonstrarInteresse(
-      oportunidadeId: widget.oportunidadeId,
-      usuarioId: 'musico_logado_1',
-    );
-
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Interesse enviado com sucesso!')),
-    );
   }
 
   Future<void> _abrirMapa({
@@ -124,6 +78,8 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<OportunidadeProvider>();
+    final auth = context.watch<AuthProvider>();
+    final interesses = context.watch<InteresseProvider>();
     final oportunidade =
         provider.buscarOportunidadePorId(widget.oportunidadeId);
 
@@ -133,6 +89,9 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
         body: const Center(child: Text('Oportunidade não encontrada.')),
       );
     }
+
+    final pode = podeCandidatar(auth, oportunidade);
+    final candidatura = interesses.candidaturaPara(oportunidade.id);
 
     final temEndereco = oportunidade.logradouro.isNotEmpty &&
         oportunidade.numero.isNotEmpty &&
@@ -218,21 +177,51 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: oportunidade.interesseEnviado
-                  ? null
-                  : () => _confirmarInteresse(context),
-              icon: const Icon(Icons.favorite_border),
-              label: Text(
-                oportunidade.interesseEnviado
-                    ? 'Interesse já enviado'
-                    : 'Demonstrar interesse',
+          if (pode) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: candidatura == null
+                    ? () => confirmarCandidatura(context, oportunidade)
+                    : null,
+                icon: const Icon(Icons.send_outlined),
+                label: Text(candidatura?.rotuloStatus ?? 'Candidatar-se'),
               ),
             ),
-          ),
+          ],
+          if (podeGerenciar(auth, oportunidade)) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final removeu = await confirmarRemocao(
+                        context,
+                        oportunidade,
+                      );
+                      if (removeu && context.mounted) Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Remover'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.editarOportunidade,
+                      arguments: oportunidade.id,
+                    ),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Editar'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

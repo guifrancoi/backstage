@@ -20,12 +20,11 @@ void main() {
     expect(provider.tipoOrdenacao, 'nome_asc');
   });
 
-  test('streams entregam os dados mock', () async {
-    expect(await provider.musicosStream.first, hasLength(MockData.musicos.length));
-    expect(
-      await provider.oportunidadesStream.first,
-      hasLength(MockData.oportunidades.length),
-    );
+  test('no modo mock não fica carregando nem em erro', () {
+    expect(provider.carregandoMusicos, isFalse);
+    expect(provider.carregandoOportunidades, isFalse);
+    expect(provider.erroMusicos, isFalse);
+    expect(provider.erroOportunidades, isFalse);
   });
 
   group('filtros de músicos', () {
@@ -141,24 +140,6 @@ void main() {
         p.oportunidades.isNotEmpty &&
         p.oportunidades.every((o) => o.generoMusical == 'Rock');
 
-    test('ao demonstrar interesse em uma oportunidade', () async {
-      provider.filtrarOportunidades(genero: 'Rock');
-
-      await provider.demonstrarInteresse(oportunidadeId: '2', usuarioId: 'u1');
-
-      expect(soRock(provider), isTrue);
-      expect(provider.jaDemonstrouInteresse('2'), isTrue);
-    });
-
-    test('ao remover interesse em uma oportunidade', () async {
-      await provider.demonstrarInteresse(oportunidadeId: '2', usuarioId: 'u1');
-      provider.filtrarOportunidades(genero: 'Rock');
-
-      await provider.removerInteresse('2');
-
-      expect(soRock(provider), isTrue);
-    });
-
     test('ao filtrar, pesquisar ou ordenar músicos', () {
       provider.filtrarOportunidades(genero: 'Rock');
 
@@ -171,96 +152,36 @@ void main() {
       expect(soRock(provider), isTrue);
     });
 
-    test('ao demonstrar interesse em um músico', () async {
-      provider.filtrarOportunidades(cidade: 'Sertãozinho');
-
-      await provider.demonstrarInteresseEmMusico(musicoId: '1', usuarioId: 'u1');
-
-      expect(provider.oportunidades.map((o) => o.cidade), ['Sertãozinho']);
-    });
-
-    test('resetarFiltroOportunidades limpa o filtro salvo', () async {
-      provider
-        ..filtrarOportunidades(genero: 'Rock')
-        ..resetarFiltroOportunidades();
-
-      await provider.demonstrarInteresse(oportunidadeId: '1', usuarioId: 'u1');
-
-      expect(provider.oportunidades, hasLength(MockData.oportunidades.length));
-    });
-  });
-
-  group('listas de interesse ignoram filtros ativos', () {
-    test('oportunidadesComInteresse e jaDemonstrouInteresse', () async {
-      await provider.demonstrarInteresse(oportunidadeId: '1', usuarioId: 'u1');
-
-      // Oportunidade '1' é MPB; o filtro Rock a esconde da lista filtrada.
+    test('ao criar uma oportunidade', () async {
       provider.filtrarOportunidades(genero: 'Rock');
 
-      expect(provider.oportunidadesComInteresse.map((o) => o.id), ['1']);
-      expect(provider.jaDemonstrouInteresse('1'), isTrue);
-    });
+      await provider.criarOportunidade(
+        MockData.oportunidades.first.copyWith(generoMusical: 'MPB'),
+        'e1',
+      );
 
-    test('musicosComInteresse', () async {
-      await provider.demonstrarInteresseEmMusico(musicoId: '1', usuarioId: 'u1');
-
-      // Músico '1' é Rock; o filtro MPB o esconde da lista filtrada.
-      provider.filtrarMusicos(genero: 'MPB');
-
-      expect(provider.musicosComInteresse.map((m) => m.id), ['1']);
+      expect(soRock(provider), isTrue);
     });
   });
 
-  group('interesse em oportunidades', () {
-    test('demonstrar marca a oportunidade e cria interesse com id usuario_oportunidade', () async {
-      await provider.demonstrarInteresse(oportunidadeId: '1', usuarioId: 'u1');
+  group('oportunidades do dono (modo mock)', () {
+    test('criarOportunidade grava com o donoId e aparece em minhasOportunidades', () async {
+      final ok = await provider.criarOportunidade(
+        MockData.oportunidades.first.copyWith(titulo: 'Minha vaga'),
+        'e1',
+      );
 
-      expect(provider.jaDemonstrouInteresse('1'), isTrue);
-      expect(provider.oportunidadesComInteresse.map((o) => o.id), ['1']);
-      expect(provider.interesses.single.id, 'u1_1');
-      expect(provider.interesses.single.usuarioId, 'u1');
+      final minhas = provider.minhasOportunidades('e1');
+      expect(ok, isTrue);
+      expect(minhas.map((o) => o.titulo), ['Minha vaga']);
+      expect(minhas.single.donoId, 'e1');
+      expect(provider.oportunidades, hasLength(MockData.oportunidades.length + 1));
     });
 
-    test('demonstrar duas vezes não duplica o interesse', () async {
-      await provider.demonstrarInteresse(oportunidadeId: '1', usuarioId: 'u1');
-      await provider.demonstrarInteresse(oportunidadeId: '1', usuarioId: 'u1');
-
-      expect(provider.interesses, hasLength(1));
-    });
-
-    test('oportunidade inexistente é ignorada', () async {
-      await provider.demonstrarInteresse(oportunidadeId: 'nao-existe', usuarioId: 'u1');
-
-      expect(provider.interesses, isEmpty);
-    });
-
-    test('remover desmarca a oportunidade', () async {
-      await provider.demonstrarInteresse(oportunidadeId: '1', usuarioId: 'u1');
-      await provider.removerInteresse('1');
-
-      expect(provider.jaDemonstrouInteresse('1'), isFalse);
-      expect(provider.interesses, isEmpty);
-      expect(provider.oportunidadesComInteresse, isEmpty);
-    });
-  });
-
-  group('interesse em músicos', () {
-    test('demonstrar marca o músico e mantém filtros ativos', () async {
-      provider.filtrarMusicos(genero: 'Rock');
-
-      await provider.demonstrarInteresseEmMusico(musicoId: '1', usuarioId: 'u1');
-
-      expect(provider.musicos.every((m) => m.generoMusical == 'Rock'), isTrue);
-      expect(provider.musicosComInteresse.map((m) => m.id), ['1']);
-      expect(provider.interessesMusicos.single.id, 'u1_1');
-    });
-
-    test('remover desmarca o músico', () async {
-      await provider.demonstrarInteresseEmMusico(musicoId: '1', usuarioId: 'u1');
-      await provider.removerInteresseEmMusico('1');
-
-      expect(provider.musicosComInteresse, isEmpty);
-      expect(provider.interessesMusicos, isEmpty);
+    test('minhasOportunidades ignora as de outros donos e uid nulo', () {
+      expect(provider.minhasOportunidades('e1'), isEmpty);
+      expect(provider.minhasOportunidades(null), isEmpty);
+      expect(provider.minhasOportunidades('mock-estabelecimento-1'), hasLength(1));
     });
   });
 

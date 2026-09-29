@@ -27,15 +27,19 @@ class _ChatScreenState extends State<ChatScreen> {
     final provider = context.watch<ChatProvider>();
     final conversa = provider.buscarConversaPorId(widget.conversaId);
 
+    // Logo após aceitar um interesse a conversa ainda pode estar chegando
+    // pelo stream; a tela se atualiza sozinha quando ela aparecer.
     if (conversa == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Chat')),
-        body: const Center(child: Text('Conversa não encontrada.')),
+        body: const Center(child: Text('Carregando conversa...')),
       );
     }
 
+    final meuUid = provider.meuUid;
+
     return Scaffold(
-      appBar: AppBar(title: Text(conversa.nomeContato)),
+      appBar: AppBar(title: Text(conversa.nomeContato(meuUid))),
       body: Column(
         children: [
           Expanded(
@@ -43,7 +47,11 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.all(16),
               itemCount: conversa.mensagens.length,
               itemBuilder: (context, index) {
-                return MensagemBubble(mensagem: conversa.mensagens[index]);
+                final mensagem = conversa.mensagens[index];
+                return MensagemBubble(
+                  mensagem: mensagem,
+                  enviadaPorMim: mensagem.remetenteId == meuUid,
+                );
               },
             ),
           ),

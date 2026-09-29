@@ -2,7 +2,6 @@ import 'package:backstage/data/mock_data.dart';
 import 'package:backstage/models/casa_show.dart';
 import 'package:backstage/models/conversa.dart';
 import 'package:backstage/models/interesse.dart';
-import 'package:backstage/models/interesse_musico.dart';
 import 'package:backstage/models/mensagem.dart';
 import 'package:backstage/models/usuario.dart';
 import 'package:backstage/services/firebase_data_service.dart';
@@ -55,6 +54,15 @@ void main() {
 
       expect(desabilitado.currentUserId, isNull);
       expect(desabilitado.currentUserEmail, isNull);
+    });
+
+    test('authUserIds entrega o uid atual a quem assinar depois', () async {
+      final primeiro = await service.authUserIds.first;
+      await Future<void>.delayed(Duration.zero);
+      final tardio = await service.authUserIds.first;
+
+      expect(primeiro, 'u1');
+      expect(tardio, 'u1');
     });
 
     test('authUserIds emite o uid e null após logout', () async {
@@ -116,7 +124,7 @@ void main() {
   });
 
   group('seedDadosIniciais', () {
-    test('popula musicos, oportunidades e conversas quando vazias', () async {
+    test('popula musicos e oportunidades quando vazias; não semeia conversas', () async {
       await service.seedDadosIniciais();
 
       final musicos = await firestore.collection('perfis_musicos').get();
@@ -125,7 +133,7 @@ void main() {
 
       expect(musicos.docs.map((d) => d.id), MockData.musicos.map((m) => m.id));
       expect(oportunidades.docs, hasLength(MockData.oportunidades.length));
-      expect(conversas.docs, hasLength(MockData.conversas.length));
+      expect(conversas.docs, isEmpty);
     });
 
     test('não sobrescreve coleção que já tem documentos', () async {
@@ -185,45 +193,82 @@ void main() {
     });
   });
 
+  group('oportunidades do dono', () {
+    test('criarOportunidade grava com id automático e donoId', () async {
+      final id = await service.criarOportunidade(
+        MockData.oportunidades.first.copyWith(donoId: 'e1'),
+      );
+
+      final doc = await firestore.collection('oportunidades').doc(id).get();
+      expect(doc.exists, isTrue);
+      expect(doc.data()?['donoId'], 'e1');
+    });
+  });
+
   group('interesses', () {
-    final data = DateTime(2026, 3, 21);
+    Interesse candidatura() => Interesse(
+      id: Interesse.idCandidatura('m1', 'o1'),
+      tipo: TipoInteresse.candidatura,
+      remetenteId: 'm1',
+      remetenteNome: 'Músico',
+      destinatarioId: 'e1',
+      musicoId: 'm1',
+      musicoNome: 'The VooDooS',
+      oportunidadeId: 'o1',
+      oportunidadeTitulo: 'Show',
+      criadoEm: DateTime(2026, 9, 28),
+    );
 
-    test('salvar, listar só do usuário e remover (oportunidades)', () async {
-      await service.salvarInteresse(Interesse(
-        id: 'u1_1',
-        oportunidadeId: '1',
-        usuarioId: 'u1',
-        dataHora: data,
-      ));
-      await service.salvarInteresse(Interesse(
-        id: 'u2_1',
-        oportunidadeId: '1',
-        usuarioId: 'u2',
-        dataHora: data,
-      ));
+    test('enviados e recebidos são separados por remetente/destinatário', () async {
+      await service.enviarInteresse(candidatura());
 
-      final doUsuario = await service.listarInteresses('u1');
-      expect(doUsuario.map((i) => i.id), ['u1_1']);
-      expect(doUsuario.single.dataHora, data);
+      final enviadosM1 = await service.streamInteressesEnviados('m1').first;
+      final recebidosE1 = await service.streamInteressesRecebidos('e1').first;
+      final recebidosM1 = await service.streamInteressesRecebidos('m1').first;
 
-      await service.removerInteresse('u1_1');
-      expect(await service.listarInteresses('u1'), isEmpty);
+      expect(enviadosM1.single.id, 'm1_op_o1');
+      expect(recebidosE1.single.status, StatusInteresse.pendente);
+      expect(recebidosM1, isEmpty);
     });
 
-    test('salvar, listar só do usuário e remover (músicos)', () async {
-      await service.salvarInteresseMusico(InteresseMusico(
-        id: 'u1_2',
-        musicoId: '2',
-        usuarioId: 'u1',
-        dataHora: data,
-      ));
+    test('recusar muda o status e grava a data da resposta', () async {
+      await service.enviarInteresse(candidatura());
 
-      final doUsuario = await service.listarInteressesMusicos('u1');
-      expect(doUsuario.single.musicoId, '2');
-      expect(await service.listarInteressesMusicos('u2'), isEmpty);
+      await service.recusarInteresse('m1_op_o1');
 
-      await service.removerInteresseMusico('u1_2');
-      expect(await service.listarInteressesMusicos('u1'), isEmpty);
+      final doc = await firestore.collection('interesses').doc('m1_op_o1').get();
+      expect(doc.data()?['status'], 'recusado');
+      expect(doc.data()?['respondidoEm'], isNotNull);
+    });
+
+    test('cancelar apaga o interesse', () async {
+      await service.enviarInteresse(candidatura());
+
+      await service.cancelarInteresse('m1_op_o1');
+
+      final doc = await firestore.collection('interesses').doc('m1_op_o1').get();
+      expect(doc.exists, isFalse);
+    });
+
+    test('aceitar abre a conversa com os dois participantes', () async {
+      await service.enviarInteresse(candidatura());
+
+      final conversaId = await service.aceitarInteresse(
+        candidatura(),
+        nomeDestinatario: 'Bar Central',
+      );
+
+      final interesse = await firestore
+          .collection('interesses')
+          .doc('m1_op_o1')
+          .get();
+      expect(interesse.data()?['status'], 'aceito');
+      expect(interesse.data()?['conversaId'], conversaId);
+
+      final conversa = await firestore.collection('conversas').doc(conversaId).get();
+      expect(conversa.data()?['participantes'], ['m1', 'e1']);
+      expect(conversa.data()?['nomes'], {'m1': 'Músico', 'e1': 'Bar Central'});
+      expect(conversa.data()?['interesseId'], 'm1_op_o1');
     });
   });
 
@@ -361,54 +406,56 @@ void main() {
   });
 
   group('conversas', () {
-    test('salvarConversa grava mensagens embutidas e listarConversas lê de volta', () async {
-      final conversa = Conversa(
-        id: 'c1',
-        nomeContato: 'Pub Groove',
-        mensagens: [
-          Mensagem(
-            id: '1',
-            remetenteId: 'u1',
-            texto: 'Olá',
-            dataHora: DateTime(2026, 3, 21, 10),
-            enviadaPorMim: true,
-          ),
-        ],
+    Future<void> criar(String id, List<String> participantes) {
+      return firestore.collection('conversas').doc(id).set(
+        Conversa(
+          id: id,
+          participantes: participantes,
+          nomes: const {},
+          mensagens: const [],
+        ).toMap(),
       );
+    }
 
-      await service.salvarConversa(conversa);
-      final conversas = await service.listarConversas();
+    test('streamConversas traz só as conversas em que o uid participa', () async {
+      await criar('c1', ['m1', 'e1']);
+      await criar('c2', ['m2', 'e2']);
 
-      expect(conversas.single.nomeContato, 'Pub Groove');
-      expect(conversas.single.mensagens.single.texto, 'Olá');
-      expect(
-        conversas.single.mensagens.single.dataHora,
-        DateTime(2026, 3, 21, 10),
-      );
+      final conversas = await service.streamConversas('m1').first;
+
+      expect(conversas.map((c) => c.id), ['c1']);
     });
 
-    test('salvarConversa faz merge preservando campos extras', () async {
-      await firestore.collection('conversas').doc('c1').set({'extra': 1});
+    test('enviarMensagem acrescenta sem regravar as anteriores', () async {
+      await criar('c1', ['m1', 'e1']);
+      final data = DateTime(2026, 3, 21, 10);
 
-      await service.salvarConversa(
-        Conversa(id: 'c1', nomeContato: 'Bar', mensagens: []),
+      await service.enviarMensagem(
+        'c1',
+        Mensagem(id: '1', remetenteId: 'm1', texto: 'Olá', dataHora: data),
+      );
+      await service.enviarMensagem(
+        'c1',
+        Mensagem(id: '2', remetenteId: 'e1', texto: 'Oi!', dataHora: data),
       );
 
-      final doc = await firestore.collection('conversas').doc('c1').get();
-      expect(doc.data()?['extra'], 1);
-      expect(doc.data()?['nomeContato'], 'Bar');
+      final conversa = (await service.streamConversas('e1').first).single;
+      expect(conversa.mensagens.map((m) => m.texto), ['Olá', 'Oi!']);
+      expect(conversa.mensagens.first.dataHora, data);
     });
   });
 
   test('Timestamp gravado é lido como DateTime pelos modelos', () async {
-    await firestore.collection('interesses_oportunidades').doc('u1_9').set({
-      'oportunidadeId': '9',
-      'usuarioId': 'u1',
-      'dataHora': Timestamp.fromDate(DateTime(2026, 1, 2, 3, 4)),
+    await firestore.collection('interesses').doc('m1_op_9').set({
+      'tipo': 'candidatura',
+      'remetenteId': 'm1',
+      'destinatarioId': 'e1',
+      'status': 'pendente',
+      'criadoEm': Timestamp.fromDate(DateTime(2026, 1, 2, 3, 4)),
     });
 
-    final interesses = await service.listarInteresses('u1');
+    final interesses = await service.streamInteressesEnviados('m1').first;
 
-    expect(interesses.single.dataHora, DateTime(2026, 1, 2, 3, 4));
+    expect(interesses.single.criadoEm, DateTime(2026, 1, 2, 3, 4));
   });
 }

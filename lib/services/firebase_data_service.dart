@@ -6,7 +6,7 @@ import '../data/mock_data.dart';
 import '../models/casa_show.dart';
 import '../models/conversa.dart';
 import '../models/interesse.dart';
-import '../models/interesse_musico.dart';
+import '../models/mensagem.dart';
 import '../models/musico.dart';
 import '../models/oportunidade.dart';
 import '../models/usuario.dart';
@@ -34,8 +34,13 @@ class FirebaseDataService {
   String? get currentUserId => isEnabled ? auth.currentUser?.uid : null;
   String? get currentUserEmail => isEnabled ? auth.currentUser?.email : null;
 
-  Stream<String?> get authUserIds {
-    return auth.authStateChanges().map((user) => user?.uid);
+  /// Uid atual primeiro, depois cada troca, sem repetição: todo provider que
+  /// assinar — cedo ou tarde — recebe o estado atual.
+  Stream<String?> get authUserIds => _authUserIds().distinct();
+
+  Stream<String?> _authUserIds() async* {
+    yield auth.currentUser?.uid;
+    yield* auth.authStateChanges().map((user) => user?.uid);
   }
 
   Future<UserCredential> login({required String email, required String senha}) {
@@ -151,13 +156,6 @@ class FirebaseDataService {
             oportunidade.id: oportunidade.toMap(),
         },
       ),
-      _seedCollection(
-        collection: 'conversas',
-        items: {
-          for (final conversa in MockData.conversas)
-            conversa.id: conversa.toMap(),
-        },
-      ),
     ]);
   }
 
@@ -205,53 +203,96 @@ class FirebaseDataService {
     );
   }
 
-  Future<List<Interesse>> listarInteresses(String usuarioId) async {
-    final snapshot = await firestore
-        .collection('interesses_oportunidades')
-        .where('usuarioId', isEqualTo: usuarioId)
-        .get();
-
-    return snapshot.docs
-        .map((doc) => Interesse.fromMap(doc.id, doc.data()))
-        .toList();
+  /// Admin é uma *custom claim* do Firebase Auth, aplicada só pelo script
+  /// `definir-admin.js` (Admin SDK) — nunca um campo que o usuário grave.
+  /// `true` força renovar o token para enxergar uma claim recém-aplicada.
+  Future<bool> ehAdmin() async {
+    final user = auth.currentUser;
+    if (user == null) return false;
+    final token = await user.getIdTokenResult(true);
+    return token.claims?['admin'] == true;
   }
 
-  Future<List<InteresseMusico>> listarInteressesMusicos(
-    String usuarioId,
-  ) async {
-    final snapshot = await firestore
-        .collection('interesses_musicos')
-        .where('usuarioId', isEqualTo: usuarioId)
-        .get();
-
-    return snapshot.docs
-        .map((doc) => InteresseMusico.fromMap(doc.id, doc.data()))
-        .toList();
-  }
-
-  Future<void> salvarInteresse(Interesse interesse) {
+  Future<void> atualizarOportunidade(Oportunidade oportunidade) {
     return firestore
-        .collection('interesses_oportunidades')
+        .collection('oportunidades')
+        .doc(oportunidade.id)
+        .set(oportunidade.toMap());
+  }
+
+  Future<void> removerOportunidade(String oportunidadeId) {
+    return firestore.collection('oportunidades').doc(oportunidadeId).delete();
+  }
+
+  /// Grava com id automático e devolve o id criado.
+  Future<String> criarOportunidade(Oportunidade oportunidade) async {
+    final ref = await firestore
+        .collection('oportunidades')
+        .add(oportunidade.toMap());
+    return ref.id;
+  }
+
+  Stream<List<Interesse>> streamInteressesEnviados(String uid) =>
+      _streamInteresses('remetenteId', uid);
+
+  Stream<List<Interesse>> streamInteressesRecebidos(String uid) =>
+      _streamInteresses('destinatarioId', uid);
+
+  Stream<List<Interesse>> _streamInteresses(String campo, String uid) {
+    return firestore
+        .collection('interesses')
+        .where(campo, isEqualTo: uid)
+        .snapshots()
+        .map(
+          (s) => s.docs.map((d) => Interesse.fromMap(d.id, d.data())).toList(),
+        );
+  }
+
+  Future<void> enviarInteresse(Interesse interesse) {
+    return firestore
+        .collection('interesses')
         .doc(interesse.id)
         .set(interesse.toMap());
   }
 
-  Future<void> removerInteresse(String interesseId) {
-    return firestore
-        .collection('interesses_oportunidades')
-        .doc(interesseId)
-        .delete();
+  Future<void> cancelarInteresse(String interesseId) {
+    return firestore.collection('interesses').doc(interesseId).delete();
   }
 
-  Future<void> salvarInteresseMusico(InteresseMusico interesse) {
-    return firestore
-        .collection('interesses_musicos')
-        .doc(interesse.id)
-        .set(interesse.toMap());
+  Future<void> recusarInteresse(String interesseId) {
+    return firestore.collection('interesses').doc(interesseId).update({
+      'status': StatusInteresse.recusado.name,
+      'respondidoEm': DateTime.now(),
+    });
   }
 
-  Future<void> removerInteresseMusico(String interesseId) {
-    return firestore.collection('interesses_musicos').doc(interesseId).delete();
+  /// Aceita o interesse e abre a conversa entre remetente e destinatário no
+  /// mesmo batch (id da conversa = id do interesse). Devolve o id da conversa.
+  Future<String> aceitarInteresse(
+    Interesse interesse, {
+    required String nomeDestinatario,
+  }) async {
+    final conversa = Conversa(
+      id: interesse.id,
+      participantes: [interesse.remetenteId, interesse.destinatarioId],
+      nomes: {
+        interesse.remetenteId: interesse.remetenteNome,
+        interesse.destinatarioId: nomeDestinatario,
+      },
+      interesseId: interesse.id,
+      mensagens: const [],
+      atualizadoEm: DateTime.now(),
+    );
+
+    final batch = firestore.batch();
+    batch.set(firestore.collection('conversas').doc(conversa.id), conversa.toMap());
+    batch.update(firestore.collection('interesses').doc(interesse.id), {
+      'status': StatusInteresse.aceito.name,
+      'respondidoEm': DateTime.now(),
+      'conversaId': conversa.id,
+    });
+    await batch.commit();
+    return conversa.id;
   }
 
   Future<Musico?> carregarPerfilMusico(String usuarioId) async {
@@ -305,19 +346,23 @@ class FirebaseDataService {
         .delete();
   }
 
-  Future<List<Conversa>> listarConversas() async {
-    final snapshot = await firestore.collection('conversas').get();
-
-    return snapshot.docs
-        .map((doc) => Conversa.fromMap(doc.id, doc.data()))
-        .toList();
-  }
-
-  Future<void> salvarConversa(Conversa conversa) {
+  Stream<List<Conversa>> streamConversas(String uid) {
     return firestore
         .collection('conversas')
-        .doc(conversa.id)
-        .set(conversa.toMap(), SetOptions(merge: true));
+        .where('participantes', arrayContains: uid)
+        .snapshots()
+        .map(
+          (s) => s.docs.map((d) => Conversa.fromMap(d.id, d.data())).toList(),
+        );
+  }
+
+  /// `arrayUnion` em vez de regravar a lista: dois participantes escrevendo ao
+  /// mesmo tempo não se sobrescrevem.
+  Future<void> enviarMensagem(String conversaId, Mensagem mensagem) {
+    return firestore.collection('conversas').doc(conversaId).update({
+      'mensagens': FieldValue.arrayUnion([mensagem.toMap()]),
+      'atualizadoEm': mensagem.dataHora,
+    });
   }
 }
 

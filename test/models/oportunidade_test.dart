@@ -35,7 +35,8 @@ void main() {
       expect(copia.numero, original.numero);
       expect(copia.estado, original.estado);
       expect(copia.cep, original.cep);
-      expect(copia.interesseEnviado, isFalse);
+      expect(original.toMap().containsKey('interesseEnviado'), isFalse);
+      expect(copia.temDono, isTrue);
     });
 
     test('toMap omite cep quando nulo', () {
@@ -81,6 +82,7 @@ void main() {
       final o = Oportunidade.fromMap('o1', {});
 
       expect(o.donoId, '');
+      expect(o.temDono, isFalse);
     });
 
     group('copyWith', () {
@@ -102,6 +104,16 @@ void main() {
 
         expect(alterada.cep, isNull);
       });
+    });
+
+    test('oculto faz ida e volta e é false por padrão', () {
+      final oculta = Oportunidade.fromMap(
+        'o1',
+        _oportunidade().copyWith(oculto: true).toMap(),
+      );
+
+      expect(oculta.oculto, isTrue);
+      expect(Oportunidade.fromMap('x', {}).oculto, isFalse);
     });
   });
 }

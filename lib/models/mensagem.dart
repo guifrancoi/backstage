@@ -3,14 +3,12 @@ class Mensagem {
   final String remetenteId;
   final String texto;
   final DateTime dataHora;
-  final bool enviadaPorMim;
 
   Mensagem({
     required this.id,
     required this.remetenteId,
     required this.texto,
     required this.dataHora,
-    required this.enviadaPorMim,
   });
 
   factory Mensagem.fromMap(String id, Map<String, dynamic> map) {
@@ -19,7 +17,6 @@ class Mensagem {
       remetenteId: map['remetenteId'] as String? ?? '',
       texto: map['texto'] as String? ?? '',
       dataHora: _dateTimeFromValue(map['dataHora']),
-      enviadaPorMim: map['enviadaPorMim'] as bool? ?? false,
     );
   }
 
@@ -29,7 +26,6 @@ class Mensagem {
       'remetenteId': remetenteId,
       'texto': texto,
       'dataHora': dataHora,
-      'enviadaPorMim': enviadaPorMim,
     };
   }
 }

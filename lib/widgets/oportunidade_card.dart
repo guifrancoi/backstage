@@ -3,14 +3,22 @@ import '../models/oportunidade.dart';
 
 class OportunidadeCard extends StatelessWidget {
   final Oportunidade oportunidade;
-  final VoidCallback onDemonstrarInteresse;
   final VoidCallback onVerDetalhes;
+
+  /// `null` esconde o botão (ex.: quem vê não é músico, ou a oportunidade
+  /// não tem dono).
+  final VoidCallback? onCandidatar;
+
+  /// Rótulo da candidatura já enviada; quando presente o botão fica
+  /// desabilitado.
+  final String? statusCandidatura;
 
   const OportunidadeCard({
     super.key,
     required this.oportunidade,
-    required this.onDemonstrarInteresse,
     required this.onVerDetalhes,
+    this.onCandidatar,
+    this.statusCandidatura,
   });
 
   String get dataFormatada {
@@ -22,7 +30,7 @@ class OportunidadeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final interesseEnviado = oportunidade.interesseEnviado == true;
+    final mostrarAcao = onCandidatar != null || statusCandidatura != null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -58,15 +66,15 @@ class OportunidadeCard extends StatelessWidget {
                     child: const Text('Ver detalhes'),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: interesseEnviado ? null : onDemonstrarInteresse,
-                    child: Text(
-                      interesseEnviado ? 'Interesse enviado' : 'Interessar-se',
+                if (mostrarAcao) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: statusCandidatura == null ? onCandidatar : null,
+                      child: Text(statusCandidatura ?? 'Candidatar-se'),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ],

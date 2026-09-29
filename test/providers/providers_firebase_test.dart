@@ -1,3 +1,5 @@
+import 'package:backstage/data/mock_data.dart';
+import 'package:backstage/models/musico.dart';
 import 'package:backstage/models/usuario.dart';
 import 'package:backstage/providers/agenda_provider.dart';
 import 'package:backstage/providers/auth_provider.dart';
@@ -27,6 +29,26 @@ class _ServicoComErroNoLogin extends FirebaseDataService {
   Future<UserCredential> login({required String email, required String senha}) =>
       Future.error(erro);
 }
+
+final _musicoCompleto = Musico(
+  id: '',
+  nomeArtistico: 'Banda',
+  generoMusical: 'Rock',
+  cidade: 'Franca',
+  descricao: 'Banda de rock',
+  cacheMedio: 1000,
+  portfolioLinks: const [],
+  datasDisponiveis: const [],
+);
+
+const _estabelecimentoCompleto = {
+  'nome': 'Bar Central',
+  'cidade': 'Franca',
+  'logradouro': 'Rua A',
+  'numero': '10',
+  'estado': 'SP',
+  'contato': '16 99999-9999',
+};
 
 /// Deixa listeners, seed e carregamentos assíncronos concluírem.
 Future<void> _aguardar() => Future<void>.delayed(const Duration(milliseconds: 50));
@@ -126,7 +148,30 @@ void main() {
       expect(provider.errorMessage, 'Sem permissao para salvar os dados do cadastro.');
     });
 
-    test('precisaCompletarPerfil é true sem tipoUsuario e false depois de completarCadastro', () async {
+    test('sessão restaurada carrega nome e tipoUsuario do Firestore', () async {
+      await firestore.collection('usuarios').doc('u1').set({
+        'nome': 'Guilherme',
+        'tipoUsuario': 'casaShow',
+      });
+
+      final provider = AuthProvider(service: service);
+      await _aguardar();
+
+      expect(provider.tipoUsuario, TipoUsuario.casaShow);
+      expect(provider.nomeExibicao, 'Guilherme');
+
+      await provider.logout();
+      expect(provider.tipoUsuario, isNull);
+    });
+
+    test('nomeExibicao cai para o e-mail sem nome cadastrado', () async {
+      final provider = AuthProvider(service: service);
+      await _aguardar();
+
+      expect(provider.nomeExibicao, 'musico@backstage.com');
+    });
+
+    test('precisaCompletarPerfil exige tipo e perfil completo', () async {
       final provider = AuthProvider(service: service);
 
       expect(await provider.precisaCompletarPerfil(), isTrue);
@@ -134,9 +179,65 @@ void main() {
       final ok = await provider.completarCadastro(TipoUsuario.musico);
 
       expect(ok, isTrue);
-      expect(await provider.precisaCompletarPerfil(), isFalse);
+      expect(provider.tipoUsuario, TipoUsuario.musico);
       final doc = await firestore.collection('usuarios').doc('u1').get();
       expect(doc.data()?['tipoUsuario'], 'musico');
+
+      // Tipo escolhido, mas sem perfil: continua no onboarding (passo 2).
+      expect(await provider.precisaCompletarPerfil(), isTrue);
+
+      // Perfil em branco (como o antigo perfil automático) também não basta.
+      await firestore.collection('perfis_musicos').doc('u1').set({
+        'nomeArtistico': 'Musico Teste',
+        'generoMusical': '',
+      });
+      expect(await provider.precisaCompletarPerfil(), isTrue);
+
+      await firestore.collection('perfis_musicos').doc('u1').set(_musicoCompleto.toMap());
+      expect(await provider.precisaCompletarPerfil(), isFalse);
+    });
+
+    test('dono precisa de estabelecimento completo', () async {
+      await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'casaShow'});
+      final provider = AuthProvider(service: service);
+
+      expect(await provider.precisaCompletarPerfil(), isTrue);
+
+      await firestore.collection('estabelecimentos').doc('u1').set(_estabelecimentoCompleto);
+      expect(await provider.precisaCompletarPerfil(), isFalse);
+    });
+
+    test('admin (custom claim) atua nos dois papéis e pula o onboarding', () async {
+      final provider = AuthProvider(
+        service: FirebaseDataService(
+          auth: MockFirebaseAuth(
+            signedIn: true,
+            mockUser: MockUser(uid: 'adm', customClaim: {'admin': true}),
+          ),
+          firestore: firestore,
+          enabled: true,
+        ),
+      );
+
+      expect(await provider.precisaCompletarPerfil(), isFalse);
+      expect(provider.isAdmin, isTrue);
+      expect(provider.atuaComoMusico, isTrue);
+      expect(provider.atuaComoDono, isTrue);
+
+      await provider.logout();
+      expect(provider.isAdmin, isFalse);
+    });
+
+    test('campo admin gravado em usuarios não dá poder de admin', () async {
+      await firestore.collection('usuarios').doc('u1').set({
+        'tipoUsuario': 'musico',
+        'admin': true,
+      });
+      final provider = AuthProvider(service: service);
+      await _aguardar();
+
+      expect(provider.isAdmin, isFalse);
+      expect(provider.atuaComoDono, isFalse);
     });
   });
 
@@ -145,57 +246,30 @@ void main() {
 
     tearDown(() => provider.dispose());
 
-    test('faz seed, lê do Firestore e marca interesses salvos do usuário', () async {
-      await firestore.collection('interesses_oportunidades').doc('u1_2').set({
-        'oportunidadeId': '2',
-        'usuarioId': 'u1',
-        'dataHora': DateTime(2026, 3, 1),
-      });
-
+    test('faz seed e lê músicos e oportunidades do Firestore', () async {
       provider = OportunidadeProvider(service: service);
       await _aguardar();
 
-      expect(provider.jaDemonstrouInteresse('2'), isTrue);
-      expect(provider.jaDemonstrouInteresse('1'), isFalse);
+      expect(provider.musicos, isNotEmpty);
+      expect(provider.oportunidades, isNotEmpty);
       final musicos = await firestore.collection('perfis_musicos').get();
       expect(musicos.docs, isNotEmpty);
     });
 
-    test('interesse usa o uid logado (não o id fixo da tela) e persiste', () async {
+    test('criarOportunidade grava com o donoId e volta pelo stream', () async {
       provider = OportunidadeProvider(service: service);
       await _aguardar();
 
-      await provider.demonstrarInteresse(
-        oportunidadeId: '1',
-        usuarioId: 'casa_show_logada_1',
+      final ok = await provider.criarOportunidade(
+        MockData.oportunidades.first.copyWith(titulo: 'Minha vaga', donoId: ''),
+        'u1',
       );
-
-      final doc = await firestore
-          .collection('interesses_oportunidades')
-          .doc('u1_1')
-          .get();
-      expect(doc.data()?['usuarioId'], 'u1');
-
-      await provider.removerInteresse('1');
-      final removido = await firestore
-          .collection('interesses_oportunidades')
-          .doc('u1_1')
-          .get();
-      expect(removido.exists, isFalse);
-    });
-
-    test('interesse em músico persiste em interesses_musicos', () async {
-      provider = OportunidadeProvider(service: service);
       await _aguardar();
 
-      await provider.demonstrarInteresseEmMusico(
-        musicoId: '2',
-        usuarioId: 'casa_show_logada_1',
-      );
-
-      final doc = await firestore.collection('interesses_musicos').doc('u1_2').get();
-      expect(doc.data()?['musicoId'], '2');
-      expect(provider.musicosComInteresse.map((m) => m.id), ['2']);
+      expect(ok, isTrue);
+      expect(provider.minhasOportunidades('u1').map((o) => o.titulo), [
+        'Minha vaga',
+      ]);
     });
 
     test('filtro de oportunidades persiste quando chegam dados do Firestore', () async {
@@ -213,6 +287,122 @@ void main() {
       expect(provider.oportunidades, isNotEmpty);
       expect(provider.oportunidades.every((o) => o.generoMusical == 'Rock'), isTrue);
       expect(provider.buscarOportunidadePorId('nova')?.titulo, 'Vaga MPB nova');
+    });
+
+    test('reassina o catálogo ao sair e entrar de novo (não fica congelado)', () async {
+      final auth = MockFirebaseAuth(
+        signedIn: true,
+        mockUser: MockUser(uid: 'u1', email: 'a@b.com'),
+      );
+      provider = OportunidadeProvider(
+        service: FirebaseDataService(auth: auth, firestore: firestore, enabled: true),
+      );
+      await _aguardar();
+      expect(provider.musicos, isNotEmpty);
+
+      await auth.signOut();
+      await _aguardar();
+      expect(provider.musicos, isEmpty);
+
+      await firestore.collection('perfis_musicos').doc('recem-criado').set({
+        'nomeArtistico': 'Criado com a sessão fechada',
+      });
+      await auth.signInWithEmailAndPassword(email: 'a@b.com', password: 'x');
+      await _aguardar();
+
+      expect(provider.buscarMusicoPorId('recem-criado'), isNotNull);
+      expect(provider.carregandoMusicos, isFalse);
+    });
+
+    test('com Firebase nunca mostra o catálogo do MockData', () {
+      provider = OportunidadeProvider(
+        service: FirebaseDataService(
+          auth: MockFirebaseAuth(),
+          firestore: firestore,
+          enabled: true,
+        ),
+      );
+
+      expect(provider.musicos, isEmpty);
+      expect(provider.oportunidades, isEmpty);
+    });
+
+    test('itens ocultos (da conta admin) não aparecem para os outros', () async {
+      await firestore.collection('oportunidades').doc('oculta').set({
+        'titulo': 'Teste do admin',
+        'donoId': 'adm',
+        'oculto': true,
+        'dataEvento': DateTime(2026, 5, 1),
+      });
+      await firestore.collection('perfis_musicos').doc('adm').set({
+        'nomeArtistico': 'Artista do admin',
+        'oculto': true,
+      });
+
+      provider = OportunidadeProvider(service: service);
+      await _aguardar();
+
+      expect(provider.oportunidades.map((o) => o.id), isNot(contains('oculta')));
+      expect(provider.musicos.map((m) => m.id), isNot(contains('adm')));
+    });
+
+    test('admin vê os ocultos e o que cria sai oculto', () async {
+      await firestore.collection('oportunidades').doc('oculta').set({
+        'titulo': 'Teste do admin',
+        'donoId': 'adm',
+        'oculto': true,
+        'dataEvento': DateTime(2026, 5, 1),
+      });
+      provider = OportunidadeProvider(
+        service: FirebaseDataService(
+          auth: MockFirebaseAuth(
+            signedIn: true,
+            mockUser: MockUser(uid: 'adm', customClaim: {'admin': true}),
+          ),
+          firestore: firestore,
+          enabled: true,
+        ),
+      );
+      await _aguardar();
+
+      expect(provider.oportunidades.map((o) => o.id), contains('oculta'));
+
+      await provider.criarOportunidade(
+        MockData.oportunidades.first.copyWith(titulo: 'Nova do admin'),
+        'adm',
+      );
+      await _aguardar();
+
+      final criada = provider.minhasOportunidades('adm').firstWhere(
+        (o) => o.titulo == 'Nova do admin',
+      );
+      expect(criada.oculto, isTrue);
+    });
+
+    test('atualizarOportunidade mantém dono e remover apaga', () async {
+      await firestore.collection('oportunidades').doc('minha').set({
+        'titulo': 'Antiga',
+        'donoId': 'u1',
+        'dataEvento': DateTime(2026, 5, 1),
+      });
+      provider = OportunidadeProvider(service: service);
+      await _aguardar();
+
+      final original = provider.buscarOportunidadePorId('minha')!;
+      final ok = await provider.atualizarOportunidade(
+        original.copyWith(titulo: 'Nova', cacheOferecido: 900, donoId: 'outro'),
+      );
+      await _aguardar();
+
+      expect(ok, isTrue);
+      final doc = await firestore.collection('oportunidades').doc('minha').get();
+      expect(doc.data()?['titulo'], 'Nova');
+      expect(doc.data()?['cacheOferecido'], 900);
+      expect(doc.data()?['donoId'], 'u1');
+
+      expect(await provider.removerOportunidade('minha'), isTrue);
+      await _aguardar();
+      expect(provider.buscarOportunidadePorId('minha'), isNull);
     });
 
     test('novos músicos no Firestore aparecem na lista em tempo real', () async {
@@ -263,35 +453,88 @@ void main() {
 
     tearDown(() => provider.dispose());
 
-    test('cria e salva o perfil inicial quando não existe', () async {
-      provider = PerfilProvider(service: service);
-      await _aguardar();
-
-      expect(provider.perfilMusico?.id, 'u1');
-      final doc = await firestore.collection('perfis_musicos').doc('u1').get();
-      expect(doc.exists, isTrue);
-    });
-
-    test('carrega perfil existente e salva atualizações', () async {
-      await firestore.collection('perfis_musicos').doc('u1').set({
-        'nomeArtistico': 'Perfil Salvo',
+    test('músico sem perfil não ganha perfil automático', () async {
+      await firestore.collection('usuarios').doc('u1').set({
+        'nome': 'Musico Teste',
+        'tipoUsuario': 'musico',
       });
 
       provider = PerfilProvider(service: service);
       await _aguardar();
-      expect(provider.perfilMusico?.nomeArtistico, 'Perfil Salvo');
 
-      await provider.atualizarPerfil(
-        nomeArtistico: 'Atualizado',
-        generoMusical: 'Rock',
-        cidade: 'Franca',
-        cacheMedio: 100,
-        descricao: 'D',
-        portfolioLinks: const [],
-      );
-
+      expect(provider.perfilMusico, isNull);
+      expect(provider.isLoading, isFalse);
       final doc = await firestore.collection('perfis_musicos').doc('u1').get();
-      expect(doc.data()?['nomeArtistico'], 'Atualizado');
+      expect(doc.exists, isFalse);
+    });
+
+    test('ao trocar de conta descarta o perfil anterior', () async {
+      await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'musico'});
+      await firestore.collection('perfis_musicos').doc('u1').set({
+        'nomeArtistico': 'Banda da Conta Antiga',
+      });
+      final auth = MockFirebaseAuth(
+        signedIn: true,
+        mockUser: MockUser(uid: 'u1'),
+      );
+      provider = PerfilProvider(
+        service: FirebaseDataService(auth: auth, firestore: firestore, enabled: true),
+      );
+      await _aguardar();
+      expect(provider.perfilMusico?.nomeArtistico, 'Banda da Conta Antiga');
+
+      await auth.signOut();
+      await _aguardar();
+
+      expect(provider.perfilMusico, isNull);
+    });
+
+    test('dono carrega só o estabelecimento', () async {
+      await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'casaShow'});
+      await firestore.collection('perfis_musicos').doc('u1').set({'nomeArtistico': 'X'});
+      await firestore.collection('estabelecimentos').doc('u1').set(_estabelecimentoCompleto);
+
+      provider = PerfilProvider(service: service);
+      await _aguardar();
+
+      expect(provider.perfilMusico, isNull);
+      expect(provider.perfilEstabelecimento?.nome, 'Bar Central');
+    });
+
+    test('salvarPerfilMusico grava em perfis_musicos/{uid}', () async {
+      await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'musico'});
+      provider = PerfilProvider(service: service);
+      await _aguardar();
+
+      final ok = await provider.salvarPerfilMusico(_musicoCompleto);
+
+      expect(ok, isTrue);
+      final doc = await firestore.collection('perfis_musicos').doc('u1').get();
+      expect(doc.data()?['nomeArtistico'], 'Banda');
+      expect(doc.data()?['oculto'], isFalse);
+      expect(provider.perfilMusico?.id, 'u1');
+    });
+
+    test('admin carrega os dois perfis e grava oculto', () async {
+      await firestore.collection('estabelecimentos').doc('adm').set(_estabelecimentoCompleto);
+      provider = PerfilProvider(
+        service: FirebaseDataService(
+          auth: MockFirebaseAuth(
+            signedIn: true,
+            mockUser: MockUser(uid: 'adm', customClaim: {'admin': true}),
+          ),
+          firestore: firestore,
+          enabled: true,
+        ),
+      );
+      await _aguardar();
+
+      expect(provider.perfilEstabelecimento?.nome, 'Bar Central');
+
+      await provider.salvarPerfilMusico(_musicoCompleto);
+
+      final doc = await firestore.collection('perfis_musicos').doc('adm').get();
+      expect(doc.data()?['oculto'], isTrue);
     });
   });
 
@@ -300,17 +543,31 @@ void main() {
 
     tearDown(() => provider.dispose());
 
-    test('carrega conversas do Firestore e persiste mensagens enviadas', () async {
+    test('carrega só conversas do usuário e persiste mensagens enviadas', () async {
+      await firestore.collection('conversas').doc('c1').set({
+        'participantes': ['u1', 'e1'],
+        'nomes': {'u1': 'Eu', 'e1': 'Bar Central'},
+        'mensagens': [],
+      });
+      await firestore.collection('conversas').doc('c2').set({
+        'participantes': ['x', 'y'],
+        'mensagens': [],
+      });
+
       provider = ChatProvider(service: service);
       await _aguardar();
 
-      final conversa = provider.conversas.first;
-      await provider.enviarMensagem(conversa.id, 'Mensagem nova');
+      expect(provider.conversas.map((c) => c.id), ['c1']);
+      expect(provider.conversas.single.nomeContato(provider.meuUid), 'Bar Central');
 
-      final doc = await firestore.collection('conversas').doc(conversa.id).get();
+      await provider.enviarMensagem('c1', 'Mensagem nova');
+      await _aguardar();
+
+      final doc = await firestore.collection('conversas').doc('c1').get();
       final mensagens = doc.data()?['mensagens'] as List;
       expect((mensagens.last as Map)['texto'], 'Mensagem nova');
       expect((mensagens.last as Map)['remetenteId'], 'u1');
+      expect(provider.buscarConversaPorId('c1')?.ultimaMensagem, 'Mensagem nova');
     });
   });
 }
