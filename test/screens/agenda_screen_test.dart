@@ -58,7 +58,7 @@ void main() {
     );
   });
 
-  testWidgets('músico vê o calendário, o show do dia e marca disponibilidade', (tester) async {
+  testWidgets('músico vê o calendário, o show do dia e bloqueia o dia', (tester) async {
     await tester.pumpWidget(_app(servicoFake(firestore: firestore, uid: 'm1')));
     await tester.pumpAndSettle();
 
@@ -67,23 +67,22 @@ void main() {
     expect(find.text('Contratante: Bar Central'), findsOneWidget);
     expect(find.text('Show confirmado'), findsOneWidget); // legenda
 
-    await tester.tap(find.text('Disponível para shows neste dia'));
+    expect(find.text('Livre para shows (padrão).'), findsOneWidget);
+    await tester.tap(find.text('Bloquear este dia'));
     await tester.pumpAndSettle();
 
-    final doc = await firestore
-        .collection('disponibilidades')
-        .doc('m1_$hoje')
-        .get();
+    expect(find.text('Você não aparece como livre neste dia.'), findsOneWidget);
+    final doc = await firestore.collection('bloqueios').doc('m1_$hoje').get();
     expect(doc.exists, isTrue);
   });
 
-  testWidgets('dono vê o show que contratou, sem marcar disponibilidade', (tester) async {
+  testWidgets('dono vê o show que contratou, sem bloquear dias', (tester) async {
     await tester.pumpWidget(_app(servicoFake(firestore: firestore, uid: 'e1')));
     await tester.pumpAndSettle();
 
     expect(find.text('Show de sexta'), findsOneWidget);
     expect(find.text('Artista: Banda'), findsOneWidget);
-    expect(find.text('Disponível para shows neste dia'), findsNothing);
+    expect(find.text('Bloquear este dia'), findsNothing);
   });
 
   testWidgets('dia sem show mostra aviso', (tester) async {

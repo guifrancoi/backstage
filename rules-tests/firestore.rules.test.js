@@ -62,6 +62,14 @@ function asAnon() {
   return testEnv.unauthenticatedContext().firestore();
 }
 
+/** Data a [n] dias de hoje (negativo = passado), à meia-noite local. */
+function emDias(n) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
 async function seed(setupFn) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setupFn(context.firestore());
@@ -222,7 +230,7 @@ async function seedPapeis() {
     await setDoc(doc(db, 'usuarios/m2'), { tipoUsuario: 'musico' });
     await setDoc(doc(db, 'usuarios/e1'), { tipoUsuario: 'casaShow' });
     await setDoc(doc(db, 'usuarios/e2'), { tipoUsuario: 'casaShow' });
-    await setDoc(doc(db, 'oportunidades/o1'), { titulo: 'Show', donoId: 'e1' });
+    await setDoc(doc(db, 'oportunidades/o1'), { titulo: 'Show', donoId: 'e1', dataEvento: emDias(30) });
   });
 }
 
@@ -398,41 +406,84 @@ test('interesses: só o remetente cancela, e só enquanto pendente', async () =>
 
 // --- conversas -------------------------------------------------------------------
 
-test('conversas: aceitar cria a conversa no mesmo batch', async () => {
+// Conversa por par: id = uids em ordem ('e1' < 'm1').
+test('conversas: aceitar cria a conversa do par no mesmo batch', async () => {
   await seedPapeis();
   await seed((db) => setDoc(doc(db, 'interesses/m1_op_o1'), candidatura));
 
   const db = asUser('e1');
   const batch = writeBatch(db);
-  batch.set(doc(db, 'conversas/m1_op_o1'), {
-    participantes: ['m1', 'e1'],
+  batch.set(doc(db, 'conversas/e1_m1'), {
+    participantes: ['e1', 'm1'],
     nomes: { m1: 'Músico', e1: 'Bar' },
+    interesseId: 'm1_op_o1',
+    interesseIds: ['m1_op_o1'],
     mensagens: [],
   });
   batch.update(doc(db, 'interesses/m1_op_o1'), {
     status: 'aceito',
-    conversaId: 'm1_op_o1',
+    conversaId: 'e1_m1',
   });
   await assertSucceeds(batch.commit());
 });
 
-test('conversas: não cria sem interesse aceito', async () => {
+test('conversas: segundo aceite entre o mesmo par reaproveita a conversa', async () => {
   await seedPapeis();
-  await seed((db) => setDoc(doc(db, 'interesses/m1_op_o1'), candidatura));
-
-  await assertFails(
-    setDoc(doc(asUser('e1'), 'conversas/m1_op_o1'), {
-      participantes: ['m1', 'e1'],
-      nomes: {},
+  await seed(async (db) => {
+    await setDoc(doc(db, 'interesses/e1_mu_m1'), convite);
+    await setDoc(doc(db, 'conversas/e1_m1'), {
+      participantes: ['e1', 'm1'],
+      interesseId: 'm1_op_o1',
+      interesseIds: ['m1_op_o1'],
       mensagens: [],
+    });
+  });
+
+  const db = asUser('m1');
+  const batch = writeBatch(db);
+  batch.set(
+    doc(db, 'conversas/e1_m1'),
+    { participantes: ['e1', 'm1'], interesseId: 'e1_mu_m1', interesseIds: ['m1_op_o1', 'e1_mu_m1'] },
+    { merge: true },
+  );
+  batch.update(doc(db, 'interesses/e1_mu_m1'), { status: 'aceito', conversaId: 'e1_m1' });
+  await assertSucceeds(batch.commit());
+});
+
+test('conversas: parte de interesse já aceito recria a conversa do par', async () => {
+  await seed((db) =>
+    setDoc(doc(db, 'interesses/m1_op_o1'), { ...candidatura, status: 'aceito' }),
+  );
+  await assertSucceeds(
+    setDoc(doc(asUser('m1'), 'conversas/e1_m1'), {
+      participantes: ['e1', 'm1'],
+      interesseId: 'm1_op_o1',
     }),
   );
+});
+
+test('conversas: não cria sem interesse aceito, fora do par ou com id errado', async () => {
+  await seedPapeis();
+  await seed(async (db) => {
+    await setDoc(doc(db, 'interesses/m1_op_o1'), candidatura); // pendente
+    await setDoc(doc(db, 'interesses/e1_mu_m1'), { ...convite, status: 'aceito' });
+  });
+  const base = { participantes: ['e1', 'm1'], interesseId: 'e1_mu_m1' };
+
+  // Interesse ainda pendente.
   await assertFails(
-    setDoc(doc(asUser('e2'), 'conversas/qualquer'), {
-      participantes: ['m1', 'e2'],
-      nomes: {},
-      mensagens: [],
-    }),
+    setDoc(doc(asUser('e1'), 'conversas/e1_m1'), { ...base, interesseId: 'm1_op_o1' }),
+  );
+  // Id que não é o do par, ou participantes fora de ordem.
+  await assertFails(setDoc(doc(asUser('e1'), 'conversas/e1_mu_m1'), base));
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'conversas/e1_m1'), { ...base, participantes: ['m1', 'e1'] }),
+  );
+  // Terceiro que não é parte do interesse.
+  await assertFails(setDoc(doc(asUser('e2'), 'conversas/e1_m1'), base));
+  // Sem interesse.
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'conversas/e1_m1'), { participantes: ['e1', 'm1'] }),
   );
 });
 
@@ -501,31 +552,28 @@ test('admin: campo admin gravado no próprio usuarios não dá poder', async () 
 
 // --- smoke tests: coleções que não deveriam ter mudado de comportamento ----
 
-test('disponibilidades: só o próprio usuarioId', async () => {
+test('bloqueios: só o próprio usuarioId', async () => {
   const db = asUser('u1');
   await assertSucceeds(
-    setDoc(doc(db, 'disponibilidades/u1_2026-05-10'), {
+    setDoc(doc(db, 'bloqueios/u1_2026-05-10'), {
       usuarioId: 'u1',
-      disponivel: true,
     }),
   );
   await assertFails(
-    setDoc(doc(db, 'disponibilidades/u2_2026-05-10'), {
+    setDoc(doc(db, 'bloqueios/u2_2026-05-10'), {
       usuarioId: 'u2',
-      disponivel: true,
     }),
   );
 });
 
-test('disponibilidades: qualquer autenticado lê (agenda pública); anônimo não', async () => {
+test('bloqueios: qualquer autenticado lê (agenda pública); anônimo não', async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, 'disponibilidades/m1_2026-05-10'), {
+    await setDoc(doc(db, 'bloqueios/m1_2026-05-10'), {
       usuarioId: 'm1',
-      disponivel: true,
     });
   });
-  await assertSucceeds(getDoc(doc(asUser('e1'), 'disponibilidades/m1_2026-05-10')));
-  await assertFails(getDoc(doc(asAnon(), 'disponibilidades/m1_2026-05-10')));
+  await assertSucceeds(getDoc(doc(asUser('e1'), 'bloqueios/m1_2026-05-10')));
+  await assertFails(getDoc(doc(asAnon(), 'bloqueios/m1_2026-05-10')));
 });
 
 // --- contratacoes / ocupacoes (Plano 9B) ----------------------------------
@@ -832,7 +880,7 @@ test('conversas: participante registra a leitura (lidaEm)', async () => {
 
 test('oportunidades: dono remove encerrando interesses pendentes no mesmo batch', async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, 'oportunidades/o1'), { titulo: 'Show', donoId: 'e1' });
+    await setDoc(doc(db, 'oportunidades/o1'), { titulo: 'Show', donoId: 'e1', dataEvento: emDias(30) });
     await setDoc(doc(db, 'interesses/m1_op_o1'), candidatura);
     await setDoc(doc(db, 'interesses/e1_mu_m1_o1'), { ...convite, oportunidadeId: 'o1' });
   });
@@ -848,4 +896,48 @@ test('oportunidades: dono remove encerrando interesses pendentes no mesmo batch'
   });
   batch.delete(doc(e1, 'oportunidades/o1'));
   await assertSucceeds(batch.commit());
+});
+
+// --- oportunidade vencida (Plano 12) ------------------------------------------
+
+test('interesses: não se candidata nem convida para oportunidade que já passou', async () => {
+  await seedPapeis();
+  await seed(async (db) => {
+    await setDoc(doc(db, 'oportunidades/o1'), {
+      titulo: 'Show',
+      donoId: 'e1',
+      dataEvento: emDias(-1),
+    });
+  });
+  await assertFails(
+    setDoc(doc(asUser('m1'), `interesses/m1_op_o1`), candidatura),
+  );
+  await assertFails(
+    setDoc(doc(asUser('e1'), 'interesses/e1_mu_m1_o1'), {
+      ...convite,
+      oportunidadeId: 'o1',
+    }),
+  );
+  // Convite sem oportunidade continua valendo.
+  await assertSucceeds(setDoc(doc(asUser('e1'), 'interesses/e1_mu_m1'), convite));
+});
+
+test('interesses: o próprio dia do evento ainda aceita candidatura', async () => {
+  await seedPapeis();
+  await seed(async (db) => {
+    await setDoc(doc(db, 'oportunidades/o1'), {
+      titulo: 'Show',
+      donoId: 'e1',
+      dataEvento: emDias(0),
+    });
+  });
+  await assertSucceeds(
+    setDoc(doc(asUser('m1'), 'interesses/m1_op_o1'), candidatura),
+  );
+});
+
+test('disponibilidades (coleção antiga) não é mais acessível', async () => {
+  await assertFails(
+    setDoc(doc(asUser('u1'), 'disponibilidades/u1_2026-05-10'), { usuarioId: 'u1' }),
+  );
 });

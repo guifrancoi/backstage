@@ -196,7 +196,7 @@ void main() {
       expect(doc.exists, isFalse);
     });
 
-    test('aceitar abre a conversa com os dois participantes', () async {
+    test('aceitar abre a conversa do par com mensagem de sistema', () async {
       await service.enviarInteresse(candidatura());
 
       final conversaId = await service.aceitarInteresse(
@@ -211,10 +211,63 @@ void main() {
       expect(interesse.data()?['status'], 'aceito');
       expect(interesse.data()?['conversaId'], conversaId);
 
+      expect(conversaId, 'e1_m1');
       final conversa = await firestore.collection('conversas').doc(conversaId).get();
-      expect(conversa.data()?['participantes'], ['m1', 'e1']);
+      expect(conversa.data()?['participantes'], ['e1', 'm1']);
       expect(conversa.data()?['nomes'], {'m1': 'Músico', 'e1': 'Bar Central'});
       expect(conversa.data()?['interesseId'], 'm1_op_o1');
+      expect(conversa.data()?['interesseIds'], ['m1_op_o1']);
+      final mensagens = conversa.data()?['mensagens'] as List;
+      expect((mensagens.single as Map)['sistema'], isTrue);
+      expect((mensagens.single as Map)['texto'], contains('Candidatura'));
+    });
+
+    test('segundo aceite entre o mesmo par reaproveita a conversa', () async {
+      await service.enviarInteresse(candidatura());
+      await service.aceitarInteresse(candidatura(), nomeDestinatario: 'Bar Central');
+      await firestore.collection('conversas').doc('e1_m1').update({
+        'mensagens': FieldValue.arrayUnion([
+          {'id': 'x', 'remetenteId': 'm1', 'texto': 'Oi!', 'dataHora': DateTime(2026, 9, 1)},
+        ]),
+      });
+      final convite = Interesse(
+        id: 'e1_mu_m1',
+        tipo: TipoInteresse.convite,
+        remetenteId: 'e1',
+        remetenteNome: 'Bar Central',
+        destinatarioId: 'm1',
+        musicoId: 'm1',
+        musicoNome: 'Músico',
+        criadoEm: DateTime(2026, 9, 2),
+      );
+      await service.enviarInteresse(convite);
+
+      final id = await service.aceitarInteresse(convite, nomeDestinatario: 'Músico');
+
+      expect(id, 'e1_m1');
+      expect((await firestore.collection('conversas').get()).docs, hasLength(1));
+      final conversa = await firestore.collection('conversas').doc('e1_m1').get();
+      expect(conversa.data()?['interesseIds'], ['m1_op_o1', 'e1_mu_m1']);
+      // A mensagem antiga continua; entra mais um aviso de sistema.
+      final mensagens = conversa.data()?['mensagens'] as List;
+      expect(mensagens.map((m) => (m as Map)['texto']), contains('Oi!'));
+      expect(mensagens.where((m) => (m as Map)['sistema'] == true), hasLength(2));
+    });
+
+    test('garantirConversa recria a conversa de um interesse aceito', () async {
+      await service.enviarInteresse(candidatura());
+      await service.aceitarInteresse(candidatura(), nomeDestinatario: 'Bar Central');
+      await firestore.collection('conversas').doc('e1_m1').delete();
+
+      final id = await service.garantirConversa(
+        candidatura(),
+        meuUid: 'm1',
+        meuNome: 'Músico',
+      );
+
+      expect(id, 'e1_m1');
+      final conversa = await firestore.collection('conversas').doc('e1_m1').get();
+      expect(conversa.data()?['participantes'], ['e1', 'm1']);
     });
   });
 
@@ -318,36 +371,36 @@ void main() {
     });
   });
 
-  group('disponibilidades', () {
+  group('bloqueios', () {
     test('usa id {uid}_{yyyy-MM-dd} e normaliza o horário', () async {
-      await service.adicionarDataDisponivel('u1', DateTime(2026, 5, 10, 21, 45));
+      await service.bloquearDia('u1', DateTime(2026, 5, 10, 21, 45));
 
       final doc = await firestore
-          .collection('disponibilidades')
+          .collection('bloqueios')
           .doc('u1_2026-05-10')
           .get();
       expect(doc.exists, isTrue);
       expect(doc.data()?['usuarioId'], 'u1');
-      expect(doc.data()?['disponivel'], isTrue);
+      expect(doc.data()?['data'], isNotNull);
     });
 
-    test('listar retorna só as datas do usuário, ordenadas', () async {
-      await service.adicionarDataDisponivel('u1', DateTime(2026, 6, 1));
-      await service.adicionarDataDisponivel('u1', DateTime(2026, 5, 1));
-      await service.adicionarDataDisponivel('u2', DateTime(2026, 4, 1));
+    test('listar retorna só os dias do usuário, ordenados', () async {
+      await service.bloquearDia('u1', DateTime(2026, 6, 1));
+      await service.bloquearDia('u1', DateTime(2026, 5, 1));
+      await service.bloquearDia('u2', DateTime(2026, 4, 1));
 
-      expect(await service.listarDatasDisponiveis('u1'), [
+      expect(await service.listarDiasBloqueados('u1'), [
         DateTime(2026, 5, 1),
         DateTime(2026, 6, 1),
       ]);
     });
 
-    test('remover apaga pelo dia, ignorando o horário', () async {
-      await service.adicionarDataDisponivel('u1', DateTime(2026, 5, 10));
+    test('desbloquear apaga pelo dia, ignorando o horário', () async {
+      await service.bloquearDia('u1', DateTime(2026, 5, 10));
 
-      await service.removerDataDisponivel('u1', DateTime(2026, 5, 10, 8));
+      await service.desbloquearDia('u1', DateTime(2026, 5, 10, 8));
 
-      expect(await service.listarDatasDisponiveis('u1'), isEmpty);
+      expect(await service.listarDiasBloqueados('u1'), isEmpty);
     });
   });
 

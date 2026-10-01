@@ -73,16 +73,54 @@ class InteresseProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Convite mais recente já enviado ao músico (qualquer oportunidade).
-  Interesse? convitePara(String musicoId) {
-    for (final interesse in enviados) {
-      if (interesse.tipo == TipoInteresse.convite &&
-          interesse.musicoId == musicoId) {
-        return interesse;
+  /// Estado do convite ao músico **naquela** oportunidade (`null` = convite
+  /// sem oportunidade específica). Considera o convite já enviado e, se
+  /// houver oportunidade, a candidatura que o músico mandou para ela.
+  SituacaoConvite situacaoConvite(String musicoId, {String? oportunidadeId}) {
+    Interesse? convite;
+    for (final i in _enviados) {
+      if (i.tipo == TipoInteresse.convite &&
+          i.musicoId == musicoId &&
+          i.oportunidadeId == oportunidadeId) {
+        convite = i;
       }
     }
-    return null;
+    Interesse? candidatura;
+    if (oportunidadeId != null) {
+      for (final i in _recebidos) {
+        if (i.tipo == TipoInteresse.candidatura &&
+            i.musicoId == musicoId &&
+            i.oportunidadeId == oportunidadeId) {
+          candidatura = i;
+        }
+      }
+    }
+
+    if (candidatura != null && candidatura.pendente) {
+      return SituacaoConvite.candidaturaPendente;
+    }
+    if (candidatura?.status == StatusInteresse.aceito ||
+        convite?.status == StatusInteresse.aceito) {
+      return SituacaoConvite.aceito;
+    }
+    return switch (convite?.status) {
+      null => SituacaoConvite.livre,
+      StatusInteresse.pendente => SituacaoConvite.enviado,
+      StatusInteresse.recusado => SituacaoConvite.recusado,
+      StatusInteresse.cancelado => SituacaoConvite.encerrado,
+      StatusInteresse.aceito => SituacaoConvite.aceito,
+    };
   }
+
+  /// Convites ainda sem resposta enviados ao músico (resumo do botão).
+  int convitesPendentesPara(String musicoId) => _enviados
+      .where(
+        (i) =>
+            i.tipo == TipoInteresse.convite &&
+            i.musicoId == musicoId &&
+            i.pendente,
+      )
+      .length;
 
   Future<bool> enviarCandidatura({
     required Oportunidade oportunidade,
@@ -184,6 +222,34 @@ class InteresseProvider extends ChangeNotifier {
       ]);
     }
     return conversaId;
+  }
+
+  /// Um interesse aceito entre o usuário logado e [outroUid] (qualquer
+  /// direção). Se existe, os dois já têm conversa (uma por par).
+  Interesse? aceitoCom(String outroUid) {
+    for (final i in [..._enviados, ..._recebidos]) {
+      if (i.status == StatusInteresse.aceito &&
+          (i.remetenteId == outroUid || i.destinatarioId == outroUid)) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  /// Conversa do par de um interesse aceito: garante que ela existe (pode
+  /// ter sido apagada) e devolve o id, ou `null` em erro.
+  Future<String?> abrirConversa(
+    Interesse interesse, {
+    required String meuUid,
+    required String meuNome,
+  }) {
+    return _executar<String?>(
+      () => _service.garantirConversa(
+        interesse,
+        meuUid: meuUid,
+        meuNome: meuNome,
+      ),
+    );
   }
 
   Future<bool> recusar(

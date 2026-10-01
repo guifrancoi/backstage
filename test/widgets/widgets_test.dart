@@ -61,16 +61,18 @@ void main() {
       expect(detalhes, 1);
     });
 
-    testWidgets('desabilita o botão com o status do convite enviado', (tester) async {
+    testWidgets('mostra o rótulo do convite e continua ativo', (tester) async {
+      var convites = 0;
       await tester.pumpWidget(_app(MusicoCard(
         musico: _musico(),
-        onConvidar: () => fail('não deveria ser chamado'),
-        statusConvite: 'Convite enviado',
+        onConvidar: () => convites++,
+        rotuloConvidar: 'Convidar (1 pendente)',
         onVerDetalhes: () {},
       )));
 
-      expect(find.text('Convite enviado'), findsOneWidget);
-      expect(_botao(tester).onPressed, isNull);
+      expect(find.text('Convidar (1 pendente)'), findsOneWidget);
+      await tester.tap(find.text('Convidar (1 pendente)'));
+      expect(convites, 1);
     });
 
     testWidgets('sem onConvidar nem status, o botão some', (tester) async {
@@ -178,6 +180,27 @@ void main() {
 
       final coluna = tester.widget<Column>(find.byType(Column).first);
       expect(coluna.crossAxisAlignment, CrossAxisAlignment.end);
+    });
+
+    testWidgets('mensagem de sistema fica centralizada, sem lado', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          MensagemBubble(
+            mensagem: Mensagem(
+              id: 's',
+              remetenteId: 'u1',
+              texto: 'Convite aceito.',
+              dataHora: DateTime(2026),
+              sistema: true,
+            ),
+            enviadaPorMim: true,
+          ),
+        ),
+      );
+
+      expect(find.text('Convite aceito.'), findsOneWidget);
+      expect(find.byType(Center), findsWidgets);
+      expect(find.byType(Column), findsNothing);
     });
 
     testWidgets('alinha à esquerda as mensagens recebidas', (tester) async {

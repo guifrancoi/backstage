@@ -215,36 +215,83 @@ class FirebaseDataService {
     });
   }
 
-  /// Aceita o interesse e abre a conversa entre remetente e destinatário no
-  /// mesmo batch (id da conversa = id do interesse). Devolve o id da conversa.
+  /// Aceita o interesse e, no mesmo batch, registra-o na conversa do par
+  /// (`Conversa.idPar`): cria a conversa se for a primeira vez ou reaproveita
+  /// a existente, com uma mensagem de sistema ("Convite para X aceito").
+  /// Devolve o id da conversa.
   Future<String> aceitarInteresse(
     Interesse interesse, {
     required String nomeDestinatario,
   }) async {
-    final conversa = Conversa(
-      id: interesse.id,
-      participantes: [interesse.remetenteId, interesse.destinatarioId],
+    final agora = DateTime.now();
+    final aviso = Mensagem(
+      id: 'sistema_${interesse.id}_${agora.millisecondsSinceEpoch}',
+      remetenteId: interesse.destinatarioId,
+      texto: Conversa.textoAceite(interesse),
+      dataHora: agora,
+      sistema: true,
+    );
+
+    final batch = firestore.batch();
+    final conversaId = _registrarNaConversa(
+      batch,
+      interesse,
       nomes: {
         interesse.remetenteId: interesse.remetenteNome,
         interesse.destinatarioId: nomeDestinatario,
       },
-      interesseId: interesse.id,
-      mensagens: const [],
-      atualizadoEm: DateTime.now(),
-    );
-
-    final batch = firestore.batch();
-    batch.set(
-      firestore.collection('conversas').doc(conversa.id),
-      conversa.toMap(),
+      aviso: aviso,
     );
     batch.update(firestore.collection('interesses').doc(interesse.id), {
       'status': StatusInteresse.aceito.name,
-      'respondidoEm': DateTime.now(),
-      'conversaId': conversa.id,
+      'respondidoEm': agora,
+      'conversaId': conversaId,
     });
     await batch.commit();
-    return conversa.id;
+    return conversaId;
+  }
+
+  /// Garante a conversa do par de um interesse **já aceito** (ex.: conversa
+  /// apagada) e devolve o id. Só grava o nome de quem chama ([meuUid]).
+  Future<String> garantirConversa(
+    Interesse interesse, {
+    required String meuUid,
+    required String meuNome,
+  }) async {
+    final batch = firestore.batch();
+    final conversaId = _registrarNaConversa(
+      batch,
+      interesse,
+      nomes: {meuUid: meuNome},
+    );
+    await batch.commit();
+    return conversaId;
+  }
+
+  /// `set` com merge na conversa do par: cria ou atualiza sem perder as
+  /// mensagens. `interesseId` (o último) é o que as regras conferem na criação.
+  String _registrarNaConversa(
+    WriteBatch batch,
+    Interesse interesse, {
+    required Map<String, String> nomes,
+    Mensagem? aviso,
+  }) {
+    final conversaId = Conversa.idPar(
+      interesse.remetenteId,
+      interesse.destinatarioId,
+    );
+    batch.set(firestore.collection('conversas').doc(conversaId), {
+      'participantes': Conversa.participantesDoPar(
+        interesse.remetenteId,
+        interesse.destinatarioId,
+      ),
+      'nomes': nomes,
+      'interesseId': interesse.id,
+      'interesseIds': FieldValue.arrayUnion([interesse.id]),
+      if (aviso != null) 'mensagens': FieldValue.arrayUnion([aviso.toMap()]),
+      if (aviso != null) 'atualizadoEm': aviso.dataHora,
+    }, SetOptions(merge: true));
+    return conversaId;
   }
 
   Future<Musico?> carregarPerfilMusico(String usuarioId) async {
@@ -265,9 +312,10 @@ class FirebaseDataService {
         .set(perfil.toMap(), SetOptions(merge: true));
   }
 
-  Future<List<DateTime>> listarDatasDisponiveis(String usuarioId) async {
+  /// Dias que o músico bloqueou na agenda (todo dia é livre por padrão).
+  Future<List<DateTime>> listarDiasBloqueados(String usuarioId) async {
     final snapshot = await firestore
-        .collection('disponibilidades')
+        .collection('bloqueios')
         .where('usuarioId', isEqualTo: usuarioId)
         .get();
 
@@ -280,21 +328,20 @@ class FirebaseDataService {
     return datas;
   }
 
-  Future<void> adicionarDataDisponivel(String usuarioId, DateTime data) {
+  Future<void> bloquearDia(String usuarioId, DateTime data) {
     return firestore
-        .collection('disponibilidades')
-        .doc(_disponibilidadeId(usuarioId, data))
+        .collection('bloqueios')
+        .doc(_bloqueioId(usuarioId, data))
         .set({
           'usuarioId': usuarioId,
           'data': DateTime(data.year, data.month, data.day),
-          'disponivel': true,
         });
   }
 
-  Future<void> removerDataDisponivel(String usuarioId, DateTime data) {
+  Future<void> desbloquearDia(String usuarioId, DateTime data) {
     return firestore
-        .collection('disponibilidades')
-        .doc(_disponibilidadeId(usuarioId, data))
+        .collection('bloqueios')
+        .doc(_bloqueioId(usuarioId, data))
         .delete();
   }
 
@@ -383,7 +430,8 @@ class FirebaseDataService {
     return batch.commit();
   }
 
-  /// Dias disponíveis e ocupados de [musicoId] (leitura pública).
+  /// Dias bloqueados e ocupados de [musicoId] (leitura pública); os demais
+  /// são livres.
   Stream<AgendaPublica> streamAgendaPublica(String musicoId) {
     Stream<Set<String>> dias(
       String colecao,
@@ -397,13 +445,13 @@ class FirebaseDataService {
 
     return _combinar(
       dias(
-        'disponibilidades',
+        'bloqueios',
         'usuarioId',
         (d) => Contratacao.diaDe(_dateTimeFromValue(d['data'])),
       ),
       dias('ocupacoes', 'musicoId', (d) => d['dia'] as String? ?? ''),
-      (disponiveis, ocupados) =>
-          AgendaPublica(disponiveis: disponiveis, ocupados: ocupados),
+      (bloqueados, ocupados) =>
+          AgendaPublica(bloqueados: bloqueados, ocupados: ocupados),
     );
   }
 
@@ -593,7 +641,7 @@ Stream<R> _combinar<A, B, R>(
   return controller.stream;
 }
 
-String _disponibilidadeId(String usuarioId, DateTime data) {
+String _bloqueioId(String usuarioId, DateTime data) {
   final dataNormalizada = DateTime(data.year, data.month, data.day);
   final dataIso = dataNormalizada.toIso8601String().substring(0, 10);
   return '${usuarioId}_$dataIso';

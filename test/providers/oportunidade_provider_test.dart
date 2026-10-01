@@ -1,3 +1,4 @@
+import 'package:backstage/models/filtro_oportunidades.dart';
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -185,10 +186,10 @@ void main() {
 
   group('filtros de oportunidades', () {
     test('filtra por gênero e cidade e reseta', () {
-      provider.filtrarOportunidades(genero: 'Rock');
+      provider.filtrarOportunidades(const FiltroOportunidades(genero: 'Rock'));
       expect(provider.oportunidades.map((o) => o.id), unorderedEquals(['1', '3']));
 
-      provider.filtrarOportunidades(cidade: 'SERTÃOZINHO');
+      provider.filtrarOportunidades(const FiltroOportunidades(cidade: 'SERTÃOZINHO'));
       expect(provider.oportunidades.map((o) => o.cidade), ['Sertãozinho']);
 
       provider.resetarFiltroOportunidades();
@@ -202,7 +203,7 @@ void main() {
         p.oportunidades.every((o) => o.generoMusical == 'Rock');
 
     test('ao filtrar, pesquisar ou ordenar músicos', () {
-      provider.filtrarOportunidades(genero: 'Rock');
+      provider.filtrarOportunidades(const FiltroOportunidades(genero: 'Rock'));
 
       provider
         ..filtrarMusicos(genero: 'MPB')
@@ -214,7 +215,7 @@ void main() {
     });
 
     test('ao criar uma oportunidade (volta pelo stream)', () async {
-      provider.filtrarOportunidades(genero: 'Rock');
+      provider.filtrarOportunidades(const FiltroOportunidades(genero: 'Rock'));
 
       await provider.criarOportunidade(
         oportunidadeTeste(id: '', generoMusical: 'MPB'),
@@ -244,10 +245,72 @@ void main() {
     });
 
     test('encontra oportunidade mesmo fora do filtro atual', () {
-      provider.filtrarOportunidades(genero: 'MPB');
+      provider.filtrarOportunidades(const FiltroOportunidades(genero: 'MPB'));
 
       expect(provider.buscarOportunidadePorId('1')?.contratante, 'Bar Central');
       expect(provider.buscarOportunidadePorId('nao-existe'), isNull);
+    });
+  });
+
+  group('Plano 12: vencidas e agenda do músico', () {
+    test('vencida sai da lista pública, mas o dono e a busca por id a veem', () async {
+      final ontem = DateTime.now().subtract(const Duration(days: 1));
+      await gravarCatalogo(
+        firestore,
+        oportunidades: [
+          oportunidadeTeste(id: 'velha', donoId: 'e2').copyWith(dataEvento: ontem),
+        ],
+      );
+      await aguardar();
+
+      expect(provider.oportunidades.map((o) => o.id), isNot(contains('velha')));
+      expect(provider.buscarOportunidadePorId('velha'), isNotNull);
+      expect(provider.minhasOportunidades('e2').map((o) => o.id), contains('velha'));
+    });
+
+    test('lista pública vem da mais próxima para a mais distante', () async {
+      await gravarCatalogo(
+        firestore,
+        oportunidades: [
+          oportunidadeTeste(id: 'antes').copyWith(dataEvento: DateTime(2099, 1, 1)),
+        ],
+      );
+      await aguardar();
+
+      expect(provider.oportunidades.first.id, 'antes');
+    });
+
+    test('"só dias livres" usa os bloqueios e as ocupações do próprio usuário', () async {
+      await gravarCatalogo(
+        firestore,
+        oportunidades: [
+          oportunidadeTeste(id: 'livre').copyWith(dataEvento: DateTime(2099, 3, 1)),
+          oportunidadeTeste(id: 'ocupado').copyWith(dataEvento: DateTime(2099, 3, 2)),
+          oportunidadeTeste(id: 'bloqueado').copyWith(dataEvento: DateTime(2099, 3, 3)),
+        ],
+      );
+      final servico = servicoFake(firestore: firestore);
+      await servico.bloquearDia('u1', DateTime(2099, 3, 3));
+      await firestore.collection('ocupacoes').doc('u1_2099-03-02').set({
+        'musicoId': 'u1',
+        'dia': '2099-03-02',
+        'contratacaoId': 'c1',
+      });
+      await aguardar();
+
+      expect(provider.oportunidades.map((o) => o.id), containsAll(['livre', 'ocupado', 'bloqueado']));
+
+      provider.filtrarOportunidades(
+        const FiltroOportunidades(soDiasLivres: true),
+      );
+      expect(
+        provider.oportunidades.map((o) => o.id),
+        allOf(contains('livre'), isNot(contains('ocupado')), isNot(contains('bloqueado'))),
+      );
+      expect(provider.filtroOportunidades.ativos, 1);
+
+      provider.resetarFiltroOportunidades();
+      expect(provider.filtroOportunidades.vazio, isTrue);
     });
   });
 }

@@ -5,8 +5,8 @@ import '../../core/utils/data_hora.dart';
 import '../../models/agenda_publica.dart';
 import '../../providers/agenda_provider.dart';
 
-/// Próximos dias disponíveis e ocupados de um músico (substitui o antigo
-/// `Musico.datasDisponiveis`). Lê `disponibilidades` + `ocupacoes`.
+/// Próximos dias em que o músico **não** está livre: com show (`ocupacoes`)
+/// ou bloqueados por ele (`bloqueios`). Os demais dias são livres.
 class AgendaPublicaSecao extends StatefulWidget {
   const AgendaPublicaSecao({super.key, required this.musicoId});
 
@@ -77,15 +77,20 @@ class _AgendaPublicaSecaoState extends State<AgendaPublicaSecao> {
         }
 
         final ocupados = _futuros(agenda.ocupados);
-        final disponiveis = _futuros(
-          agenda.disponiveis.where((d) => !agenda.ocupado(d)),
+        final bloqueados = _futuros(
+          agenda.bloqueados.where((d) => !agenda.ocupado(d)),
         );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _linha('Disponível', disponiveis, Colors.green),
-            _linha('Ocupado', ocupados, Colors.deepPurple),
+            const Text(
+              'Livre nos demais dias.',
+              style: TextStyle(color: Colors.green),
+            ),
+            const SizedBox(height: 8),
+            _linha('Com show', ocupados, Colors.deepPurple),
+            _linha('Bloqueado', bloqueados, Colors.grey),
           ],
         );
       },

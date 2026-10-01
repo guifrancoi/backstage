@@ -10,16 +10,17 @@ import '../../providers/contratacao_provider.dart';
 import '../contratacoes/contratacoes_screen.dart';
 
 /// Marcações de um dia no calendário.
-enum _Marca { disponivel, proposta, confirmada }
+/// Todo dia é livre por padrão (sem marcação).
+enum _Marca { bloqueado, proposta, confirmada }
 
 const _cores = {
-  _Marca.disponivel: Colors.green,
+  _Marca.bloqueado: Colors.grey,
   _Marca.proposta: Colors.orange,
   _Marca.confirmada: Colors.deepPurple,
 };
 
-/// Calendário mensal. Músico: marca dias disponíveis e vê propostas e shows
-/// confirmados (ocupados). Dono: vê as contratações que propôs. Admin: tudo.
+/// Calendário mensal. Músico: todo dia é livre por padrão; ele bloqueia os
+/// que não pode e vê propostas e shows confirmados (ocupados). Dono: vê as contratações que propôs. Admin: tudo.
 class AgendaScreen extends StatefulWidget {
   const AgendaScreen({super.key});
 
@@ -51,8 +52,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
     List<_Marca> marcas(DateTime dia) {
       final chave = Contratacao.diaDe(dia);
       return [
-        if (ehMusico && agenda.datasDisponiveis.any((d) => _mesmoDia(d, dia)))
-          _Marca.disponivel,
+        if (ehMusico && agenda.bloqueado(dia)) _Marca.bloqueado,
         for (final c in ativas)
           if (c.dia == chave)
             c.status == StatusContratacao.confirmada
@@ -66,9 +66,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
     final doDia = ativas
         .where((c) => c.dia == Contratacao.diaDe(_selecionado))
         .toList();
-    final disponivelNoDia = agenda.datasDisponiveis.any(
-      (d) => _mesmoDia(d, _selecionado),
-    );
+    final bloqueadoNoDia = agenda.bloqueado(_selecionado);
     final podeMarcar = ehMusico && !_selecionado.isBefore(hoje);
 
     return Scaffold(
@@ -115,11 +113,16 @@ class _AgendaScreenState extends State<AgendaScreen> {
           ),
           if (podeMarcar)
             SwitchListTile(
-              title: const Text('Disponível para shows neste dia'),
-              value: disponivelNoDia,
-              onChanged: (marcar) => marcar
-                  ? agenda.adicionarData(_selecionado)
-                  : agenda.removerData(_selecionado),
+              title: const Text('Bloquear este dia'),
+              subtitle: Text(
+                bloqueadoNoDia
+                    ? 'Você não aparece como livre neste dia.'
+                    : 'Livre para shows (padrão).',
+              ),
+              value: bloqueadoNoDia,
+              onChanged: (bloquear) => bloquear
+                  ? agenda.bloquearDia(_selecionado)
+                  : agenda.desbloquearDia(_selecionado),
             ),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -164,7 +167,7 @@ class _Legenda extends StatelessWidget {
         spacing: 16,
         runSpacing: 4,
         children: [
-          item(_Marca.disponivel, 'Disponível'),
+          item(_Marca.bloqueado, 'Bloqueado'),
           item(_Marca.proposta, 'Proposta pendente'),
           item(_Marca.confirmada, 'Show confirmado'),
         ],

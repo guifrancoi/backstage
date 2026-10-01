@@ -118,15 +118,16 @@ void main() {
     expect(interesse(TipoInteresse.candidatura, 'm1', 'e1').donoId, 'e1');
   });
 
-  test('AgendaPublica: ocupado vence disponível', () {
+  test('AgendaPublica: livre por padrão; show ou bloqueio tiram o dia', () {
     const agenda = AgendaPublica(
-      disponiveis: {'2026-11-20', '2026-11-21'},
+      bloqueados: {'2026-11-21'},
       ocupados: {'2026-11-20'},
     );
 
     expect(agenda.ocupado('2026-11-20'), isTrue);
-    expect(agenda.disponivel('2026-11-20'), isFalse);
-    expect(agenda.disponivel('2026-11-21'), isTrue);
-    expect(agenda.disponivel('2026-11-22'), isFalse);
+    expect(agenda.livre('2026-11-20'), isFalse);
+    expect(agenda.bloqueado('2026-11-21'), isTrue);
+    expect(agenda.livre('2026-11-21'), isFalse);
+    expect(agenda.livre('2026-11-22'), isTrue);
   });
 }

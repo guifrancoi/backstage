@@ -104,7 +104,7 @@ void main() {
 
     test('mudancas lista data, horário, cachê e local', () {
       final depois = antes.copyWith(
-        dataEvento: DateTime(2026, 11, 21),
+        dataEvento: DateTime(2099, 11, 21),
         horaInicio: '22:00',
         cacheOferecido: 1500,
         numero: '20',
@@ -113,7 +113,7 @@ void main() {
       final mudancas = Notificacao.mudancas(antes, depois);
 
       expect(mudancas, [
-        'data 20/11/2026 → 21/11/2026',
+        'data 20/11/2099 → 21/11/2099',
         'horário 21:00 às 23:00 → 22:00 às 23:00',
         'cachê R\$ 1200.00 → R\$ 1500.00',
         'local Rua A, 10 — Franca/SP → Rua A, 20 — Franca/SP',

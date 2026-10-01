@@ -55,7 +55,6 @@ class DetalheMusicoScreen extends StatelessWidget {
     final imageProvider = localImageProvider(musico.fotoPath);
     final temFoto = imageProvider != null;
     final pode = podeConvidar(auth, musico);
-    final convite = interesses.convitePara(musico.id);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalhes do músico')),
@@ -144,11 +143,14 @@ class DetalheMusicoScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: convite == null
-                    ? () => confirmarConvite(context, musico)
-                    : null,
+                onPressed: () => confirmarConvite(context, musico),
                 icon: const Icon(Icons.mail_outline),
-                label: Text(convite?.rotuloStatus ?? 'Convidar para tocar'),
+                label: Text(
+                  rotuloConvidar(
+                    interesses,
+                    musico.id,
+                  ).replaceFirst('Convidar', 'Convidar para tocar'),
+                ),
               ),
             ),
           ],

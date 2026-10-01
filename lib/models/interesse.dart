@@ -6,6 +6,34 @@ enum TipoInteresse { candidatura, convite }
 /// oportunidade (o cancelamento manual apaga o documento).
 enum StatusInteresse { pendente, aceito, recusado, cancelado }
 
+/// Estado de um convite possível do dono para um músico **numa
+/// oportunidade** (ou sem oportunidade), visto pelo dono no painel de convite.
+enum SituacaoConvite {
+  /// Pode convidar.
+  livre,
+
+  /// O músico se candidatou e ainda não houve resposta: convidar = aceitar.
+  candidaturaPendente,
+  enviado,
+  aceito,
+  recusado,
+
+  /// Convite encerrado porque a oportunidade foi removida.
+  encerrado;
+
+  /// Dá para escolher no painel (enviar convite ou aceitar a candidatura).
+  bool get selecionavel => this == livre || this == candidaturaPendente;
+
+  String get rotulo => switch (this) {
+    livre => '',
+    candidaturaPendente => 'Ele se candidatou',
+    enviado => 'Convite enviado',
+    aceito => 'Aceito',
+    recusado => 'Recusado',
+    encerrado => 'Encerrado',
+  };
+}
+
 class Interesse {
   final String id;
   final TipoInteresse tipo;

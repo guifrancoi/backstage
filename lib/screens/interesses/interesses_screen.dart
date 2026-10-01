@@ -175,13 +175,30 @@ class _InteresseCard extends StatelessWidget {
     );
   }
 
+  /// Conversa do par (uma por par de usuários); recria se tiver sumido.
+  Future<void> _abrirConversa(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    final provider = context.read<InteresseProvider>();
+    final conversaId = await provider.abrirConversa(
+      interesse,
+      meuUid: auth.userId!,
+      meuNome: auth.nomeExibicao,
+    );
+    if (!context.mounted) return;
+    if (conversaId == null) {
+      _avisar(context, provider.errorMessage ?? 'Não foi possível abrir a conversa.');
+      return;
+    }
+    Navigator.pushNamed(context, AppRoutes.chat, arguments: conversaId);
+  }
+
   void _avisar(BuildContext context, String mensagem) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensagem)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final conversaId = interesse.conversaId;
+    final aceito = interesse.status == StatusInteresse.aceito;
     final uid = context.watch<AuthProvider>().userId;
     final podePropor =
         interesse.status == StatusInteresse.aceito &&
@@ -242,13 +259,9 @@ class _InteresseCard extends StatelessWidget {
                     onPressed: () => _cancelar(context),
                     child: const Text('Cancelar'),
                   ),
-                if (conversaId != null)
+                if (aceito)
                   ElevatedButton.icon(
-                    onPressed: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.chat,
-                      arguments: conversaId,
-                    ),
+                    onPressed: () => _abrirConversa(context),
                     icon: const Icon(Icons.chat_bubble_outline),
                     label: const Text('Abrir conversa'),
                   ),

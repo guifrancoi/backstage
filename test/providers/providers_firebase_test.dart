@@ -1,3 +1,4 @@
+import 'package:backstage/models/filtro_oportunidades.dart';
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/models/usuario.dart';
 import 'package:backstage/providers/agenda_provider.dart';
@@ -276,12 +277,12 @@ void main() {
     test('filtro de oportunidades persiste quando chegam dados do Firestore', () async {
       provider = OportunidadeProvider(service: service);
       await _aguardar();
-      provider.filtrarOportunidades(genero: 'Rock');
+      provider.filtrarOportunidades(const FiltroOportunidades(genero: 'Rock'));
 
       await firestore.collection('oportunidades').doc('nova').set({
         'titulo': 'Vaga MPB nova',
         'generoMusical': 'MPB',
-        'dataEvento': DateTime(2026, 5, 1),
+        'dataEvento': DateTime(2099, 5, 1),
       });
       await _aguardar();
 
@@ -320,7 +321,7 @@ void main() {
         'titulo': 'Teste do admin',
         'donoId': 'adm',
         'oculto': true,
-        'dataEvento': DateTime(2026, 5, 1),
+        'dataEvento': DateTime(2099, 5, 1),
       });
       await firestore.collection('perfis_musicos').doc('adm').set({
         'nomeArtistico': 'Artista do admin',
@@ -339,7 +340,7 @@ void main() {
         'titulo': 'Teste do admin',
         'donoId': 'adm',
         'oculto': true,
-        'dataEvento': DateTime(2026, 5, 1),
+        'dataEvento': DateTime(2099, 5, 1),
       });
       provider = OportunidadeProvider(
         service: FirebaseDataService(
@@ -370,7 +371,7 @@ void main() {
       await firestore.collection('oportunidades').doc('minha').set({
         'titulo': 'Antiga',
         'donoId': 'u1',
-        'dataEvento': DateTime(2026, 5, 1),
+        'dataEvento': DateTime(2099, 5, 1),
       });
       provider = OportunidadeProvider(service: service);
       await _aguardar();
@@ -413,24 +414,24 @@ void main() {
 
     tearDown(() => provider.dispose());
 
-    test('carrega do Firestore substituindo as datas locais', () async {
-      await service.adicionarDataDisponivel('u1', DateTime(2026, 8, 15));
+    test('carrega os bloqueios do Firestore', () async {
+      await service.bloquearDia('u1', DateTime(2026, 8, 15));
 
       provider = AgendaProvider(service: service);
       await _aguardar();
 
-      expect(provider.datasDisponiveis, [DateTime(2026, 8, 15)]);
+      expect(provider.diasBloqueados, [DateTime(2026, 8, 15)]);
     });
 
-    test('adicionar e remover persistem com id {uid}_{data}', () async {
+    test('bloquear e desbloquear persistem com id {uid}_{data}', () async {
       provider = AgendaProvider(service: service);
       await _aguardar();
 
-      await provider.adicionarData(DateTime(2026, 9, 1, 14));
-      final doc = firestore.collection('disponibilidades').doc('u1_2026-09-01');
+      await provider.bloquearDia(DateTime(2026, 9, 1, 14));
+      final doc = firestore.collection('bloqueios').doc('u1_2026-09-01');
       expect((await doc.get()).exists, isTrue);
 
-      await provider.removerData(DateTime(2026, 9, 1));
+      await provider.desbloquearDia(DateTime(2026, 9, 1));
       expect((await doc.get()).exists, isFalse);
     });
   });

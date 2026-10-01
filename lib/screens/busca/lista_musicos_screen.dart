@@ -58,9 +58,7 @@ class ListaMusicosScreen extends StatelessWidget {
               return MusicoCard(
                 musico: musico,
                 onConvidar: pode ? () => confirmarConvite(context, musico) : null,
-                statusConvite: pode
-                    ? interesses.convitePara(musico.id)?.rotuloStatus
-                    : null,
+                rotuloConvidar: rotuloConvidar(interesses, musico.id),
                 onVerDetalhes: () {
                   Navigator.pushNamed(
                     context,

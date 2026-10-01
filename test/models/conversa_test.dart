@@ -1,4 +1,5 @@
 import 'package:backstage/models/conversa.dart';
+import 'package:backstage/models/interesse.dart';
 import 'package:backstage/models/mensagem.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,7 +14,7 @@ void main() {
     id: 'c1',
     participantes: ['m1', 'e1'],
     nomes: {'m1': 'The VooDooS', 'e1': 'Bar Central'},
-    interesseId: 'm1_op_o1',
+    interesseIds: ['m1_op_o1'],
     mensagens: mensagens,
     atualizadoEm: data,
   );
@@ -38,6 +39,61 @@ void main() {
     });
   });
 
+  test('Mensagem de sistema faz ida e volta; comum não grava o campo', () {
+    final sistema = Mensagem(
+      id: 's',
+      remetenteId: 'e1',
+      texto: 'Convite aceito.',
+      dataHora: data,
+      sistema: true,
+    );
+
+    expect(Mensagem.fromMap('s', sistema.toMap()).sistema, isTrue);
+    expect(mensagem('1', 'Olá').toMap().containsKey('sistema'), isFalse);
+  });
+
+  group('Conversa por par', () {
+    test('idPar e participantesDoPar independem da ordem', () {
+      expect(Conversa.idPar('m1', 'e1'), 'e1_m1');
+      expect(Conversa.idPar('e1', 'm1'), 'e1_m1');
+      expect(Conversa.participantesDoPar('m1', 'e1'), ['e1', 'm1']);
+    });
+
+    test('documento antigo com interesseId único vira lista', () {
+      final antiga = Conversa.fromMap('c', {
+        'participantes': ['e1', 'm1'],
+        'interesseId': 'm1_op_o1',
+      });
+
+      expect(antiga.interesseIds, ['m1_op_o1']);
+      expect(antiga.mensagens, isEmpty);
+    });
+
+    test('textoAceite diz o que foi aceito', () {
+      Interesse i(TipoInteresse tipo, {String? titulo}) => Interesse(
+        id: 'i',
+        tipo: tipo,
+        remetenteId: 'e1',
+        remetenteNome: 'Bar',
+        destinatarioId: 'm1',
+        musicoId: 'm1',
+        musicoNome: 'Banda',
+        oportunidadeTitulo: titulo,
+        criadoEm: data,
+      );
+
+      expect(
+        Conversa.textoAceite(i(TipoInteresse.convite, titulo: 'Show Rock')),
+        'Convite para "Show Rock" aceito.',
+      );
+      expect(Conversa.textoAceite(i(TipoInteresse.convite)), 'Convite aceito.');
+      expect(
+        Conversa.textoAceite(i(TipoInteresse.candidatura, titulo: 'Show Rock')),
+        'Candidatura para "Show Rock" aceita.',
+      );
+    });
+  });
+
   group('Conversa', () {
     test('toMap e fromMap preservam participantes, nomes e mensagens', () {
       final original = conversa(
@@ -48,7 +104,7 @@ void main() {
 
       expect(copia.participantes, ['m1', 'e1']);
       expect(copia.nomes['e1'], 'Bar Central');
-      expect(copia.interesseId, 'm1_op_o1');
+      expect(copia.interesseIds, ['m1_op_o1']);
       expect(copia.atualizadoEm, data);
       expect(copia.mensagens.map((m) => m.id), ['1', '2']);
       expect(copia.mensagens.map((m) => m.texto), ['Olá', 'Tudo bem?']);

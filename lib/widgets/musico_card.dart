@@ -8,20 +8,21 @@ class MusicoCard extends StatelessWidget {
   /// `null` esconde o botão (ex.: quem vê não é dono de estabelecimento).
   final VoidCallback? onConvidar;
 
-  /// Rótulo do convite já enviado; quando presente o botão fica desabilitado.
-  final String? statusConvite;
+  /// Texto do botão de convite (ex.: "Convidar (1 pendente)"). O botão nunca
+  /// fica desabilitado: o estado é por oportunidade, no painel de convite.
+  final String rotuloConvidar;
 
   const MusicoCard({
     super.key,
     required this.musico,
     required this.onVerDetalhes,
     this.onConvidar,
-    this.statusConvite,
+    this.rotuloConvidar = 'Convidar',
   });
 
   @override
   Widget build(BuildContext context) {
-    final mostrarAcao = onConvidar != null || statusConvite != null;
+    final mostrarAcao = onConvidar != null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -56,8 +57,8 @@ class MusicoCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: statusConvite == null ? onConvidar : null,
-                      child: Text(statusConvite ?? 'Convidar'),
+                      onPressed: onConvidar,
+                      child: Text(rotuloConvidar),
                     ),
                   ),
                 ],

@@ -139,10 +139,9 @@ void main() {
     deslogado.dispose();
   });
 
-  test('agenda pública junta disponibilidades e ocupações do músico', () async {
+  test('agenda pública junta bloqueios e ocupações do músico', () async {
     final servicoMusico = servicoFake(firestore: firestore, uid: 'm1');
-    await servicoMusico.adicionarDataDisponivel('m1', DateTime(2026, 11, 20));
-    await servicoMusico.adicionarDataDisponivel('m1', DateTime(2026, 11, 21));
+    await servicoMusico.bloquearDia('m1', DateTime(2026, 11, 21));
     await dono.propor(proposta());
     await aguardar();
     await musico.confirmar(musico.recebidas.single);
@@ -154,8 +153,9 @@ void main() {
     final AgendaPublica publica = await agenda.agendaPublica('m1').first;
 
     expect(publica.ocupado('2026-11-20'), isTrue);
-    expect(publica.disponivel('2026-11-20'), isFalse);
-    expect(publica.disponivel('2026-11-21'), isTrue);
+    expect(publica.livre('2026-11-20'), isFalse);
+    expect(publica.bloqueado('2026-11-21'), isTrue);
+    expect(publica.livre('2026-11-22'), isTrue);
     agenda.dispose();
   });
 

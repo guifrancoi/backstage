@@ -1,6 +1,7 @@
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/models/oportunidade.dart';
 import 'package:backstage/services/firebase_data_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 
@@ -62,7 +63,8 @@ Oportunidade oportunidadeTeste({
     descricao: 'Show de 2 horas',
     cidade: cidade,
     generoMusical: generoMusical,
-    dataEvento: DateTime(2026, 11, 20),
+    // Bem no futuro: oportunidade vencida sai da lista pública (Plano 12).
+    dataEvento: DateTime(2099, 11, 20),
     cacheOferecido: 1200,
     contratante: contratante,
     donoId: donoId,
@@ -74,7 +76,7 @@ Oportunidade oportunidadeTeste({
 
 /// Grava músicos e oportunidades no Firestore fake (id do modelo = doc id).
 Future<void> gravarCatalogo(
-  FakeFirebaseFirestore firestore, {
+  FirebaseFirestore firestore, {
   List<Musico> musicos = const [],
   List<Oportunidade> oportunidades = const [],
 }) async {

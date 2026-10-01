@@ -20,6 +20,44 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _mensagemController = TextEditingController();
 
+  /// Um interesse: vai direto. Vários: o dono escolhe de qual oportunidade.
+  Future<void> _proporShow(BuildContext context, List<Interesse> opcoes) async {
+    final escolhido = opcoes.length == 1
+        ? opcoes.single
+        : await showModalBottomSheet<Interesse>(
+            context: context,
+            showDragHandle: true,
+            builder: (sheetContext) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+                    child: Text(
+                      'Propor show para qual oportunidade?',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  for (final i in opcoes)
+                    ListTile(
+                      leading: const Icon(Icons.event),
+                      title: Text(
+                        i.oportunidadeTitulo ?? 'Sem oportunidade específica',
+                      ),
+                      onTap: () => Navigator.pop(sheetContext, i),
+                    ),
+                ],
+              ),
+            ),
+          );
+    if (escolhido == null || !context.mounted) return;
+    Navigator.pushNamed(
+      context,
+      AppRoutes.proporContratacao,
+      arguments: escolhido.id,
+    );
+  }
+
   @override
   void dispose() {
     _mensagemController.dispose();
@@ -48,31 +86,27 @@ class _ChatScreenState extends State<ChatScreen> {
         (_) => provider.marcarComoLida(widget.conversaId),
       );
     }
-    final interesseId = conversa.interesseId;
-    final interesse = interesseId == null
-        ? null
-        : context.watch<InteresseProvider>().buscarPorId(interesseId);
-    // O dono formaliza o show daqui, se ainda não há contratação em andamento.
-    final podePropor =
-        interesse != null &&
-        interesse.status == StatusInteresse.aceito &&
-        interesse.donoId == meuUid &&
-        context.watch<ContratacaoProvider>().ativaParaInteresse(
-              interesse.id,
-            ) ==
-            null;
+    // O dono formaliza o show daqui: interesses aceitos desta conversa (uma
+    // por par) em que ele é o dono e que ainda não têm contratação ativa.
+    final interesses = context.watch<InteresseProvider>();
+    final contratacoes = context.watch<ContratacaoProvider>();
+    final paraPropor = [
+      for (final id in conversa.interesseIds)
+        ?interesses.buscarPorId(id),
+    ].where(
+      (i) =>
+          i.status == StatusInteresse.aceito &&
+          i.donoId == meuUid &&
+          contratacoes.ativaParaInteresse(i.id) == null,
+    ).toList();
 
     return Scaffold(
       appBar: AppBar(
         title: Text(conversa.nomeContato(meuUid)),
         actions: [
-          if (podePropor)
+          if (paraPropor.isNotEmpty)
             TextButton.icon(
-              onPressed: () => Navigator.pushNamed(
-                context,
-                AppRoutes.proporContratacao,
-                arguments: interesse.id,
-              ),
+              onPressed: () => _proporShow(context, paraPropor),
               icon: const Icon(Icons.handshake_outlined),
               label: const Text('Propor show'),
             ),

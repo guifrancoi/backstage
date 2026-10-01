@@ -43,6 +43,15 @@ class Oportunidade {
   /// Oportunidades de catálogo/demonstração não têm dono e não recebem candidatura.
   bool get temDono => donoId.isNotEmpty;
 
+  /// O dia do evento já passou (o próprio dia ainda vale). Vencida sai da
+  /// lista pública e não recebe candidatura (app e regras).
+  bool vencidaEm(DateTime hoje) {
+    final diaEvento = DateTime(dataEvento.year, dataEvento.month, dataEvento.day);
+    return diaEvento.isBefore(DateTime(hoje.year, hoje.month, hoje.day));
+  }
+
+  bool get vencida => vencidaEm(DateTime.now());
+
   /// "20:00 às 23:00", ou vazio em oportunidade antiga sem horário.
   String get horario =>
       horaInicio == null || horaFim == null ? '' : '$horaInicio às $horaFim';

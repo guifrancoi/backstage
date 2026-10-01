@@ -58,13 +58,21 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/oportunidades/$(oportunidadeId)).data.donoId;
     }
 
+    // Plano 12: o evento ainda não passou. `dataEvento` é o dia à meia-noite
+    // local; vale até 24 h depois dela (o próprio dia do evento ainda conta).
+    function oportunidadeVigente(oportunidadeId) {
+      return request.time < get(/databases/$(database)/documents/oportunidades/$(oportunidadeId)).data.dataEvento
+        + duration.value(1, 'd');
+    }
+
     // Candidatura: músico -> oportunidade; o destinatário é o dono dela.
     function candidaturaValida(d) {
       return d.tipo == 'candidatura'
         && (ehAdmin() || tipoDoUsuario() == 'musico')
         && d.musicoId == request.auth.uid
         && d.oportunidadeId is string
-        && donoDaOportunidade(d.oportunidadeId) == d.destinatarioId;
+        && donoDaOportunidade(d.oportunidadeId) == d.destinatarioId
+        && oportunidadeVigente(d.oportunidadeId);
     }
 
     // Convite: dono -> músico de verdade (catálogo de demonstração não tem
@@ -75,7 +83,8 @@ service cloud.firestore {
         && d.destinatarioId == d.musicoId
         && get(/databases/$(database)/documents/usuarios/$(d.musicoId)).data.tipoUsuario == 'musico'
         && (!('oportunidadeId' in d)
-          || donoDaOportunidade(d.oportunidadeId) == request.auth.uid);
+          || (donoDaOportunidade(d.oportunidadeId) == request.auth.uid
+            && oportunidadeVigente(d.oportunidadeId)));
     }
 
     match /interesses/{interesseId} {
@@ -112,17 +121,27 @@ service cloud.firestore {
     // A conversa nasce quando o destinatário aceita um interesse (mesmo id,
     // mesmo batch) e só os dois participantes enxergam ou escrevem nela.
     match /conversas/{conversaId} {
-      function interesseAceito() {
-        return getAfter(/databases/$(database)/documents/interesses/$(conversaId)).data;
+      // Uma conversa por par de usuários: id = os dois uids em ordem.
+      // Nasce (ou é recriada) a partir de um interesse aceito entre os dois;
+      // `interesseId` aponta o interesse que justifica a criação.
+      function interesseDoPar() {
+        return getAfter(/databases/$(database)/documents/interesses/$(request.resource.data.interesseId)).data;
+      }
+
+      function parOrdenado(i) {
+        return i.remetenteId < i.destinatarioId
+          ? [i.remetenteId, i.destinatarioId]
+          : [i.destinatarioId, i.remetenteId];
       }
 
       allow read: if signedIn()
         && request.auth.uid in resource.data.participantes;
       allow create: if signedIn()
-        && interesseAceito().destinatarioId == request.auth.uid
-        && interesseAceito().status == 'aceito'
-        && request.resource.data.participantes
-          == [interesseAceito().remetenteId, request.auth.uid];
+        && request.resource.data.interesseId is string
+        && interesseDoPar().status == 'aceito'
+        && request.auth.uid in [interesseDoPar().remetenteId, interesseDoPar().destinatarioId]
+        && request.resource.data.participantes == parOrdenado(interesseDoPar())
+        && conversaId == parOrdenado(interesseDoPar())[0] + '_' + parOrdenado(interesseDoPar())[1];
       allow update: if signedIn()
         && request.auth.uid in resource.data.participantes
         && request.resource.data.participantes == resource.data.participantes;
@@ -235,9 +254,10 @@ service cloud.firestore {
         && vinculada(request.resource.data);
     }
 
-    // Leitura pública (agenda do músico no detalhe e aviso no convite);
-    // escrita só do próprio usuário.
-    match /disponibilidades/{disponibilidadeId} {
+    // Dias que o músico bloqueou na agenda (todo dia é livre por padrão).
+    // Leitura pública (agenda do músico no detalhe, avisos e filtro); escrita
+    // só do próprio usuário.
+    match /bloqueios/{bloqueioId} {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.usuarioId == request.auth.uid;

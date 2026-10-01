@@ -1,5 +1,6 @@
 import 'package:backstage/providers/agenda_provider.dart';
 import 'package:backstage/providers/auth_provider.dart';
+import 'package:backstage/providers/chat_provider.dart';
 import 'package:backstage/providers/interesse_provider.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
 import 'package:backstage/providers/perfil_provider.dart';
@@ -30,6 +31,7 @@ Widget _app({
   return MultiProvider(
     providers: [
       ChangeNotifierProvider(create: (_) => AuthProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => ChatProvider(service: service)),
       ChangeNotifierProvider(create: (_) => AgendaProvider(service: service)),
       ChangeNotifierProvider(create: (_) => PerfilProvider(service: service)),
       ChangeNotifierProvider(create: (_) => InteresseProvider(service: service)),
@@ -43,7 +45,9 @@ Widget _app({
             builder: (_) => Scaffold(body: Text('Detalhe ${settings.arguments}')),
           );
         }
-        return null;
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(body: Text('${settings.name} ${settings.arguments}')),
+        );
       },
     ),
   );
@@ -104,40 +108,133 @@ void main() {
     expect(find.text('Ver detalhes'), findsWidgets);
   });
 
-  testWidgets('dono convida: confirma no diálogo e o card mostra o status', (tester) async {
+  /// Toca em "Convidar" e espera o painel (ele lê a agenda pública antes).
+  Future<void> abrirPainel(WidgetTester tester, {String botao = 'Convidar'}) async {
+    await tester.tap(find.text(botao));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('dono convida sem oportunidade: botão segue ativo com o resumo', (tester) async {
     final service = await _donoLogado();
     await tester.pumpWidget(
       _app(service: service, preparar: (p) => p.pesquisarMusicos('Eclipse')),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Convidar'));
-    // O diálogo espera a leitura da agenda pública do músico (stream).
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pumpAndSettle();
-    expect(find.text('Convidar "Banda Eclipse"?'), findsOneWidget);
+    await abrirPainel(tester);
+    expect(find.text('Convidar Banda Eclipse'), findsOneWidget);
+    // Nada marcado: não dá para enviar ainda.
+    expect(
+      tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Enviar convite')).onPressed,
+      isNull,
+    );
 
+    await tester.tap(find.text('Sem oportunidade específica'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Enviar convite'));
     await tester.pumpAndSettle();
 
     expect(find.text('Convite enviado!'), findsOneWidget);
-    expect(find.text('Convite enviado'), findsOneWidget);
+    expect(find.text('Convidar (1 pendente)'), findsOneWidget);
     final doc = await service.firestore.collection('interesses').doc('e1_mu_1').get();
     expect(doc.data()?['remetenteNome'], 'Bar Central');
   });
 
-  testWidgets('cancelar o diálogo não envia convite', (tester) async {
+  testWidgets('convite aceito numa oportunidade não impede convidar para outra', (tester) async {
+    final service = await _donoLogado();
+    final firestore = service.firestore;
+    await gravarCatalogo(
+      firestore,
+      oportunidades: [
+        oportunidadeTeste(id: 'metal', titulo: 'Show Metal 456', donoId: 'e1'),
+        oportunidadeTeste(id: 'rock', titulo: 'Show Rock Bar 123', donoId: 'e1')
+            .copyWith(dataEvento: DateTime(2099, 12, 1)),
+      ],
+    );
+    await firestore.collection('interesses').doc('e1_mu_1_metal').set({
+      'tipo': 'convite',
+      'remetenteId': 'e1',
+      'remetenteNome': 'Bar Central',
+      'destinatarioId': '1',
+      'musicoId': '1',
+      'musicoNome': 'Banda Eclipse',
+      'oportunidadeId': 'metal',
+      'oportunidadeTitulo': 'Show Metal 456',
+      'status': 'aceito',
+      'criadoEm': DateTime(2026, 9, 1),
+    });
+    await tester.pumpWidget(
+      _app(service: service, preparar: (p) => p.pesquisarMusicos('Eclipse')),
+    );
+    await tester.pumpAndSettle();
+
+    // O botão continua "Convidar" (o convite aceito não trava o músico).
+    await abrirPainel(tester);
+    expect(find.text('Aceito'), findsOneWidget);
+
+    // A já aceita não pode ser escolhida; a outra sim.
+    await tester.tap(find.text('Show Metal 456'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Enviar convite')).onPressed,
+      isNull,
+    );
+    await tester.tap(find.text('Show Rock Bar 123'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enviar convite'));
+    await tester.pumpAndSettle();
+
+    final doc = await firestore.collection('interesses').doc('e1_mu_1_rock').get();
+    expect(doc.exists, isTrue);
+  });
+
+  testWidgets('quem se candidatou: o painel oferece "Aceitar candidatura"', (tester) async {
+    final service = await _donoLogado();
+    final firestore = service.firestore;
+    await gravarCatalogo(
+      firestore,
+      oportunidades: [oportunidadeTeste(id: 'rock', titulo: 'Show Rock Bar 123', donoId: 'e1')],
+    );
+    await firestore.collection('interesses').doc('1_op_rock').set({
+      'tipo': 'candidatura',
+      'remetenteId': '1',
+      'remetenteNome': 'Banda Eclipse',
+      'destinatarioId': 'e1',
+      'musicoId': '1',
+      'musicoNome': 'Banda Eclipse',
+      'oportunidadeId': 'rock',
+      'oportunidadeTitulo': 'Show Rock Bar 123',
+      'status': 'pendente',
+      'criadoEm': DateTime(2026, 9, 1),
+    });
+    await tester.pumpWidget(
+      _app(service: service, preparar: (p) => p.pesquisarMusicos('Eclipse')),
+    );
+    await tester.pumpAndSettle();
+
+    await abrirPainel(tester);
+    expect(find.text('Ele se candidatou'), findsOneWidget);
+    await tester.tap(find.text('Show Rock Bar 123'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aceitar candidatura'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Candidatura aceita! A conversa foi aberta.'), findsOneWidget);
+    final candidatura = await firestore.collection('interesses').doc('1_op_rock').get();
+    expect(candidatura.data()?['status'], 'aceito');
+  });
+
+  testWidgets('fechar o painel não envia convite', (tester) async {
     final service = await _donoLogado();
     await tester.pumpWidget(
       _app(service: service, preparar: (p) => p.pesquisarMusicos('Eclipse')),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Convidar'));
-    // O diálogo espera a leitura da agenda pública do músico (stream).
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancelar'));
+    await abrirPainel(tester);
+    // Toca fora do painel (na barreira) para fechar.
+    await tester.tapAt(const Offset(400, 20));
     await tester.pumpAndSettle();
 
     expect(find.text('Convidar'), findsOneWidget);
@@ -158,5 +255,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Detalhe 1'), findsOneWidget);
+  });
+
+  testWidgets('quem já conversa com o músico: o painel oferece "Abrir conversa"', (tester) async {
+    final service = await _donoLogado();
+    // Convite já aceito entre e1 e o músico '1' = os dois já conversam.
+    await service.firestore.collection('interesses').doc('e1_mu_1').set({
+      'tipo': 'convite',
+      'remetenteId': 'e1',
+      'remetenteNome': 'Bar Central',
+      'destinatarioId': '1',
+      'musicoId': '1',
+      'musicoNome': 'Banda Eclipse',
+      'status': 'aceito',
+      'criadoEm': DateTime(2026, 9, 1),
+    });
+    await tester.pumpWidget(
+      _app(service: service, preparar: (p) => p.pesquisarMusicos('Eclipse')),
+    );
+    await tester.pumpAndSettle();
+
+    await abrirPainel(tester);
+    expect(find.text('Sem oportunidade específica'), findsNothing);
+    await tester.tap(find.text('Abrir conversa'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('${AppRoutes.chat} 1_e1'), findsOneWidget);
+    // A conversa do par existe (recriada se tivesse sumido) e nada novo foi enviado.
+    final conversa = await service.firestore.collection('conversas').doc('1_e1').get();
+    expect(conversa.exists, isTrue);
+    final docs = await service.firestore.collection('interesses').get();
+    expect(docs.docs, hasLength(1));
   });
 }

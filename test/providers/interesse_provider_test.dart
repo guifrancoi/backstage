@@ -89,12 +89,12 @@ void main() {
     );
     await _aguardar();
 
-    expect(conversaId, 'm1_op_o1');
+    expect(conversaId, 'e1_m1');
     expect(dono.pendentesRecebidos, 0);
     expect(musico.candidaturaPara('o1')?.status, StatusInteresse.aceito);
     expect(musico.candidaturaPara('o1')?.conversaId, conversaId);
     final conversa = await firestore.collection('conversas').doc(conversaId).get();
-    expect(conversa.data()?['participantes'], ['m1', 'e1']);
+    expect(conversa.data()?['participantes'], ['e1', 'm1']);
   });
 
   test('recusar marca como recusado para o remetente', () async {
@@ -130,7 +130,10 @@ void main() {
     );
     await _aguardar();
 
-    expect(dono.convitePara('m1')?.id, 'e1_mu_m1_o1');
+    // Estado por oportunidade: nesta já há convite; sem oportunidade, livre.
+    expect(dono.situacaoConvite('m1', oportunidadeId: 'o1'), SituacaoConvite.enviado);
+    expect(dono.situacaoConvite('m1'), SituacaoConvite.livre);
+    expect(dono.convitesPendentesPara('m1'), 1);
     expect(musico.recebidos.single.tipo, TipoInteresse.convite);
     expect(musico.recebidos.single.oportunidadeTitulo, 'Show de sexta');
   });
@@ -150,9 +153,10 @@ void main() {
     // Não cria candidatura nova: o convite recebido vira aceito.
     expect(musico.candidaturaPara('o1'), isNull);
     expect(musico.recebidos.single.status, StatusInteresse.aceito);
-    expect(dono.convitePara('m1')?.status, StatusInteresse.aceito);
+    expect(dono.situacaoConvite('m1', oportunidadeId: 'o1'), SituacaoConvite.aceito);
+    expect(dono.convitesPendentesPara('m1'), 0);
     final conversas = await firestore.collection('conversas').get();
-    expect(conversas.docs.single.id, 'e1_mu_m1_o1');
+    expect(conversas.docs.single.id, 'e1_m1');
   });
 
   test('match: convite para quem já se candidatou aceita a candidatura', () async {
@@ -167,8 +171,34 @@ void main() {
     );
     await _aguardar();
 
-    expect(dono.convitePara('m1'), isNull);
+    expect(dono.situacaoConvite('m1', oportunidadeId: 'o1'), SituacaoConvite.aceito);
     expect(musico.candidaturaPara('o1')?.status, StatusInteresse.aceito);
+  });
+
+  test('situacaoConvite: candidatura pendente, recusado e outra oportunidade livre', () async {
+    await enviarCandidatura();
+    await _aguardar();
+    expect(
+      dono.situacaoConvite('m1', oportunidadeId: 'o1'),
+      SituacaoConvite.candidaturaPendente,
+    );
+    // Outra oportunidade do mesmo dono continua livre para convite.
+    expect(dono.situacaoConvite('m1', oportunidadeId: 'o2'), SituacaoConvite.livre);
+
+    await dono.enviarConvite(
+      musico: perfilMusico,
+      remetenteId: 'e1',
+      remetenteNome: 'Bar Central',
+    );
+    await _aguardar();
+    await musico.recusar(
+      musico.recebidos.firstWhere((i) => i.oportunidadeId == null),
+      nomeDestinatario: 'Banda',
+    );
+    await _aguardar();
+    expect(dono.situacaoConvite('m1'), SituacaoConvite.recusado);
+    expect(SituacaoConvite.recusado.selecionavel, isFalse);
+    expect(SituacaoConvite.candidaturaPendente.selecionavel, isTrue);
   });
 
   test('logout limpa as listas', () async {

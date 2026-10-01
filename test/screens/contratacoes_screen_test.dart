@@ -122,6 +122,42 @@ void main() {
     expect(find.text('${AppRoutes.proporContratacao} i1'), findsOneWidget);
   });
 
+  testWidgets('conversa com dois interesses aceitos: "Propor show" pergunta qual', (tester) async {
+    await firestore.collection('interesses').doc('i2').set(
+      Interesse(
+        id: 'i2',
+        tipo: TipoInteresse.convite,
+        remetenteId: 'e1',
+        remetenteNome: 'Bar Central',
+        destinatarioId: 'm1',
+        musicoId: 'm1',
+        musicoNome: 'Banda',
+        oportunidadeId: 'o2',
+        oportunidadeTitulo: 'Outro show',
+        criadoEm: DateTime(2026, 9, 2),
+        status: StatusInteresse.aceito,
+      ).toMap(),
+    );
+    await firestore.collection('conversas').doc('i1').update({
+      'interesseIds': ['i1', 'i2'],
+    });
+    await tester.pumpWidget(
+      _app(
+        servicoFake(firestore: firestore, uid: 'e1'),
+        const ChatScreen(conversaId: 'i1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Propor show'));
+    await tester.pumpAndSettle();
+    expect(find.text('Propor show para qual oportunidade?'), findsOneWidget);
+    await tester.tap(find.text('Outro show'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('${AppRoutes.proporContratacao} i2'), findsOneWidget);
+  });
+
   testWidgets('músico não vê "Propor show" na mesma conversa', (tester) async {
     await tester.pumpWidget(
       _app(

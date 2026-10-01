@@ -85,7 +85,7 @@ void main() {
     await tester.tap(find.text('Aceitar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('${AppRoutes.chat} m1_op_o1'), findsOneWidget);
+    expect(find.text('${AppRoutes.chat} e1_m1'), findsOneWidget);
     final interesse = await firestore.collection('interesses').doc('m1_op_o1').get();
     expect(interesse.data()?['status'], 'aceito');
   });

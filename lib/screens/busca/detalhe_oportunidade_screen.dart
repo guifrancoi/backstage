@@ -108,6 +108,13 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (oportunidade.vencida) ...[
+                    const Chip(
+                      avatar: Icon(Icons.event_busy, size: 18),
+                      label: Text('Evento encerrado'),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   Text(
                     oportunidade.titulo,
                     style: const TextStyle(

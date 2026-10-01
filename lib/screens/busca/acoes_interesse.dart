@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/agenda_publica.dart';
 import '../../models/contratacao.dart';
+import '../../models/interesse.dart';
 import '../../models/musico.dart';
 import '../../models/oportunidade.dart';
 import '../../providers/agenda_provider.dart';
@@ -10,20 +11,20 @@ import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../providers/perfil_provider.dart';
+import '../../routes/app_routes.dart';
+import 'painel_convite.dart';
 
 /// Ações de candidatura/convite compartilhadas pelas telas de lista e de
 /// detalhe da busca.
 
 /// Aviso (não bloqueia) sobre o dia na agenda do músico: ocupado por outro
-/// show confirmado, ou não marcado como disponível. `null` = sem problema ou
-/// agenda indisponível.
+/// show confirmado ou bloqueado por ele. `null` = dia livre ou agenda
+/// indisponível (todo dia é livre por padrão).
 String? avisoAgenda(AgendaPublica? agenda, DateTime data) {
   if (agenda == null) return null;
   final dia = Contratacao.diaDe(data);
   if (agenda.ocupado(dia)) return 'O músico já tem um show confirmado nesse dia.';
-  if (!agenda.disponivel(dia)) {
-    return 'O músico não marcou esse dia como disponível.';
-  }
+  if (agenda.bloqueado(dia)) return 'O músico bloqueou esse dia na agenda.';
   return null;
 }
 
@@ -41,11 +42,12 @@ Future<AgendaPublica?> carregarAgendaPublica(
   }
 }
 
-/// Músico (ou admin) se candidata a oportunidade de outro dono (catálogo sem
-/// dono não).
+/// Músico (ou admin) se candidata a oportunidade de outro dono que ainda não
+/// aconteceu (catálogo sem dono e vencida não; as regras também recusam).
 bool podeCandidatar(AuthProvider auth, Oportunidade oportunidade) {
   return auth.atuaComoMusico &&
       oportunidade.temDono &&
+      !oportunidade.vencida &&
       oportunidade.donoId != auth.userId;
 }
 
@@ -150,89 +152,73 @@ Future<void> confirmarCandidatura(
   );
 }
 
+/// Texto do botão de convite: sempre ativo; mostra quantos convites ao
+/// músico ainda esperam resposta.
+String rotuloConvidar(InteresseProvider interesses, String musicoId) {
+  final pendentes = interesses.convitesPendentesPara(musicoId);
+  return pendentes == 0 ? 'Convidar' : 'Convidar ($pendentes pendente${pendentes == 1 ? '' : 's'})';
+}
+
+/// Abre o painel de convite (escolha da oportunidade, com o estado de cada
+/// uma) e envia. Se o músico já se candidatou à oportunidade escolhida,
+/// `enviarConvite` aceita a candidatura (match).
 Future<void> confirmarConvite(BuildContext context, Musico musico) async {
   final auth = context.read<AuthProvider>();
-  final minhas = context.read<OportunidadeProvider>().minhasOportunidades(
-    auth.userId,
-  );
+  final interesses = context.read<InteresseProvider>();
+  // Só oportunidades que ainda vão acontecer (as regras recusam as vencidas).
+  final minhas = context
+      .read<OportunidadeProvider>()
+      .minhasOportunidades(auth.userId)
+      .where((o) => !o.vencida)
+      .toList();
 
   final agenda = await carregarAgendaPublica(context, musico.id);
   if (!context.mounted) return;
 
-  Oportunidade? escolhida;
-  final confirmar = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setDialogState) => AlertDialog(
-        title: const Text('Convidar'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Convidar "${musico.nomeArtistico}"?'),
-            if (minhas.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              DropdownButtonFormField<Oportunidade?>(
-                initialValue: escolhida,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Para qual oportunidade? (opcional)',
-                ),
-                items: [
-                  const DropdownMenuItem<Oportunidade?>(
-                    value: null,
-                    child: Text('Nenhuma específica'),
-                  ),
-                  for (final oportunidade in minhas)
-                    DropdownMenuItem<Oportunidade?>(
-                      value: oportunidade,
-                      child: Text(
-                        oportunidade.titulo,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: (valor) => setDialogState(() => escolhida = valor),
-              ),
-              if (escolhida != null &&
-                  avisoAgenda(agenda, escolhida!.dataEvento) != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  avisoAgenda(agenda, escolhida!.dataEvento)!,
-                  style: const TextStyle(color: Colors.orange),
-                ),
-              ],
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Enviar convite'),
-          ),
-        ],
-      ),
-    ),
+  // Interesse aceito entre os dois = já conversam (uma conversa por par).
+  final aceito = interesses.aceitoCom(musico.id);
+  final escolha = await abrirPainelConvite(
+    context,
+    musico: musico,
+    oportunidades: minhas,
+    agenda: agenda,
+    jaConversam: aceito != null,
   );
+  if (escolha == null || !context.mounted) return;
+  if (escolha.abrirConversa && aceito != null) {
+    final conversaId = await interesses.abrirConversa(
+      aceito,
+      meuUid: auth.userId!,
+      meuNome: auth.nomeExibicao,
+    );
+    if (!context.mounted) return;
+    if (conversaId == null) {
+      _avisar(context, interesses.errorMessage ?? 'Não foi possível abrir a conversa.');
+      return;
+    }
+    Navigator.pushNamed(context, AppRoutes.chat, arguments: conversaId);
+    return;
+  }
 
-  if (confirmar != true || !context.mounted) return;
-
-  final interesses = context.read<InteresseProvider>();
+  final oportunidade = escolha.oportunidade;
+  final eraCandidatura =
+      interesses.situacaoConvite(musico.id, oportunidadeId: oportunidade?.id) ==
+      SituacaoConvite.candidaturaPendente;
   final ok = await interesses.enviarConvite(
     musico: musico,
     remetenteId: auth.userId!,
     remetenteNome: auth.nomeExibicao,
-    oportunidade: escolhida,
+    oportunidade: oportunidade,
   );
 
   if (!context.mounted) return;
   _avisar(
     context,
-    ok ? 'Convite enviado!' : interesses.errorMessage ?? 'Não foi possível enviar.',
+    !ok
+        ? interesses.errorMessage ?? 'Não foi possível enviar.'
+        : eraCandidatura
+        ? 'Candidatura aceita! A conversa foi aberta.'
+        : 'Convite enviado!',
   );
 }
 

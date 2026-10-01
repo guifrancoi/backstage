@@ -1,10 +1,15 @@
+import 'interesse.dart';
 import 'mensagem.dart';
 
+/// Uma conversa por **par de usuários** (id fixo `Conversa.idPar`): todo
+/// interesse aceito entre os dois reaproveita a mesma conversa e entra nela
+/// como mensagem de sistema.
 class Conversa {
   final String id;
   final List<String> participantes;
   final Map<String, String> nomes;
-  final String? interesseId;
+  /// Interesses aceitos entre os dois (contexto do "Propor show").
+  final List<String> interesseIds;
   final List<Mensagem> mensagens;
   final DateTime? atualizadoEm;
 
@@ -16,10 +21,31 @@ class Conversa {
     required this.participantes,
     required this.nomes,
     required this.mensagens,
-    this.interesseId,
+    this.interesseIds = const [],
     this.atualizadoEm,
     this.lidaEm = const {},
   });
+
+  /// Id da conversa entre [a] e [b]: os dois uids em ordem.
+  static String idPar(String a, String b) {
+    final par = participantesDoPar(a, b);
+    return '${par[0]}_${par[1]}';
+  }
+
+  /// Participantes em ordem (as regras exigem exatamente esta lista).
+  static List<String> participantesDoPar(String a, String b) =>
+      a.compareTo(b) <= 0 ? [a, b] : [b, a];
+
+  /// Texto da mensagem de sistema registrada quando [interesse] é aceito.
+  static String textoAceite(Interesse interesse) {
+    final titulo = interesse.oportunidadeTitulo;
+    if (interesse.tipo == TipoInteresse.candidatura) {
+      return 'Candidatura para "${titulo ?? 'a oportunidade'}" aceita.';
+    }
+    return titulo == null
+        ? 'Convite aceito.'
+        : 'Convite para "$titulo" aceito.';
+  }
 
   /// Nome do outro participante, do ponto de vista de [meuUid].
   String nomeContato(String? meuUid) {
@@ -51,7 +77,7 @@ class Conversa {
       id: id,
       participantes: participantes,
       nomes: nomes,
-      interesseId: interesseId,
+      interesseIds: interesseIds,
       mensagens: mensagens ?? this.mensagens,
       atualizadoEm: atualizadoEm ?? this.atualizadoEm,
       lidaEm: lidaEm,
@@ -69,7 +95,7 @@ class Conversa {
       nomes: nomesMap.map(
         (chave, valor) => MapEntry(chave.toString(), valor.toString()),
       ),
-      interesseId: map['interesseId'] as String?,
+      interesseIds: _interesseIds(map),
       atualizadoEm: _dateTimeFromValue(map['atualizadoEm']),
       lidaEm: {
         for (final entrada in lidaEmMap.entries)
@@ -91,12 +117,20 @@ class Conversa {
     return {
       'participantes': participantes,
       'nomes': nomes,
-      'interesseId': ?interesseId,
+      'interesseIds': interesseIds,
       'mensagens': mensagens.map((mensagem) => mensagem.toMap()).toList(),
       'atualizadoEm': ?atualizadoEm,
       if (lidaEm.isNotEmpty) 'lidaEm': lidaEm,
     };
   }
+}
+
+/// `interesseIds` (lista); documentos antigos só tinham `interesseId`.
+List<String> _interesseIds(Map<String, dynamic> map) {
+  final lista = map['interesseIds'];
+  if (lista is List) return List<String>.from(lista);
+  final unico = map['interesseId'];
+  return unico is String ? [unico] : const [];
 }
 
 DateTime? _dateTimeFromValue(dynamic value) {

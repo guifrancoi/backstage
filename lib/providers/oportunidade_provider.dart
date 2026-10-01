@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/agenda_publica.dart';
+import '../models/filtro_oportunidades.dart';
 import '../models/interesse.dart';
 import '../models/musico.dart';
 import '../models/notificacao.dart';
@@ -22,6 +24,11 @@ class OportunidadeProvider extends ChangeNotifier {
   StreamSubscription<String?>? _authSubscription;
   StreamSubscription<List<Musico>>? _musicosSubscription;
   StreamSubscription<List<Oportunidade>>? _oportunidadesSubscription;
+  StreamSubscription<AgendaPublica>? _minhaAgendaSubscription;
+
+  /// Agenda do próprio usuário: base do filtro "só dias em que estou livre"
+  /// (Plano 12).
+  AgendaPublica _minhaAgenda = const AgendaPublica();
 
   List<Musico> _todosMusicos = [];
   List<Oportunidade> _todasOportunidades = [];
@@ -47,8 +54,11 @@ class OportunidadeProvider extends ChangeNotifier {
   void _escutar(String? uid) {
     _musicosSubscription?.cancel();
     _oportunidadesSubscription?.cancel();
+    _minhaAgendaSubscription?.cancel();
     _musicosSubscription = null;
     _oportunidadesSubscription = null;
+    _minhaAgendaSubscription = null;
+    _minhaAgenda = const AgendaPublica();
     _todosMusicos = [];
     _todasOportunidades = [];
     _erroMusicos = false;
@@ -80,6 +90,13 @@ class OportunidadeProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
+    _minhaAgendaSubscription = _service.streamAgendaPublica(uid).listen((
+      agenda,
+    ) {
+      _minhaAgenda = agenda;
+      _aplicarFiltrosAtuais();
+      notifyListeners();
+    }, onError: (_) {});
     _oportunidadesSubscription = _service.streamOportunidades().listen(
       (lista) {
         _todasOportunidades = lista;
@@ -100,8 +117,7 @@ class OportunidadeProvider extends ChangeNotifier {
   String _termoPesquisa = '';
   String _tipoOrdenacao = 'nome_asc';
 
-  String? _generoFiltroOportunidades;
-  String? _cidadeFiltroOportunidades;
+  FiltroOportunidades _filtroOportunidades = const FiltroOportunidades();
 
   String? _errorMessage;
 
@@ -113,6 +129,7 @@ class OportunidadeProvider extends ChangeNotifier {
   String get termoPesquisa => _termoPesquisa;
   String get tipoOrdenacao => _tipoOrdenacao;
   String? get errorMessage => _errorMessage;
+  FiltroOportunidades get filtroOportunidades => _filtroOportunidades;
 
   /// Oportunidades do dono [donoId], da mais próxima para a mais distante.
   List<Oportunidade> minhasOportunidades(String? donoId) {
@@ -275,19 +292,15 @@ class OportunidadeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void filtrarOportunidades({String? genero, String? cidade}) {
-    _generoFiltroOportunidades = genero;
-    _cidadeFiltroOportunidades = cidade;
+  /// Troca o filtro da lista pública de oportunidades (Plano 12).
+  void filtrarOportunidades(FiltroOportunidades filtro) {
+    _filtroOportunidades = filtro;
     _aplicarFiltrosAtuais();
     notifyListeners();
   }
 
-  void resetarFiltroOportunidades() {
-    _generoFiltroOportunidades = null;
-    _cidadeFiltroOportunidades = null;
-    _aplicarFiltrosAtuais();
-    notifyListeners();
-  }
+  void resetarFiltroOportunidades() =>
+      filtrarOportunidades(const FiltroOportunidades());
 
   Musico? buscarMusicoPorId(String id) {
     for (final musico in _todosMusicos) {
@@ -327,21 +340,13 @@ class OportunidadeProvider extends ChangeNotifier {
 
     _aplicarOrdenacao();
 
-    _oportunidades = _todasOportunidades.where((o) {
-      if (o.oculto && !_isAdmin) return false;
-      final genero = _generoFiltroOportunidades;
-      final cidade = _cidadeFiltroOportunidades;
-
-      final generoValido =
-          genero == null || genero.isEmpty || o.generoMusical == genero;
-
-      final cidadeValida =
-          cidade == null ||
-          cidade.isEmpty ||
-          o.cidade.toLowerCase().contains(cidade.toLowerCase());
-
-      return generoValido && cidadeValida;
-    }).toList();
+    // Lista pública: sem ocultas (exceto para o admin) e sem vencidas.
+    _oportunidades = _filtroOportunidades.aplicar(
+      _todasOportunidades.where((o) => !o.oculto || _isAdmin),
+      hoje: DateTime.now(),
+      bloqueados: _minhaAgenda.bloqueados,
+      ocupados: _minhaAgenda.ocupados,
+    );
   }
 
   void _aplicarOrdenacao() {
@@ -374,6 +379,7 @@ class OportunidadeProvider extends ChangeNotifier {
     _authSubscription?.cancel();
     _musicosSubscription?.cancel();
     _oportunidadesSubscription?.cancel();
+    _minhaAgendaSubscription?.cancel();
     super.dispose();
   }
 }

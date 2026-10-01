@@ -15,58 +15,54 @@ void main() {
   });
   tearDown(() => provider.dispose());
 
-  test('começa vazia para usuário sem datas', () {
-    expect(provider.datasDisponiveis, isEmpty);
+  test('todo dia começa livre (nenhum bloqueio)', () {
+    expect(provider.diasBloqueados, isEmpty);
+    expect(provider.bloqueado(DateTime(2026, 12, 25)), isFalse);
   });
 
-  test('adicionarData normaliza o horário, ordena e grava', () async {
-    await provider.adicionarData(DateTime(2026, 9, 5, 18, 30));
-    await provider.adicionarData(DateTime(2026, 1, 5));
+  test('bloquearDia normaliza o horário, ordena e grava', () async {
+    await provider.bloquearDia(DateTime(2026, 9, 5, 18, 30));
+    await provider.bloquearDia(DateTime(2026, 1, 5));
 
-    expect(provider.datasDisponiveis, [DateTime(2026, 1, 5), DateTime(2026, 9, 5)]);
-    final doc = await firestore
-        .collection('disponibilidades')
-        .doc('u1_2026-09-05')
-        .get();
+    expect(provider.diasBloqueados, [DateTime(2026, 1, 5), DateTime(2026, 9, 5)]);
+    expect(provider.bloqueado(DateTime(2026, 9, 5, 23)), isTrue);
+    final doc = await firestore.collection('bloqueios').doc('u1_2026-09-05').get();
     expect(doc.exists, isTrue);
   });
 
-  test('adicionarData ignora dia já existente, mesmo com outro horário', () async {
-    await provider.adicionarData(DateTime(2026, 3, 20));
-    await provider.adicionarData(DateTime(2026, 3, 20, 22));
+  test('bloquear o mesmo dia duas vezes não duplica', () async {
+    await provider.bloquearDia(DateTime(2026, 3, 20));
+    await provider.bloquearDia(DateTime(2026, 3, 20, 22));
 
-    expect(provider.datasDisponiveis, hasLength(1));
+    expect(provider.diasBloqueados, hasLength(1));
   });
 
-  test('removerData remove pelo dia, ignorando o horário', () async {
-    await provider.adicionarData(DateTime(2026, 7, 10));
+  test('desbloquearDia remove pelo dia, ignorando o horário', () async {
+    await provider.bloquearDia(DateTime(2026, 7, 10));
 
-    await provider.removerData(DateTime(2026, 7, 10, 23, 59));
+    await provider.desbloquearDia(DateTime(2026, 7, 10, 23, 59));
 
-    expect(provider.datasDisponiveis, isEmpty);
-    final doc = await firestore
-        .collection('disponibilidades')
-        .doc('u1_2026-07-10')
-        .get();
+    expect(provider.diasBloqueados, isEmpty);
+    final doc = await firestore.collection('bloqueios').doc('u1_2026-07-10').get();
     expect(doc.exists, isFalse);
   });
 
-  test('sem ninguém logado não adiciona nada', () async {
+  test('sem ninguém logado não bloqueia nada', () async {
     final deslogado = AgendaProvider(
       service: servicoFake(firestore: firestore, uid: null),
     );
     await aguardar();
 
-    await deslogado.adicionarData(DateTime(2026, 1, 1));
+    await deslogado.bloquearDia(DateTime(2026, 1, 1));
 
-    expect(deslogado.datasDisponiveis, isEmpty);
-    expect((await firestore.collection('disponibilidades').get()).docs, isEmpty);
+    expect(deslogado.diasBloqueados, isEmpty);
+    expect((await firestore.collection('bloqueios').get()).docs, isEmpty);
     deslogado.dispose();
   });
 
-  test('datasDisponiveis não pode ser alterada de fora', () {
+  test('diasBloqueados não pode ser alterada de fora', () {
     expect(
-      () => provider.datasDisponiveis.add(DateTime(2030)),
+      () => provider.diasBloqueados.add(DateTime(2030)),
       throwsUnsupportedError,
     );
   });

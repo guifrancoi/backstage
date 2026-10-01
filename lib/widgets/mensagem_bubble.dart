@@ -15,6 +15,29 @@ class MensagemBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Aviso do app (ex.: "Convite para X aceito"): centralizado, sem lado.
+    if (mensagem.sistema) {
+      return Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            mensagem.texto,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: Colors.black54,
+            ),
+          ),
+        ),
+      );
+    }
+
     final alignment = enviadaPorMim
         ? CrossAxisAlignment.end
         : CrossAxisAlignment.start;
