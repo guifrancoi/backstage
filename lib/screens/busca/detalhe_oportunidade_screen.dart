@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/denuncia.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/botao_favorito.dart';
+import '../moderacao/acoes_moderacao.dart';
 import 'abrir_mapa.dart';
 import 'acoes_interesse.dart';
 import 'musicos_sugeridos_secao.dart';
@@ -84,6 +87,15 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
                 context,
                 (p) => p.alternarOportunidadeFavorita(oportunidade.id),
               ),
+            ),
+          if (oportunidade.temDono)
+            MenuModeracao(
+              alvoUid: oportunidade.donoId,
+              nome: oportunidade.contratante,
+              tipo: TipoAlvoDenuncia.oportunidade,
+              alvoId: oportunidade.id,
+              descricao: oportunidade.titulo,
+              rotuloDenuncia: 'Denunciar oportunidade',
             ),
         ],
       ),

@@ -6,6 +6,7 @@ import '../../core/utils/painel_numeros.dart';
 import '../../widgets/grafico_shows_por_mes.dart' show resumoNumeros;
 import '../../providers/auth_provider.dart';
 import '../../providers/avaliacao_provider.dart';
+import '../../providers/denuncia_provider.dart';
 import '../../providers/contratacao_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/interesse_provider.dart';
@@ -160,6 +161,13 @@ class HomeScreen extends StatelessWidget {
             contador: propostas,
             onTap: () => Navigator.pushNamed(context, AppRoutes.contratacoes),
           ),
+          if (authProvider.isAdmin)
+            _HomeTile(
+              title: 'Denúncias',
+              icon: Icons.flag,
+              contador: context.watch<DenunciaProvider>().pendentes,
+              onTap: () => Navigator.pushNamed(context, AppRoutes.denuncias),
+            ),
           _HomeTile(
             title: 'Meus números',
             icon: Icons.bar_chart,

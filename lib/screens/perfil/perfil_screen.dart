@@ -8,6 +8,7 @@ import '../../models/casa_show.dart';
 import '../../models/musico.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/perfil_provider.dart';
+import '../../routes/app_routes.dart';
 import 'perfil_estabelecimento_form.dart';
 import 'perfil_musico_form.dart';
 
@@ -26,6 +27,7 @@ class PerfilScreen extends StatelessWidget {
         child: Scaffold(
           appBar: AppBar(
             title: const Text('Meu perfil'),
+            actions: const [_AtalhoBloqueados()],
             bottom: const TabBar(
               tabs: [
                 Tab(text: 'Artista'),
@@ -58,8 +60,25 @@ class PerfilScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Meu perfil')),
+      appBar: AppBar(
+        title: const Text('Meu perfil'),
+        actions: const [_AtalhoBloqueados()],
+      ),
       body: corpo,
+    );
+  }
+}
+
+/// Plano 22: abre a lista de usuários bloqueados.
+class _AtalhoBloqueados extends StatelessWidget {
+  const _AtalhoBloqueados();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Usuários bloqueados',
+      icon: const Icon(Icons.block),
+      onPressed: () => Navigator.pushNamed(context, AppRoutes.bloqueados),
     );
   }
 }

@@ -8,6 +8,7 @@ import '../models/avaliacao.dart';
 import '../models/casa_show.dart';
 import '../models/contratacao.dart';
 import '../models/conversa.dart';
+import '../models/denuncia.dart';
 import '../models/interesse.dart';
 import '../models/mensagem.dart';
 import '../models/notificacao.dart';
@@ -529,6 +530,103 @@ class FirebaseDataService {
       uids('ocupacoes', 'musicoId'),
       (bloqueados, ocupados) => {...bloqueados, ...ocupados},
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bloqueio e denúncia (Plano 22)
+  // ---------------------------------------------------------------------------
+
+  CollectionReference<Map<String, dynamic>> _bloqueados(String uid) =>
+      firestore.collection('usuarios').doc(uid).collection('bloqueados');
+
+  /// Quem [uid] bloqueou (lista privada do dono).
+  Stream<List<UsuarioBloqueado>> streamBloqueados(String uid) {
+    return _bloqueados(uid).snapshots().map(
+      (s) => s.docs
+          .map((d) => UsuarioBloqueado.fromMap(d.id, d.data()))
+          .toList(),
+    );
+  }
+
+  Future<void> bloquearUsuario(String uid, UsuarioBloqueado bloqueado) {
+    return _bloqueados(uid).doc(bloqueado.uid).set(bloqueado.toMap());
+  }
+
+  Future<void> desbloquearUsuario(String uid, String outroUid) {
+    return _bloqueados(uid).doc(outroUid).delete();
+  }
+
+  /// Encerra o que está pendente entre [uid] e [outroUid] (Plano 22):
+  /// interesses pendentes (recebidos → recusados; enviados → cancelados) e
+  /// contratações em negociação (o músico recusa a proposta ou retira a
+  /// contraproposta; o dono retira). Shows confirmados ficam. Devolve
+  /// quantos itens foram encerrados.
+  Future<int> encerrarPendentesCom(String uid, String outroUid) async {
+    var encerrados = 0;
+    final agora = DateTime.now();
+
+    final recebidos = await firestore
+        .collection('interesses')
+        .where('destinatarioId', isEqualTo: uid)
+        .get();
+    final enviados = await firestore
+        .collection('interesses')
+        .where('remetenteId', isEqualTo: uid)
+        .get();
+    for (final d in recebidos.docs) {
+      final i = d.data();
+      if (i['remetenteId'] != outroUid || i['status'] != 'pendente') continue;
+      await d.reference.update({
+        'status': StatusInteresse.recusado.name,
+        'respondidoEm': agora,
+      });
+      encerrados++;
+    }
+    for (final d in enviados.docs) {
+      final i = d.data();
+      if (i['destinatarioId'] != outroUid || i['status'] != 'pendente') {
+        continue;
+      }
+      await d.reference.update({
+        'status': StatusInteresse.cancelado.name,
+        'respondidoEm': agora,
+      });
+      encerrados++;
+    }
+
+    final contratacoes = await streamContratacoes(uid).first;
+    for (final c in contratacoes) {
+      final outro = c.musicoId == uid ? c.donoId : c.musicoId;
+      if (outro != outroUid || !c.emNegociacao) continue;
+      if (c.musicoId == uid && c.status == StatusContratacao.proposta) {
+        await recusarContratacao(c.id);
+      } else {
+        await cancelarContratacao(c, canceladoPor: uid);
+      }
+      encerrados++;
+    }
+    return encerrados;
+  }
+
+  Future<void> denunciar(Denuncia denuncia) {
+    return firestore.collection('denuncias').add(denuncia.toMap());
+  }
+
+  /// Todas as denúncias (só o admin consegue ler).
+  Stream<List<Denuncia>> streamDenuncias() {
+    return firestore
+        .collection('denuncias')
+        .snapshots()
+        .map(
+          (s) => s.docs.map((d) => Denuncia.fromMap(d.id, d.data())).toList(),
+        );
+  }
+
+  Future<void> marcarDenunciaAnalisada(String denunciaId) {
+    return firestore.collection('denuncias').doc(denunciaId).update({
+      'status': 'analisada',
+      'analisadaEm': DateTime.now(),
+    });
   }
 
   // ---------------------------------------------------------------------------

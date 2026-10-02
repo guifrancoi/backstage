@@ -14,6 +14,10 @@ class AppRoutes {
 
   /// Painel de números (Plano 20).
   static const meusNumeros = '/meus-numeros';
+
+  /// Plano 22: lista de bloqueados e denúncias (admin).
+  static const bloqueados = '/bloqueados';
+  static const denuncias = '/denuncias';
   static const interesses = '/interesses';
   static const minhasOportunidades = '/minhas-oportunidades';
   static const novaOportunidade = '/nova-oportunidade';

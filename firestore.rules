@@ -16,6 +16,13 @@ service cloud.firestore {
       return signedIn() && request.auth.token.admin == true;
     }
 
+    // Plano 22: um dos dois bloqueou o outro (usuarios/{uid}/bloqueados).
+    // `exists` nas regras não depende de permissão de leitura.
+    function bloqueioEntre(a, b) {
+      return exists(/databases/$(database)/documents/usuarios/$(a)/bloqueados/$(b))
+        || exists(/databases/$(database)/documents/usuarios/$(b)/bloqueados/$(a));
+    }
+
     // tipoUsuario só pode ser definido uma vez (onboarding); depois de
     // setado, não pode ser trocado (musico <-> casaShow), para não deixar
     // perfis_musicos/estabelecimentos órfãos.
@@ -40,6 +47,39 @@ service cloud.firestore {
           && request.resource.data.alvoId is string
           && favoritoId == request.resource.data.tipo + '_' + request.resource.data.alvoId;
       }
+
+      // Bloqueados (Plano 22): privados do dono; id = uid bloqueado.
+      match /bloqueados/{outroUid} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && outroUid != userId
+          && request.resource.data.keys().hasOnly(['nome', 'criadoEm'])
+          && request.resource.data.nome is string;
+      }
+    }
+
+    // Denúncias (Plano 22): qualquer autenticado cria a sua; só o admin lê e
+    // marca como analisada. Ninguém apaga.
+    match /denuncias/{denunciaId} {
+      allow read: if ehAdmin();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'autorId', 'autorNome', 'tipoAlvo', 'alvoId', 'alvoUid',
+          'descricaoAlvo', 'motivo', 'texto', 'status', 'criadaEm'])
+        && request.resource.data.autorId == request.auth.uid
+        && request.resource.data.alvoUid != request.auth.uid
+        && request.resource.data.tipoAlvo in ['perfil', 'oportunidade', 'mensagem', 'avaliacao']
+        && request.resource.data.motivo in ['spam', 'ofensivo', 'golpe', 'perfilFalso', 'outro']
+        && request.resource.data.status == 'pendente'
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() <= 500
+        && request.resource.data.descricaoAlvo is string
+        && request.resource.data.descricaoAlvo.size() <= 300;
+      allow update: if ehAdmin()
+        && resource.data.status == 'pendente'
+        && request.resource.data.status == 'analisada'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'analisadaEm']);
     }
 
     // Plano 7: quem é assinante. Público para ordenar as listas; só o Admin
@@ -142,6 +182,7 @@ service cloud.firestore {
         && request.resource.data.remetenteId == request.auth.uid
         && request.resource.data.destinatarioId != request.auth.uid
         && request.resource.data.status == 'pendente'
+        && !bloqueioEntre(request.auth.uid, request.resource.data.destinatarioId)
         && (candidaturaValida(request.resource.data)
           || conviteValido(request.resource.data));
       // Só o destinatário responde, uma vez, e só mexe na resposta.
@@ -191,7 +232,11 @@ service cloud.firestore {
         && conversaId == parOrdenado(interesseDoPar())[0] + '_' + parOrdenado(interesseDoPar())[1];
       allow update: if signedIn()
         && request.auth.uid in resource.data.participantes
-        && request.resource.data.participantes == resource.data.participantes;
+        && request.resource.data.participantes == resource.data.participantes
+        // Plano 22: com bloqueio entre os dois, nada de mensagem nova
+        // (marcar como lida continua valendo).
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['mensagens'])
+          || !bloqueioEntre(resource.data.participantes[0], resource.data.participantes[1]));
     }
 
     // Contratação (9B): o dono propõe a partir de um interesse aceito em que é
@@ -207,6 +252,7 @@ service cloud.firestore {
         return d.donoId == request.auth.uid
           && d.musicoId != request.auth.uid
           && d.status == 'proposta'
+          && !bloqueioEntre(d.donoId, d.musicoId)
           && d.get('houveContraproposta', false) == false
           && !('cacheContraproposto' in d)
           && d.dia is string
@@ -265,6 +311,10 @@ service cloud.firestore {
           && request.auth.uid == resource.data.donoId
           && mudou().hasOnly(['status', 'cacheAcordado', 'respondidoEm'])
           && request.resource.data.cacheAcordado == resource.data.cacheContraproposto)
+        // Plano 22: músico retira a própria contraproposta (ex.: ao bloquear)
+        || (vaiPara('contraproposta', 'cancelada')
+          && request.auth.uid == resource.data.musicoId
+          && cancelamentoValido())
         // Plano 21: dono recusa a contraproposta (encerra)
         || (vaiPara('contraproposta', 'cancelada')
           && request.auth.uid == resource.data.donoId

@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../core/utils/compatibilidade.dart';
 import '../models/agenda_publica.dart';
 import '../models/contratacao.dart';
+import '../models/denuncia.dart';
 import '../models/filtro_musicos.dart';
 import '../models/filtro_oportunidades.dart';
 import '../models/interesse.dart';
@@ -35,6 +36,13 @@ class OportunidadeProvider extends ChangeNotifier {
 
   /// Favoritos do usuário logado (Plano 18): o dono guarda músicos e o
   /// músico guarda oportunidades.
+  StreamSubscription<List<UsuarioBloqueado>>? _bloqueadosSubscription;
+
+  /// Quem o usuário logado bloqueou (Plano 22): some das listas, das
+  /// sugestões e dos favoritos.
+  List<UsuarioBloqueado> _bloqueados = [];
+  Set<String> _uidsBloqueados = {};
+
   Set<String> _musicosFavoritos = {};
   Set<String> _oportunidadesFavoritas = {};
   bool _soFavoritos = false;
@@ -84,6 +92,10 @@ class OportunidadeProvider extends ChangeNotifier {
     _assinantes = {};
     _favoritosSubscription?.cancel();
     _favoritosSubscription = null;
+    _bloqueadosSubscription?.cancel();
+    _bloqueadosSubscription = null;
+    _bloqueados = [];
+    _uidsBloqueados = {};
     _musicosFavoritos = {};
     _oportunidadesFavoritas = {};
     _musicosSubscription = null;
@@ -125,6 +137,13 @@ class OportunidadeProvider extends ChangeNotifier {
       agenda,
     ) {
       _minhaAgenda = agenda;
+      _aplicarFiltrosAtuais();
+      notifyListeners();
+    }, onError: (_) {});
+    _bloqueadosSubscription = _service.streamBloqueados(uid).listen((lista) {
+      _bloqueados = [...lista]
+        ..sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
+      _uidsBloqueados = {for (final b in lista) b.uid};
       _aplicarFiltrosAtuais();
       notifyListeners();
     }, onError: (_) {});
@@ -468,6 +487,7 @@ class OportunidadeProvider extends ChangeNotifier {
   void _aplicarFiltrosAtuais() {
     _musicos = _todosMusicos.where((m) {
       if (m.oculto && !_isAdmin) return false;
+      if (ehBloqueado(m.id)) return false;
       if (_livresEm != null && _indisponiveis.contains(m.id)) return false;
       if (_formacaoFiltro != null && m.formacao != _formacaoFiltro) {
         return false;
@@ -501,7 +521,9 @@ class OportunidadeProvider extends ChangeNotifier {
     // oportunidades de dono assinante primeiro.
     _oportunidades = assinantesPrimeiro(
       _filtroOportunidades.aplicar(
-        _todasOportunidades.where((o) => !o.oculto || _isAdmin),
+        _todasOportunidades.where(
+          (o) => (!o.oculto || _isAdmin) && !ehBloqueado(o.donoId),
+        ),
         hoje: DateTime.now(),
         bloqueados: _minhaAgenda.bloqueados,
         ocupados: _minhaAgenda.ocupados,
@@ -512,6 +534,54 @@ class OportunidadeProvider extends ChangeNotifier {
   }
 
   bool ehAssinante(String uid) => _assinantes.contains(uid);
+
+  /// Plano 22: o usuário logado bloqueou [uid].
+  bool ehBloqueado(String uid) => _uidsBloqueados.contains(uid);
+
+  /// Bloqueados, em ordem de nome (tela "Usuários bloqueados").
+  List<UsuarioBloqueado> get bloqueados => _bloqueados;
+
+  /// Bloqueia [uid] e encerra o que está pendente entre os dois (interesses
+  /// e negociações; shows confirmados ficam). Devolve se bloqueou — se só o
+  /// encerramento falhar, bloqueia mesmo assim e avisa em [errorMessage].
+  Future<bool> bloquear(String uid, String nome) async {
+    final meuUid = _service.currentUserId;
+    if (meuUid == null || uid == meuUid) return false;
+    _errorMessage = null;
+    try {
+      await _service.bloquearUsuario(
+        meuUid,
+        UsuarioBloqueado(uid: uid, nome: nome, criadoEm: DateTime.now()),
+      );
+    } on FirebaseException {
+      _errorMessage = 'Não foi possível bloquear.';
+      notifyListeners();
+      return false;
+    }
+    try {
+      await _service.encerrarPendentesCom(meuUid, uid);
+    } on FirebaseException {
+      _errorMessage =
+          'Bloqueado, mas algum pendente não pôde ser encerrado. '
+          'Confira Interesses e Contratações.';
+      notifyListeners();
+    }
+    return true;
+  }
+
+  Future<bool> desbloquear(String uid) async {
+    final meuUid = _service.currentUserId;
+    if (meuUid == null) return false;
+    _errorMessage = null;
+    try {
+      await _service.desbloquearUsuario(meuUid, uid);
+      return true;
+    } on FirebaseException {
+      _errorMessage = 'Não foi possível desbloquear.';
+      notifyListeners();
+      return false;
+    }
+  }
 
   bool ehMusicoFavorito(String musicoId) =>
       _musicosFavoritos.contains(musicoId);
@@ -574,7 +644,7 @@ class OportunidadeProvider extends ChangeNotifier {
     final hoje = DateTime.now();
     return ordenarSugestoes(
       [
-        for (final musico in _todosMusicos)
+        for (final musico in _todosMusicos.where((m) => !ehBloqueado(m.id)))
           if (avaliarCompatibilidade(
                 musico: musico,
                 oportunidade: oportunidade,
@@ -604,7 +674,9 @@ class OportunidadeProvider extends ChangeNotifier {
     final hoje = DateTime.now();
     return ordenarSugestoes(
       [
-        for (final oportunidade in _todasOportunidades)
+        for (final oportunidade in _todasOportunidades.where(
+          (o) => !ehBloqueado(o.donoId),
+        ))
           if (avaliarCompatibilidade(
                 musico: musico,
                 oportunidade: oportunidade,
@@ -663,6 +735,7 @@ class OportunidadeProvider extends ChangeNotifier {
     _indisponiveisSubscription?.cancel();
     _assinantesSubscription?.cancel();
     _favoritosSubscription?.cancel();
+    _bloqueadosSubscription?.cancel();
     super.dispose();
   }
 }

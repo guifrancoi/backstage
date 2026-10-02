@@ -3,12 +3,14 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/utils/foto_perfil.dart';
+import '../../models/denuncia.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../widgets/botao_favorito.dart';
 import '../../widgets/dados_show_musico.dart';
 import 'acoes_interesse.dart';
+import '../moderacao/acoes_moderacao.dart';
 import 'agenda_publica_secao.dart';
 import 'avaliacoes_secao.dart';
 
@@ -57,13 +59,15 @@ class DetalheMusicoScreen extends StatelessWidget {
 
     final imageProvider = imagemDaFoto(musico.foto);
     final temFoto = imageProvider != null;
-    final pode = podeConvidar(auth, musico);
+    // Plano 22: bloqueado não recebe convite nem favorito.
+    final bloqueado = provider.ehBloqueado(musico.id);
+    final pode = podeConvidar(auth, musico) && !bloqueado;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detalhes do músico'),
         actions: [
-          if (podeFavoritarMusico(auth, musico))
+          if (podeFavoritarMusico(auth, musico) && !bloqueado)
             BotaoFavorito(
               favorito: provider.ehMusicoFavorito(musico.id),
               onPressed: () => alternarFavorito(
@@ -71,11 +75,21 @@ class DetalheMusicoScreen extends StatelessWidget {
                 (p) => p.alternarMusicoFavorito(musico.id),
               ),
             ),
+          MenuModeracao(
+            alvoUid: musico.id,
+            nome: musico.nomeArtistico,
+            tipo: TipoAlvoDenuncia.perfil,
+            alvoId: musico.id,
+            descricao: musico.nomeArtistico,
+            rotuloDenuncia: 'Denunciar perfil',
+          ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (bloqueado)
+            AvisoBloqueado(uid: musico.id, nome: musico.nomeArtistico),
           Center(
             child: CircleAvatar(
               radius: 55,

@@ -4,6 +4,8 @@ import 'package:backstage/models/mensagem.dart';
 import 'package:backstage/models/notificacao.dart';
 import 'package:backstage/providers/auth_provider.dart';
 import 'package:backstage/providers/chat_provider.dart';
+import 'package:backstage/providers/denuncia_provider.dart';
+import 'package:backstage/providers/oportunidade_provider.dart';
 import 'package:backstage/providers/contratacao_provider.dart';
 import 'package:backstage/providers/interesse_provider.dart';
 import 'package:backstage/providers/notificacao_provider.dart';
@@ -29,6 +31,8 @@ Widget _app(FirebaseDataService service, Widget home) {
       ChangeNotifierProvider(create: (_) => ContratacaoProvider(service: service)),
       ChangeNotifierProvider(create: (_) => NotificacaoProvider(service: service)),
       ChangeNotifierProvider(create: (_) => ChatProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => OportunidadeProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => DenunciaProvider(service: service)),
     ],
     child: MaterialApp(
       home: home,

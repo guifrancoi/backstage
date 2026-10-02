@@ -558,4 +558,19 @@ void main() {
     expect(doc.data()?['cacheAcordado'], 1800);
     expect(find.text('Valor ajustado após contraproposta.'), findsOneWidget);
   });
+
+  testWidgets('Plano 22: conversa com quem eu bloqueei fica travada', (tester) async {
+    await firestore.doc('usuarios/e1/bloqueados/m1').set({
+      'nome': 'Banda',
+      'criadoEm': DateTime(2026, 10, 1),
+    });
+    await tester.pumpWidget(
+      _app(servicoFake(firestore: firestore, uid: 'e1'), const ChatScreen(conversaId: 'i1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Você bloqueou'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+    expect(find.text('Propor show'), findsNothing);
+  });
 }

@@ -11,6 +11,7 @@ import 'providers/auth_provider.dart';
 import 'providers/avaliacao_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/contratacao_provider.dart';
+import 'providers/denuncia_provider.dart';
 import 'providers/interesse_provider.dart';
 import 'providers/notificacao_provider.dart';
 import 'providers/oportunidade_provider.dart';
@@ -47,6 +48,7 @@ Future<void> _iniciar() async {
           ChangeNotifierProvider(create: (_) => ContratacaoProvider()),
           ChangeNotifierProvider(create: (_) => NotificacaoProvider()),
           ChangeNotifierProvider(create: (_) => AvaliacaoProvider()),
+          ChangeNotifierProvider(create: (_) => DenunciaProvider()),
           Provider<LocationService>(
             create: (_) => LocationService(),
             dispose: (_, s) => s.dispose(),

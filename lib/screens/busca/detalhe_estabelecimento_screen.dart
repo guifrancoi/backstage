@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/casa_show.dart';
+import '../../models/denuncia.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
@@ -9,6 +10,7 @@ import '../../providers/perfil_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/musico_card.dart' show SeloAssinante;
 import '../../widgets/oportunidade_card.dart';
+import '../moderacao/acoes_moderacao.dart';
 import 'abrir_mapa.dart';
 import 'acoes_interesse.dart';
 import 'avaliacoes_secao.dart';
@@ -125,8 +127,19 @@ class _DetalheEstabelecimentoScreenState
                   const SizedBox(width: 8),
                   const SeloAssinante(),
                 ],
+                const Spacer(),
+                MenuModeracao(
+                  alvoUid: widget.donoId,
+                  nome: casa.nome,
+                  tipo: TipoAlvoDenuncia.perfil,
+                  alvoId: widget.donoId,
+                  descricao: casa.nome,
+                  rotuloDenuncia: 'Denunciar estabelecimento',
+                ),
               ],
             ),
+            if (context.watch<OportunidadeProvider>().ehBloqueado(widget.donoId))
+              AvisoBloqueado(uid: widget.donoId, nome: casa.nome),
             const SizedBox(height: 16),
             const Text(
               'Localização',
@@ -251,7 +264,8 @@ class _OportunidadesAbertas extends StatelessWidget {
                     (p) => p.alternarOportunidadeFavorita(oportunidade.id),
                   )
                 : null,
-            onCandidatar: podeCandidatar(auth, oportunidade)
+            onCandidatar:
+                podeCandidatar(auth, oportunidade) && !provider.ehBloqueado(donoId)
                 ? () => confirmarCandidatura(context, oportunidade)
                 : null,
             statusCandidatura: podeCandidatar(auth, oportunidade)

@@ -19,6 +19,7 @@ const {
   query,
   where,
   getDocs,
+  arrayUnion,
 } = require('firebase/firestore');
 
 const [emulatorHost, emulatorPort] = (
@@ -1197,13 +1198,15 @@ test('contraproposta: só o músico, valor válido e diferente, sem mexer em out
   await assertFails(confirmar(asUser('m1')));
 });
 
-test('contraproposta: dono recusa (cancela); músico não cancela por ele', async () => {
+// Desde o Plano 22 o músico pode retirar a própria contraproposta (ver
+// "músico retira a própria contraproposta"); estranho continua sem poder.
+test('contraproposta: dono recusa (cancela); estranho não cancela', async () => {
   await seedContratacao();
   await assertSucceeds(contrapropor(asUser('m1')));
   const cancelamento = (uid) => ({
     status: 'cancelada', canceladoEm: new Date(), canceladoPor: uid,
   });
-  await assertFails(updateDoc(doc(asUser('m1'), 'contratacoes/c1'), cancelamento('m1')));
+  await assertFails(updateDoc(doc(asUser('x9'), 'contratacoes/c1'), cancelamento('x9')));
   await assertSucceeds(updateDoc(doc(asUser('e1'), 'contratacoes/c1'), cancelamento('e1')));
 });
 
@@ -1219,4 +1222,130 @@ test('contraproposta: proposta não nasce já com contraproposta', async () => {
   await assertSucceeds(
     setDoc(doc(dono, 'contratacoes/z'), { ...proposta, houveContraproposta: false }),
   );
+});
+
+// --- bloqueio e denúncia (Plano 22) ------------------------------------------
+
+/** [quem] bloqueia [alvo] (direto, sem regras). */
+async function seedBloqueio(quem, alvo) {
+  await seed((db) =>
+    setDoc(doc(db, `usuarios/${quem}/bloqueados/${alvo}`), { nome: alvo, criadoEm: new Date() }),
+  );
+}
+
+test('bloqueados: só o dono lê, cria e apaga; não bloqueia a si mesmo', async () => {
+  const e1 = asUser('e1');
+  const bloqueio = { nome: 'Banda', criadoEm: new Date() };
+  await assertSucceeds(setDoc(doc(e1, 'usuarios/e1/bloqueados/m1'), bloqueio));
+  await assertSucceeds(getDocs(collection(e1, 'usuarios/e1/bloqueados')));
+  await assertFails(getDocs(collection(asUser('m1'), 'usuarios/e1/bloqueados')));
+  await assertFails(setDoc(doc(asUser('m1'), 'usuarios/e1/bloqueados/m2'), bloqueio));
+  await assertFails(setDoc(doc(e1, 'usuarios/e1/bloqueados/e1'), bloqueio));
+  await assertFails(setDoc(doc(e1, 'usuarios/e1/bloqueados/m2'), { ...bloqueio, extra: 1 }));
+  await assertSucceeds(deleteDoc(doc(e1, 'usuarios/e1/bloqueados/m1')));
+});
+
+test('bloqueio impede candidatura e convite, nas duas direções', async () => {
+  await seedPapeis();
+  await seedBloqueio('e1', 'm1'); // o dono bloqueou o músico
+  // Quem foi bloqueado não se candidata...
+  await assertFails(setDoc(doc(asUser('m1'), 'interesses/m1_op_o1'), candidatura));
+  // ...e quem bloqueou também não convida.
+  await assertFails(setDoc(doc(asUser('e1'), 'interesses/e1_mu_m1'), convite));
+  // Outro músico segue livre.
+  await assertSucceeds(
+    setDoc(doc(asUser('m2'), 'interesses/m2_op_o1'), {
+      ...candidatura, remetenteId: 'm2', musicoId: 'm2',
+    }),
+  );
+});
+
+test('bloqueio impede mensagem nova na conversa, mas não marcar como lida', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'conversas/e1_m1'), {
+      participantes: ['e1', 'm1'],
+      mensagens: [],
+      interesseId: 'i1',
+    });
+  });
+  const m1 = asUser('m1');
+  const mensagem = { id: 'x', remetenteId: 'm1', texto: 'Oi', dataHora: new Date() };
+  await assertSucceeds(updateDoc(doc(m1, 'conversas/e1_m1'), { mensagens: arrayUnion(mensagem) }));
+
+  await seedBloqueio('m1', 'e1'); // o músico bloqueou
+  await assertFails(
+    updateDoc(doc(asUser('e1'), 'conversas/e1_m1'), {
+      mensagens: arrayUnion({ ...mensagem, id: 'y', remetenteId: 'e1' }),
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(m1, 'conversas/e1_m1'), { mensagens: arrayUnion({ ...mensagem, id: 'z' }) }),
+  );
+  await assertSucceeds(updateDoc(doc(asUser('e1'), 'conversas/e1_m1'), { 'lidaEm.e1': new Date() }));
+});
+
+test('bloqueio impede proposta de contratação', async () => {
+  await seedContratacao({ comProposta: false });
+  await seedBloqueio('m1', 'e1');
+  await assertFails(setDoc(doc(asUser('e1'), 'contratacoes/nova'), proposta));
+});
+
+test('músico retira a própria contraproposta (usado ao bloquear)', async () => {
+  await seedContratacao();
+  await assertSucceeds(
+    updateDoc(doc(asUser('m1'), 'contratacoes/c1'), {
+      status: 'contraproposta', cacheContraproposto: 1800,
+      houveContraproposta: true, respondidoEm: new Date(),
+    }),
+  );
+  await assertSucceeds(
+    updateDoc(doc(asUser('m1'), 'contratacoes/c1'), {
+      status: 'cancelada', canceladoEm: new Date(), canceladoPor: 'm1',
+    }),
+  );
+});
+
+const denuncia = {
+  autorId: 'm1',
+  autorNome: 'Banda',
+  tipoAlvo: 'perfil',
+  alvoId: 'e1',
+  alvoUid: 'e1',
+  descricaoAlvo: 'Bar Central',
+  motivo: 'golpe',
+  texto: 'Pediu pagamento adiantado.',
+  status: 'pendente',
+  criadaEm: new Date(),
+};
+
+test('denuncias: qualquer autenticado cria a sua; só o admin lê', async () => {
+  const m1 = asUser('m1');
+  await assertSucceeds(setDoc(doc(m1, 'denuncias/d1'), denuncia));
+  await assertFails(getDoc(doc(m1, 'denuncias/d1')));
+  await assertFails(getDocs(collection(asUser('e1'), 'denuncias')));
+  await assertSucceeds(getDocs(collection(asAdmin(), 'denuncias')));
+
+  // Formato: autor = uid, não a si mesmo, listas fechadas, tamanhos, chaves.
+  await assertFails(setDoc(doc(m1, 'denuncias/d2'), { ...denuncia, autorId: 'm2' }));
+  await assertFails(setDoc(doc(m1, 'denuncias/d3'), { ...denuncia, alvoUid: 'm1' }));
+  await assertFails(setDoc(doc(m1, 'denuncias/d4'), { ...denuncia, motivo: 'nao_gostei' }));
+  await assertFails(setDoc(doc(m1, 'denuncias/d5'), { ...denuncia, tipoAlvo: 'chat' }));
+  await assertFails(setDoc(doc(m1, 'denuncias/d6'), { ...denuncia, status: 'analisada' }));
+  await assertFails(setDoc(doc(m1, 'denuncias/d7'), { ...denuncia, texto: 'x'.repeat(501) }));
+  await assertFails(setDoc(doc(m1, 'denuncias/d8'), { ...denuncia, extra: true }));
+  await assertFails(setDoc(doc(asAnon(), 'denuncias/d9'), denuncia));
+});
+
+test('denuncias: só o admin marca como analisada, e nada mais muda; ninguém apaga', async () => {
+  await seed((db) => setDoc(doc(db, 'denuncias/d1'), denuncia));
+  await assertFails(
+    updateDoc(doc(asUser('m1'), 'denuncias/d1'), { status: 'analisada', analisadaEm: new Date() }),
+  );
+  await assertFails(
+    updateDoc(doc(asAdmin(), 'denuncias/d1'), { status: 'analisada', texto: 'editado' }),
+  );
+  await assertSucceeds(
+    updateDoc(doc(asAdmin(), 'denuncias/d1'), { status: 'analisada', analisadaEm: new Date() }),
+  );
+  await assertFails(deleteDoc(doc(asAdmin(), 'denuncias/d1')));
 });

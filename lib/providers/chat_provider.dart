@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/conversa.dart';
 import '../models/mensagem.dart';
@@ -84,10 +85,15 @@ class ChatProvider extends ChangeNotifier {
     return null;
   }
 
-  Future<void> enviarMensagem(String conversaId, String texto) async {
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
+  /// Devolve se enviou. Com bloqueio entre os dois (Plano 22) as regras
+  /// recusam a mensagem.
+  Future<bool> enviarMensagem(String conversaId, String texto) async {
     final remetenteId = meuUid;
     final conversa = buscarConversaPorId(conversaId);
-    if (conversa == null || remetenteId == null) return;
+    if (conversa == null || remetenteId == null) return false;
 
     final mensagem = Mensagem(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -97,7 +103,17 @@ class ChatProvider extends ChangeNotifier {
     );
 
     // O stream traz a mensagem de volta; não duplica localmente.
-    await _service.enviarMensagem(conversaId, mensagem);
+    _errorMessage = null;
+    try {
+      await _service.enviarMensagem(conversaId, mensagem);
+      return true;
+    } on FirebaseException catch (error) {
+      _errorMessage = error.code == 'permission-denied'
+          ? 'Não é possível enviar mensagens nesta conversa.'
+          : 'Não foi possível enviar a mensagem.';
+      notifyListeners();
+      return false;
+    }
   }
 
   @override
