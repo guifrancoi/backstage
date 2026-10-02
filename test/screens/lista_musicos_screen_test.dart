@@ -419,4 +419,42 @@ void main() {
       expect(doc.exists, isTrue);
     });
   });
+
+  testWidgets('Plano 18: dono favorita no card e filtra só favoritos', (tester) async {
+    final service = await _donoLogado();
+    await tester.pumpWidget(_app(service: service));
+    await tester.pumpAndSettle();
+
+    final card = find.ancestor(
+      of: find.text('Duo Acústico Sol'),
+      matching: find.byType(Card),
+    );
+    await tester.tap(
+      find.descendant(of: card, matching: find.byTooltip('Adicionar aos favoritos')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: card, matching: find.byTooltip('Remover dos favoritos')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Filtrar'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Só favoritos'));
+    await tester.tap(find.text('Só favoritos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aplicar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 músico'), findsOneWidget);
+    expect(find.text('Duo Acústico Sol'), findsOneWidget);
+    expect(find.widgetWithText(InputChip, 'Favoritos'), findsOneWidget);
+  });
+
+  testWidgets('Plano 18: quem não é dono não vê o coração', (tester) async {
+    await tester.pumpWidget(_app(service: await _logado(tipoUsuario: 'musico')));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Adicionar aos favoritos'), findsNothing);
+  });
 }

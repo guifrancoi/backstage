@@ -10,19 +10,27 @@ import '../../models/musico.dart';
 Future<FiltroMusicos?> abrirPainelFiltroMusicos(
   BuildContext context, {
   required FiltroMusicos atual,
+  bool mostrarFavoritos = false,
 }) {
   return showModalBottomSheet<FiltroMusicos>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => _PainelFiltroMusicos(atual: atual),
+    builder: (_) =>
+        _PainelFiltroMusicos(atual: atual, mostrarFavoritos: mostrarFavoritos),
   );
 }
 
 class _PainelFiltroMusicos extends StatefulWidget {
-  const _PainelFiltroMusicos({required this.atual});
+  const _PainelFiltroMusicos({
+    required this.atual,
+    required this.mostrarFavoritos,
+  });
 
   final FiltroMusicos atual;
+
+  /// Plano 18: só quem favorita músicos (dono/admin) vê a opção.
+  final bool mostrarFavoritos;
 
   @override
   State<_PainelFiltroMusicos> createState() => _PainelFiltroMusicosState();
@@ -144,6 +152,15 @@ class _PainelFiltroMusicosState extends State<_PainelFiltroMusicos> {
                 _filtro = _filtro.copyWith(soEquipamentoProprio: valor);
               }),
             ),
+            if (widget.mostrarFavoritos)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Só favoritos'),
+                value: _filtro.soFavoritos,
+                onChanged: (valor) => setState(() {
+                  _filtro = _filtro.copyWith(soFavoritos: valor);
+                }),
+              ),
             Row(
               children: [
                 Expanded(

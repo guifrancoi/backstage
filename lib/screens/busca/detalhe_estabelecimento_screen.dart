@@ -244,6 +244,13 @@ class _OportunidadesAbertas extends StatelessWidget {
           OportunidadeCard(
             oportunidade: oportunidade,
             assinante: provider.ehAssinante(donoId),
+            favorita: provider.ehOportunidadeFavorita(oportunidade.id),
+            onFavoritar: podeFavoritarOportunidade(auth, oportunidade)
+                ? () => alternarFavorito(
+                    context,
+                    (p) => p.alternarOportunidadeFavorita(oportunidade.id),
+                  )
+                : null,
             onCandidatar: podeCandidatar(auth, oportunidade)
                 ? () => confirmarCandidatura(context, oportunidade)
                 : null,

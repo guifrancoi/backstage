@@ -11,6 +11,7 @@ class FiltroMusicos {
     this.formacao,
     this.soEquipamentoProprio = false,
     this.livresEm,
+    this.soFavoritos = false,
     this.ordenacao = ordenacaoPadrao,
   });
 
@@ -24,6 +25,9 @@ class FiltroMusicos {
   final bool soEquipamentoProprio;
   final DateTime? livresEm;
 
+  /// Só do dono (Plano 18): só os músicos que ele favoritou.
+  final bool soFavoritos;
+
   /// `nome_asc`, `nome_desc`, `cache_maior` ou `cache_menor` (não conta como
   /// critério: só muda a ordem).
   final String ordenacao;
@@ -36,6 +40,7 @@ class FiltroMusicos {
     formacao != null,
     soEquipamentoProprio,
     livresEm != null,
+    soFavoritos,
   ].where((ligado) => ligado).length;
 
   bool get vazio => ativos == 0;
@@ -47,6 +52,7 @@ class FiltroMusicos {
     Formacao? formacao,
     bool? soEquipamentoProprio,
     DateTime? livresEm,
+    bool? soFavoritos,
     String? ordenacao,
     bool limparGenero = false,
     bool limparCidade = false,
@@ -60,6 +66,7 @@ class FiltroMusicos {
       formacao: limparFormacao ? null : (formacao ?? this.formacao),
       soEquipamentoProprio: soEquipamentoProprio ?? this.soEquipamentoProprio,
       livresEm: limparLivresEm ? null : (livresEm ?? this.livresEm),
+      soFavoritos: soFavoritos ?? this.soFavoritos,
       ordenacao: ordenacao ?? this.ordenacao,
     );
   }

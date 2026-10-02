@@ -12,6 +12,7 @@ class FiltroOportunidades {
     this.de,
     this.ate,
     this.soDiasLivres = false,
+    this.soFavoritas = false,
   });
 
   final String? genero;
@@ -26,6 +27,9 @@ class FiltroOportunidades {
   /// (`ocupacoes`) e sem bloqueio (`bloqueios`).
   final bool soDiasLivres;
 
+  /// Só do músico (Plano 18): só as oportunidades que ele favoritou.
+  final bool soFavoritas;
+
   /// Quantos critérios estão ligados (contador do botão "Filtrar").
   int get ativos => [
     genero != null && genero!.isNotEmpty,
@@ -34,6 +38,7 @@ class FiltroOportunidades {
     de != null,
     ate != null,
     soDiasLivres,
+    soFavoritas,
   ].where((ligado) => ligado).length;
 
   bool get vazio => ativos == 0;
@@ -46,6 +51,7 @@ class FiltroOportunidades {
     DateTime? de,
     DateTime? ate,
     bool? soDiasLivres,
+    bool? soFavoritas,
     bool limparGenero = false,
     bool limparCidade = false,
     bool limparCacheMinimo = false,
@@ -59,17 +65,20 @@ class FiltroOportunidades {
       de: limparDe ? null : (de ?? this.de),
       ate: limparAte ? null : (ate ?? this.ate),
       soDiasLivres: soDiasLivres ?? this.soDiasLivres,
+      soFavoritas: soFavoritas ?? this.soFavoritas,
     );
   }
 
   /// Aplica o filtro: tira as vencidas (antes de [hoje]), aplica os
   /// critérios e ordena da mais próxima para a mais distante. [bloqueados] e
-  /// [ocupados] são dias `yyyy-MM-dd` da agenda do próprio músico.
+  /// [ocupados] são dias `yyyy-MM-dd` da agenda do próprio músico;
+  /// [favoritas], os ids que ele favoritou.
   List<Oportunidade> aplicar(
     Iterable<Oportunidade> oportunidades, {
     required DateTime hoje,
     Set<String> bloqueados = const {},
     Set<String> ocupados = const {},
+    Set<String> favoritas = const {},
   }) {
     final cidadeBusca = cidade?.trim().toLowerCase() ?? '';
     final inicio = de == null ? null : _dia(de!);
@@ -78,6 +87,7 @@ class FiltroOportunidades {
     return oportunidades.where((o) {
       final diaEvento = _dia(o.dataEvento);
       if (o.vencidaEm(hoje)) return false;
+      if (soFavoritas && !favoritas.contains(o.id)) return false;
       if (genero != null && genero!.isNotEmpty && o.generoMusical != genero) {
         return false;
       }

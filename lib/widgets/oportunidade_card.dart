@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/oportunidade.dart';
+import 'botao_favorito.dart';
 import 'musico_card.dart' show SeloAssinante;
 
 class OportunidadeCard extends StatelessWidget {
@@ -18,6 +19,10 @@ class OportunidadeCard extends StatelessWidget {
   /// Dono assinante (Plano 7): mostra o selo e vem primeiro na lista.
   final bool assinante;
 
+  /// Plano 18: `null` esconde o coração (quem vê não é músico).
+  final VoidCallback? onFavoritar;
+  final bool favorita;
+
   const OportunidadeCard({
     super.key,
     required this.oportunidade,
@@ -25,6 +30,8 @@ class OportunidadeCard extends StatelessWidget {
     this.onCandidatar,
     this.statusCandidatura,
     this.assinante = false,
+    this.onFavoritar,
+    this.favorita = false,
   });
 
   String get dataFormatada {
@@ -62,6 +69,10 @@ class OportunidadeCard extends StatelessWidget {
                 if (assinante) ...[
                   const SizedBox(width: 6),
                   const SeloAssinante(),
+                ],
+                if (onFavoritar != null) ...[
+                  const Spacer(),
+                  BotaoFavorito(favorito: favorita, onPressed: onFavoritar!),
                 ],
               ],
             ),

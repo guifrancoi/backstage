@@ -173,6 +173,34 @@ test('perfis_musicos: miniatura da foto até 200000 caracteres (Plano 14)', asyn
   await assertSucceeds(deleteDoc(ref));
 });
 
+// --- favoritos (Plano 18) --------------------------------------------------
+
+test('favoritos: só o dono do uid lê, cria e apaga; id = {tipo}_{alvoId}', async () => {
+  const u1 = asUser('u1');
+  const fav = { tipo: 'musico', alvoId: 'm9', criadoEm: new Date() };
+  await assertSucceeds(setDoc(doc(u1, 'usuarios/u1/favoritos/musico_m9'), fav));
+  await assertSucceeds(getDocs(collection(u1, 'usuarios/u1/favoritos')));
+  await assertSucceeds(
+    setDoc(doc(u1, 'usuarios/u1/favoritos/oportunidade_o1'), {
+      tipo: 'oportunidade', alvoId: 'o1', criadoEm: new Date(),
+    }),
+  );
+
+  // Outro usuário: nem lê nem escreve.
+  const u2 = asUser('u2');
+  await assertFails(getDocs(collection(u2, 'usuarios/u1/favoritos')));
+  await assertFails(setDoc(doc(u2, 'usuarios/u1/favoritos/musico_m8'), { ...fav, alvoId: 'm8' }));
+  await assertFails(deleteDoc(doc(u2, 'usuarios/u1/favoritos/musico_m9')));
+
+  // Formato: tipo da lista, id coerente, chaves fechadas, sem update.
+  await assertFails(setDoc(doc(u1, 'usuarios/u1/favoritos/outro_x'), { ...fav, tipo: 'outro', alvoId: 'x' }));
+  await assertFails(setDoc(doc(u1, 'usuarios/u1/favoritos/musico_errado'), fav));
+  await assertFails(setDoc(doc(u1, 'usuarios/u1/favoritos/musico_m7'), { ...fav, alvoId: 'm7', extra: 1 }));
+  await assertFails(setDoc(doc(u1, 'usuarios/u1/favoritos/musico_m9'), fav));
+
+  await assertSucceeds(deleteDoc(doc(u1, 'usuarios/u1/favoritos/musico_m9')));
+});
+
 // --- assinantes (Plano 7) --------------------------------------------------
 
 test('assinantes: autenticado lê; ninguém grava pelo app, nem o próprio uid', async () => {

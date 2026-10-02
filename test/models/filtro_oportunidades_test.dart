@@ -113,4 +113,19 @@ void main() {
     expect(o('x', DateTime(2026, 9, 30, 23, 59)).vencidaEm(hoje), isTrue);
     expect(o('x', DateTime(2026, 10, 1)).vencidaEm(hoje), isFalse);
   });
+
+  test('Plano 18: soFavoritas deixa só as favoritas e conta como critério', () {
+    final lista = [
+      oportunidadeTeste(id: 'a'),
+      oportunidadeTeste(id: 'b'),
+    ];
+    const filtro = FiltroOportunidades(soFavoritas: true);
+
+    expect(filtro.ativos, 1);
+    expect(
+      filtro.aplicar(lista, hoje: DateTime(2026), favoritas: {'b'}).map((o) => o.id),
+      ['b'],
+    );
+    expect(filtro.aplicar(lista, hoje: DateTime(2026)), isEmpty);
+  });
 }

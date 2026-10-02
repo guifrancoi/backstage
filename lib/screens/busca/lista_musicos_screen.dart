@@ -22,6 +22,7 @@ class ListaMusicosScreen extends StatelessWidget {
     final escolhido = await abrirPainelFiltroMusicos(
       context,
       atual: provider.filtroMusicos,
+      mostrarFavoritos: context.read<AuthProvider>().atuaComoDono,
     );
     if (escolhido != null) provider.aplicarFiltroMusicos(escolhido);
   }
@@ -55,6 +56,8 @@ class ListaMusicosScreen extends StatelessWidget {
           'Equipamento próprio',
           f.copyWith(soEquipamentoProprio: false),
         ),
+      if (f.soFavoritos)
+        chip('Favoritos', f.copyWith(soFavoritos: false), icone: Icons.favorite),
       if (livresEm != null)
         chip(
           'Livres em ${formatarData(livresEm)}',
@@ -158,6 +161,13 @@ class ListaMusicosScreen extends StatelessWidget {
                 rotuloConvidar: rotuloConvidar(interesses, musico.id),
                 assinante: provider.ehAssinante(musico.id),
                 avaliacao: _avaliacao(context, musico.id),
+                favorito: provider.ehMusicoFavorito(musico.id),
+                onFavoritar: podeFavoritarMusico(auth, musico)
+                    ? () => alternarFavorito(
+                        context,
+                        (p) => p.alternarMusicoFavorito(musico.id),
+                      )
+                    : null,
                 onVerDetalhes: () {
                   Navigator.pushNamed(
                     context,

@@ -512,6 +512,59 @@ class FirebaseDataService {
   }
 
   // ---------------------------------------------------------------------------
+  // Favoritos (Plano 18)
+  // ---------------------------------------------------------------------------
+
+  /// `usuarios/{uid}/favoritos/{tipo}_{alvoId}` — só o dono lê e escreve.
+  /// [tipo] é `musico` ou `oportunidade` (o prefixo evita colisão de ids).
+  DocumentReference<Map<String, dynamic>> _favorito(
+    String uid,
+    String tipo,
+    String alvoId,
+  ) => firestore
+      .collection('usuarios')
+      .doc(uid)
+      .collection('favoritos')
+      .doc('${tipo}_$alvoId');
+
+  /// Favoritos de [uid], separados por tipo.
+  Stream<({Set<String> musicos, Set<String> oportunidades})> streamFavoritos(
+    String uid,
+  ) {
+    return firestore
+        .collection('usuarios')
+        .doc(uid)
+        .collection('favoritos')
+        .snapshots()
+        .map((s) {
+          final musicos = <String>{};
+          final oportunidades = <String>{};
+          for (final d in s.docs) {
+            final alvoId = d.data()['alvoId'] as String? ?? '';
+            switch (d.data()['tipo']) {
+              case 'musico':
+                musicos.add(alvoId);
+              case 'oportunidade':
+                oportunidades.add(alvoId);
+            }
+          }
+          return (musicos: musicos, oportunidades: oportunidades);
+        });
+  }
+
+  Future<void> favoritar(String uid, String tipo, String alvoId) {
+    return _favorito(uid, tipo, alvoId).set({
+      'tipo': tipo,
+      'alvoId': alvoId,
+      'criadoEm': DateTime.now(),
+    });
+  }
+
+  Future<void> desfavoritar(String uid, String tipo, String alvoId) {
+    return _favorito(uid, tipo, alvoId).delete();
+  }
+
+  // ---------------------------------------------------------------------------
   // Avaliações (Plano 17)
   // ---------------------------------------------------------------------------
 

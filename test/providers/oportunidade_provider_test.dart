@@ -222,6 +222,41 @@ void main() {
     });
   });
 
+  group('Plano 18: favoritos', () {
+    test('alternar marca e desmarca; filtros "só favoritos" usam a marcação', () async {
+      expect(await provider.alternarMusicoFavorito('2'), isTrue);
+      expect(await provider.alternarOportunidadeFavorita('3'), isTrue);
+      await aguardar();
+
+      expect(provider.ehMusicoFavorito('2'), isTrue);
+      expect(provider.ehOportunidadeFavorita('3'), isTrue);
+
+      provider.aplicarFiltroMusicos(const FiltroMusicos(soFavoritos: true));
+      expect(nomes(provider.musicos), ['Duo Acústico Sol']);
+      expect(provider.filtroMusicos.soFavoritos, isTrue);
+
+      provider.filtrarOportunidades(const FiltroOportunidades(soFavoritas: true));
+      expect(provider.oportunidades.map((o) => o.id), ['3']);
+
+      // Desmarcar tira da lista filtrada.
+      await provider.alternarMusicoFavorito('2');
+      await aguardar();
+      expect(provider.ehMusicoFavorito('2'), isFalse);
+      expect(provider.musicos, isEmpty);
+
+      provider.resetarFiltroMusicos();
+      expect(provider.filtroMusicos.soFavoritos, isFalse);
+    });
+
+    test('favorito de item que não existe mais é ignorado', () async {
+      await provider.alternarMusicoFavorito('removido');
+      await aguardar();
+      provider.aplicarFiltroMusicos(const FiltroMusicos(soFavoritos: true));
+
+      expect(provider.musicos, isEmpty);
+    });
+  });
+
   group('Plano 14: formação e equipamento próprio', () {
     setUp(() async {
       await firestore.collection('perfis_musicos').doc('1').update({

@@ -416,6 +416,22 @@ void main() {
       expect(doc.data()?['dia'], '2026-05-10');
     });
 
+    test('favoritos: grava em usuarios/{uid}/favoritos/{tipo}_{id} e separa por tipo', () async {
+      await service.favoritar('u1', 'musico', 'm9');
+      await service.favoritar('u1', 'oportunidade', 'o1');
+      await service.favoritar('u2', 'musico', 'm8');
+
+      final doc = await firestore.doc('usuarios/u1/favoritos/musico_m9').get();
+      expect(doc.data()?['alvoId'], 'm9');
+      var favoritos = await service.streamFavoritos('u1').first;
+      expect(favoritos.musicos, {'m9'});
+      expect(favoritos.oportunidades, {'o1'});
+
+      await service.desfavoritar('u1', 'musico', 'm9');
+      favoritos = await service.streamFavoritos('u1').first;
+      expect(favoritos.musicos, isEmpty);
+    });
+
     test('assinantes: só documentos sem expiração ou com expiração futura', () async {
       await firestore.collection('assinantes').doc('a1').set({'desde': DateTime(2026)});
       await firestore.collection('assinantes').doc('a2').set({

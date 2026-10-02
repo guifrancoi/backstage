@@ -48,4 +48,12 @@ void main() {
       expect(filtro.copyWith(cidade: 'X', limparCidade: true).cidade, isNull);
     });
   });
+
+  test('Plano 18: soFavoritos conta como critério', () {
+    expect(const FiltroMusicos(soFavoritos: true).ativos, 1);
+    expect(
+      const FiltroMusicos(soFavoritos: true).copyWith(soFavoritos: false).vazio,
+      isTrue,
+    );
+  });
 }

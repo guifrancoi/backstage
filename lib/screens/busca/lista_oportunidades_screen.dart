@@ -57,6 +57,8 @@ class ListaOportunidadesScreen extends StatelessWidget {
         chip('Até ${formatarData(ate)}', f.copyWith(limparAte: true)),
       if (f.soDiasLivres)
         chip('Só dias livres', f.copyWith(soDiasLivres: false)),
+      if (f.soFavoritas)
+        chip('Favoritas', f.copyWith(soFavoritas: false)),
     ];
   }
 
@@ -151,6 +153,18 @@ class ListaOportunidadesScreen extends StatelessWidget {
                           return OportunidadeCard(
                             oportunidade: oportunidade,
                             assinante: provider.ehAssinante(oportunidade.donoId),
+                            favorita: provider.ehOportunidadeFavorita(
+                              oportunidade.id,
+                            ),
+                            onFavoritar:
+                                podeFavoritarOportunidade(auth, oportunidade)
+                                ? () => alternarFavorito(
+                                    context,
+                                    (p) => p.alternarOportunidadeFavorita(
+                                      oportunidade.id,
+                                    ),
+                                  )
+                                : null,
                             onCandidatar: pode
                                 ? () =>
                                       confirmarCandidatura(context, oportunidade)

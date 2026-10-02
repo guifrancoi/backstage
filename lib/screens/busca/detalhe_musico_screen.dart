@@ -6,6 +6,7 @@ import '../../core/utils/foto_perfil.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
+import '../../widgets/botao_favorito.dart';
 import '../../widgets/dados_show_musico.dart';
 import 'acoes_interesse.dart';
 import 'agenda_publica_secao.dart';
@@ -59,7 +60,19 @@ class DetalheMusicoScreen extends StatelessWidget {
     final pode = podeConvidar(auth, musico);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalhes do músico')),
+      appBar: AppBar(
+        title: const Text('Detalhes do músico'),
+        actions: [
+          if (podeFavoritarMusico(auth, musico))
+            BotaoFavorito(
+              favorito: provider.ehMusicoFavorito(musico.id),
+              onPressed: () => alternarFavorito(
+                context,
+                (p) => p.alternarMusicoFavorito(musico.id),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

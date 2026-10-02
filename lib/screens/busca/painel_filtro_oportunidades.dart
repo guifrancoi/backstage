@@ -167,6 +167,15 @@ class _PainelFiltroState extends State<_PainelFiltro> {
                   _filtro = _filtro.copyWith(soDiasLivres: valor);
                 }),
               ),
+              // Plano 18: só o músico favorita oportunidades.
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Só favoritas'),
+                value: _filtro.soFavoritas,
+                onChanged: (valor) => setState(() {
+                  _filtro = _filtro.copyWith(soFavoritas: valor);
+                }),
+              ),
             ],
             const SizedBox(height: 16),
             Row(

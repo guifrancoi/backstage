@@ -30,6 +30,16 @@ service cloud.firestore {
     match /usuarios/{userId} {
       allow read, create, delete: if isOwner(userId);
       allow update: if isOwner(userId) && tipoUsuarioNaoMudou();
+
+      // Favoritos (Plano 18): privados do dono; id = {tipo}_{alvoId}.
+      match /favoritos/{favoritoId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['tipo', 'alvoId', 'criadoEm'])
+          && request.resource.data.tipo in ['musico', 'oportunidade']
+          && request.resource.data.alvoId is string
+          && favoritoId == request.resource.data.tipo + '_' + request.resource.data.alvoId;
+      }
     }
 
     // Plano 7: quem é assinante. Público para ordenar as listas; só o Admin

@@ -30,6 +30,14 @@ class OportunidadeProvider extends ChangeNotifier {
   StreamSubscription<AgendaPublica>? _minhaAgendaSubscription;
   StreamSubscription<Set<String>>? _indisponiveisSubscription;
   StreamSubscription<Set<String>>? _assinantesSubscription;
+  StreamSubscription<({Set<String> musicos, Set<String> oportunidades})>?
+  _favoritosSubscription;
+
+  /// Favoritos do usuário logado (Plano 18): o dono guarda músicos e o
+  /// músico guarda oportunidades.
+  Set<String> _musicosFavoritos = {};
+  Set<String> _oportunidadesFavoritas = {};
+  bool _soFavoritos = false;
 
   /// Uids com assinatura válida (Plano 7): vêm primeiro nas listas e
   /// desempatam as sugestões.
@@ -74,6 +82,10 @@ class OportunidadeProvider extends ChangeNotifier {
     _assinantesSubscription?.cancel();
     _assinantesSubscription = null;
     _assinantes = {};
+    _favoritosSubscription?.cancel();
+    _favoritosSubscription = null;
+    _musicosFavoritos = {};
+    _oportunidadesFavoritas = {};
     _musicosSubscription = null;
     _oportunidadesSubscription = null;
     _minhaAgendaSubscription = null;
@@ -113,6 +125,12 @@ class OportunidadeProvider extends ChangeNotifier {
       agenda,
     ) {
       _minhaAgenda = agenda;
+      _aplicarFiltrosAtuais();
+      notifyListeners();
+    }, onError: (_) {});
+    _favoritosSubscription = _service.streamFavoritos(uid).listen((favoritos) {
+      _musicosFavoritos = favoritos.musicos;
+      _oportunidadesFavoritas = favoritos.oportunidades;
       _aplicarFiltrosAtuais();
       notifyListeners();
     }, onError: (_) {});
@@ -163,6 +181,7 @@ class OportunidadeProvider extends ChangeNotifier {
     formacao: _formacaoFiltro,
     soEquipamentoProprio: _soEquipamentoProprio,
     livresEm: _livresEm,
+    soFavoritos: _soFavoritos,
     ordenacao: _tipoOrdenacao,
   );
 
@@ -174,6 +193,7 @@ class OportunidadeProvider extends ChangeNotifier {
     _cidadeFiltroMusicos = filtro.cidade;
     _formacaoFiltro = filtro.formacao;
     _soEquipamentoProprio = filtro.soEquipamentoProprio;
+    _soFavoritos = filtro.soFavoritos;
     _tipoOrdenacao = filtro.ordenacao;
     final dia = filtro.livresEm;
     final mesmoDia = dia == null
@@ -402,6 +422,7 @@ class OportunidadeProvider extends ChangeNotifier {
     _cidadeFiltroMusicos = null;
     _formacaoFiltro = null;
     _soEquipamentoProprio = false;
+    _soFavoritos = false;
     _termoPesquisa = '';
     _tipoOrdenacao = 'nome_asc';
     _aplicarFiltrosAtuais();
@@ -452,6 +473,7 @@ class OportunidadeProvider extends ChangeNotifier {
         return false;
       }
       if (_soEquipamentoProprio && !m.equipamentoProprio) return false;
+      if (_soFavoritos && !_musicosFavoritos.contains(m.id)) return false;
       final genero = _generoSelecionadoMusicos;
       final cidade = _cidadeFiltroMusicos;
 
@@ -483,12 +505,56 @@ class OportunidadeProvider extends ChangeNotifier {
         hoje: DateTime.now(),
         bloqueados: _minhaAgenda.bloqueados,
         ocupados: _minhaAgenda.ocupados,
+        favoritas: _oportunidadesFavoritas,
       ),
       (o) => ehAssinante(o.donoId),
     );
   }
 
   bool ehAssinante(String uid) => _assinantes.contains(uid);
+
+  bool ehMusicoFavorito(String musicoId) =>
+      _musicosFavoritos.contains(musicoId);
+
+  bool ehOportunidadeFavorita(String oportunidadeId) =>
+      _oportunidadesFavoritas.contains(oportunidadeId);
+
+  /// Marca/desmarca o músico como favorito (Plano 18). O stream traz o
+  /// resultado de volta; devolve se gravou.
+  Future<bool> alternarMusicoFavorito(String musicoId) => _alternarFavorito(
+    'musico',
+    musicoId,
+    favorito: ehMusicoFavorito(musicoId),
+  );
+
+  Future<bool> alternarOportunidadeFavorita(String oportunidadeId) =>
+      _alternarFavorito(
+        'oportunidade',
+        oportunidadeId,
+        favorito: ehOportunidadeFavorita(oportunidadeId),
+      );
+
+  Future<bool> _alternarFavorito(
+    String tipo,
+    String alvoId, {
+    required bool favorito,
+  }) async {
+    final uid = _service.currentUserId;
+    if (uid == null) return false;
+    _errorMessage = null;
+    try {
+      if (favorito) {
+        await _service.desfavoritar(uid, tipo, alvoId);
+      } else {
+        await _service.favoritar(uid, tipo, alvoId);
+      }
+      return true;
+    } on FirebaseException {
+      _errorMessage = 'Não foi possível atualizar os favoritos.';
+      notifyListeners();
+      return false;
+    }
+  }
 
   /// Uids indisponíveis no dia (bloqueio ou show), para as sugestões do
   /// dono (Plano 15) — mesma consulta do filtro "livres em".
@@ -596,6 +662,7 @@ class OportunidadeProvider extends ChangeNotifier {
     _minhaAgendaSubscription?.cancel();
     _indisponiveisSubscription?.cancel();
     _assinantesSubscription?.cancel();
+    _favoritosSubscription?.cancel();
     super.dispose();
   }
 }

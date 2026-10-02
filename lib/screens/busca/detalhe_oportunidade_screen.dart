@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../widgets/botao_favorito.dart';
 import 'abrir_mapa.dart';
 import 'acoes_interesse.dart';
 import 'musicos_sugeridos_secao.dart';
@@ -73,7 +74,19 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
         oportunidade.estado.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalhes da oportunidade')),
+      appBar: AppBar(
+        title: const Text('Detalhes da oportunidade'),
+        actions: [
+          if (podeFavoritarOportunidade(auth, oportunidade))
+            BotaoFavorito(
+              favorito: provider.ehOportunidadeFavorita(oportunidade.id),
+              onPressed: () => alternarFavorito(
+                context,
+                (p) => p.alternarOportunidadeFavorita(oportunidade.id),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

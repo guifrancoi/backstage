@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/utils/foto_perfil.dart';
 import '../models/musico.dart';
+import 'botao_favorito.dart';
 
 class MusicoCard extends StatelessWidget {
   final Musico musico;
@@ -20,6 +21,10 @@ class MusicoCard extends StatelessWidget {
   /// "★ 4,6 (8)" (Plano 17); `null` = sem avaliações.
   final String? avaliacao;
 
+  /// Plano 18: `null` esconde o coração (quem vê não é dono).
+  final VoidCallback? onFavoritar;
+  final bool favorito;
+
   const MusicoCard({
     super.key,
     required this.musico,
@@ -28,6 +33,8 @@ class MusicoCard extends StatelessWidget {
     this.rotuloConvidar = 'Convidar',
     this.assinante = false,
     this.avaliacao,
+    this.onFavoritar,
+    this.favorito = false,
   });
 
   @override
@@ -62,7 +69,14 @@ class MusicoCard extends StatelessWidget {
                 '${musico.generoMusical} • ${musico.cidade}'
                 '${avaliacao == null ? '' : ' • $avaliacao'}',
               ),
-              trailing: Text('R\$ ${musico.cacheMedio.toStringAsFixed(0)}'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('R\$ ${musico.cacheMedio.toStringAsFixed(0)}'),
+                  if (onFavoritar != null)
+                    BotaoFavorito(favorito: favorito, onPressed: onFavoritar!),
+                ],
+              ),
             ),
             if (resumoShow != null)
               Padding(

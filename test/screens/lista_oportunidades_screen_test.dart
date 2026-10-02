@@ -273,4 +273,38 @@ void main() {
 
     expect(find.text('Ver músicos livres neste dia'), findsNothing);
   });
+
+  testWidgets('Plano 18: músico favorita oportunidade e filtra só favoritas', (tester) async {
+    final service = servicoFake(firestore: firestore, uid: 'm1');
+    await tester.pumpWidget(_app(service, const ListaOportunidadesScreen()));
+    await tester.pumpAndSettle();
+
+    final card = find.ancestor(of: find.text('Sarau MPB'), matching: find.byType(Card));
+    await tester.tap(
+      find.descendant(of: card, matching: find.byTooltip('Adicionar aos favoritos')),
+    );
+    await tester.pumpAndSettle();
+    final favorito = await firestore.doc('usuarios/m1/favoritos/oportunidade_mpb').get();
+    expect(favorito.exists, isTrue);
+
+    await tester.tap(find.text('Filtrar'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Só favoritas'));
+    await tester.tap(find.text('Só favoritas'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aplicar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 oportunidade'), findsOneWidget);
+    expect(find.text('Noite do rock'), findsNothing);
+  });
+
+  testWidgets('Plano 18: dono não vê coração nas oportunidades', (tester) async {
+    await tester.pumpWidget(
+      _app(servicoFake(firestore: firestore, uid: 'e1'), const ListaOportunidadesScreen()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Adicionar aos favoritos'), findsNothing);
+  });
 }

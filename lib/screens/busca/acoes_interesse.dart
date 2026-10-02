@@ -56,6 +56,28 @@ bool podeConvidar(AuthProvider auth, Musico musico) {
   return auth.atuaComoDono && musico.id != auth.userId;
 }
 
+/// Plano 18: o dono (ou admin) favorita músicos.
+bool podeFavoritarMusico(AuthProvider auth, Musico musico) =>
+    auth.atuaComoDono && musico.id != auth.userId;
+
+/// Plano 18: o músico (ou admin) favorita oportunidades de outros donos.
+bool podeFavoritarOportunidade(AuthProvider auth, Oportunidade oportunidade) =>
+    auth.atuaComoMusico &&
+    oportunidade.temDono &&
+    oportunidade.donoId != auth.userId;
+
+/// Liga/desliga o favorito e avisa só se falhar.
+Future<void> alternarFavorito(
+  BuildContext context,
+  Future<bool> Function(OportunidadeProvider) alternar,
+) async {
+  final provider = context.read<OportunidadeProvider>();
+  final ok = await alternar(provider);
+  if (!ok && context.mounted) {
+    _avisar(context, provider.errorMessage ?? 'Não foi possível favoritar.');
+  }
+}
+
 /// Dono da oportunidade ou admin podem editá-la e removê-la.
 bool podeGerenciar(AuthProvider auth, Oportunidade oportunidade) {
   return auth.isAdmin ||
