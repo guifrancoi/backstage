@@ -33,8 +33,18 @@ service cloud.firestore {
     }
 
     match /perfis_musicos/{userId} {
+      // Miniatura em base64 no próprio perfil (Plano 14): limitada para o
+      // catálogo, que todos baixam inteiro, não pesar (o app reduz a 256 px).
+      function fotoValida() {
+        return !('foto' in request.resource.data)
+          || request.resource.data.foto == null
+          || (request.resource.data.foto is string
+              && request.resource.data.foto.size() <= 200000);
+      }
+
       allow read: if signedIn();
-      allow write: if isOwner(userId);
+      allow create, update: if isOwner(userId) && fotoValida();
+      allow delete: if isOwner(userId);
     }
 
     match /estabelecimentos/{userId} {

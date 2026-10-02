@@ -2,6 +2,7 @@ import 'package:backstage/models/mensagem.dart';
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/models/oportunidade.dart';
 import 'package:backstage/widgets/custom_text_field.dart';
+import 'package:backstage/widgets/dados_show_musico.dart';
 import 'package:backstage/widgets/mensagem_bubble.dart';
 import 'package:backstage/widgets/musico_card.dart';
 import 'package:backstage/widgets/oportunidade_card.dart';
@@ -10,6 +11,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _app(Widget child) => MaterialApp(home: Scaffold(body: child));
+
+/// PNG 1×1 válido, em base64 (miniatura de teste).
+const _pngBase64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 Musico _musico() => Musico(
   id: '1',
@@ -83,6 +88,56 @@ void main() {
 
       expect(find.byType(ElevatedButton), findsNothing);
       expect(find.text('Ver detalhes'), findsOneWidget);
+    });
+
+    testWidgets('mostra formação e equipamento, e a foto quando há (Plano 14)', (tester) async {
+      await tester.pumpWidget(_app(MusicoCard(
+        musico: _musico().copyWith(
+          formacao: Formacao.trio,
+          equipamentoProprio: true,
+          foto: _pngBase64,
+        ),
+        onVerDetalhes: () {},
+      )));
+
+      expect(find.text('Trio · Equipamento próprio'), findsOneWidget);
+      final avatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar));
+      expect(avatar.backgroundImage, isA<MemoryImage>());
+      expect(find.byIcon(Icons.music_note), findsNothing);
+    });
+
+    testWidgets('sem dados do show nem foto: card como antes', (tester) async {
+      await tester.pumpWidget(_app(MusicoCard(
+        musico: _musico(),
+        onVerDetalhes: () {},
+      )));
+
+      expect(find.textContaining('Equipamento'), findsNothing);
+      expect(find.byIcon(Icons.music_note), findsOneWidget);
+    });
+  });
+
+  group('DadosShowMusico', () {
+    testWidgets('lista só o que está preenchido', (tester) async {
+      await tester.pumpWidget(_app(DadosShowMusico(
+        musico: _musico().copyWith(
+          formacao: Formacao.banda,
+          integrantes: 4,
+          duracaoShowMin: 90,
+        ),
+      )));
+
+      expect(find.text('Sobre o show'), findsOneWidget);
+      expect(find.text('Formação: Banda (4 integrantes)'), findsOneWidget);
+      expect(find.text('Duração do show: 1h30'), findsOneWidget);
+      expect(find.textContaining('Repertório'), findsNothing);
+      expect(find.textContaining('equipamento'), findsNothing);
+    });
+
+    testWidgets('nada preenchido: a seção não aparece', (tester) async {
+      await tester.pumpWidget(_app(DadosShowMusico(musico: _musico())));
+
+      expect(find.text('Sobre o show'), findsNothing);
     });
   });
 

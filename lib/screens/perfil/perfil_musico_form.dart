@@ -1,8 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_strings.dart';
-import '../../core/utils/local_image_provider.dart';
+import '../../core/utils/foto_perfil.dart';
 import '../../core/utils/validators.dart';
 import '../../models/musico.dart';
 
@@ -17,7 +19,12 @@ class PerfilMusicoForm extends StatefulWidget {
     required this.onSalvar,
     this.onCancelar,
     this.textoSalvar = 'Salvar',
+    this.escolherFoto = escolherMiniatura,
   });
+
+  /// Abre a galeria e devolve a miniatura em base64 (`null` = desistiu).
+  /// Injetável para os testes, que não têm galeria.
+  final Future<String?> Function() escolherFoto;
 
   final Musico? inicial;
 
@@ -38,9 +45,14 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
   final _cacheController = TextEditingController();
   final _descricaoController = TextEditingController();
   final _portfolioController = TextEditingController();
+  final _integrantesController = TextEditingController();
+  final _duracaoController = TextEditingController();
+  final _repertorioController = TextEditingController();
 
   String? _generoSelecionado;
-  String? _fotoPath;
+  String? _foto;
+  Formacao? _formacao;
+  bool _equipamentoProprio = false;
   bool _salvando = false;
 
   @override
@@ -57,7 +69,12 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
         : '';
     _descricaoController.text = perfil?.descricao ?? '';
     _portfolioController.text = perfil?.portfolioLinks.join('\n') ?? '';
-    _fotoPath = perfil?.fotoPath;
+    _foto = perfil?.foto;
+    _formacao = perfil?.formacao;
+    _equipamentoProprio = perfil?.equipamentoProprio ?? false;
+    _integrantesController.text = perfil?.integrantes?.toString() ?? '';
+    _duracaoController.text = perfil?.duracaoShowMin?.toString() ?? '';
+    _repertorioController.text = perfil?.repertorio ?? '';
     // O dropdown exige um valor da lista ou null.
     _generoSelecionado =
         AppStrings.generosMusicais.contains(perfil?.generoMusical)
@@ -72,8 +89,27 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
     _cacheController.dispose();
     _descricaoController.dispose();
     _portfolioController.dispose();
+    _integrantesController.dispose();
+    _duracaoController.dispose();
+    _repertorioController.dispose();
     super.dispose();
   }
+
+  /// Número inteiro opcional entre [min] e [max].
+  String? Function(String?) _validarInteiro(int min, int max, String campo) {
+    return (value) {
+      final texto = value?.trim() ?? '';
+      if (texto.isEmpty) return null;
+      final n = int.tryParse(texto);
+      if (n == null || n < min || n > max) {
+        return 'Informe $campo entre $min e $max.';
+      }
+      return null;
+    };
+  }
+
+  int? _inteiro(TextEditingController controller) =>
+      int.tryParse(controller.text.trim());
 
   String? _validarCache(String? value) {
     if (value == null || value.trim().isEmpty) return 'Informe o cachê.';
@@ -84,12 +120,17 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
   }
 
   Future<void> _selecionarImagem() async {
-    final imagem = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-    if (imagem == null) return;
-    setState(() => _fotoPath = imagem.path);
+    final foto = await widget.escolherFoto();
+    if (foto == null || !mounted) return;
+    if (foto.length > Musico.tamanhoMaximoFoto) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Foto muito grande. Escolha uma imagem JPG ou PNG.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _foto = foto);
   }
 
   Future<void> _salvar() async {
@@ -109,7 +150,17 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
           .map((link) => link.trim())
           .where((link) => link.isNotEmpty)
           .toList(),
-      fotoPath: _fotoPath,
+      foto: _foto,
+      formacao: _formacao,
+      // Solo/duo/trio já dizem quantos são.
+      integrantes: _formacao == Formacao.banda
+          ? _inteiro(_integrantesController)
+          : null,
+      equipamentoProprio: _equipamentoProprio,
+      duracaoShowMin: _inteiro(_duracaoController),
+      repertorio: _repertorioController.text.trim().isEmpty
+          ? null
+          : _repertorioController.text.trim(),
     );
 
     setState(() => _salvando = true);
@@ -122,7 +173,7 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
 
   @override
   Widget build(BuildContext context) {
-    final imagem = localImageProvider(_fotoPath);
+    final imagem = imagemDaFoto(_foto);
 
     return Form(
       key: _formKey,
@@ -140,12 +191,22 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
             ),
           ),
           const SizedBox(height: 12),
-          Center(
-            child: OutlinedButton.icon(
-              onPressed: _selecionarImagem,
-              icon: const Icon(Icons.photo),
-              label: const Text('Alterar foto'),
-            ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _selecionarImagem,
+                icon: const Icon(Icons.photo),
+                label: Text(_foto == null ? 'Escolher foto' : 'Alterar foto'),
+              ),
+              if (_foto != null)
+                TextButton.icon(
+                  onPressed: () => setState(() => _foto = null),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Remover foto'),
+                ),
+            ],
           ),
           const SizedBox(height: 24),
           TextFormField(
@@ -219,6 +280,70 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
             ),
           ),
           const SizedBox(height: 24),
+          Text(
+            'Sobre o show (opcional)',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<Formacao?>(
+            initialValue: _formacao,
+            decoration: const InputDecoration(
+              labelText: 'Formação',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem<Formacao?>(
+                value: null,
+                child: Text('Não informar'),
+              ),
+              for (final f in Formacao.values)
+                DropdownMenuItem<Formacao?>(value: f, child: Text(f.rotulo)),
+            ],
+            onChanged: (value) => setState(() => _formacao = value),
+          ),
+          if (_formacao == Formacao.banda) ...[
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _integrantesController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Número de integrantes',
+                border: OutlineInputBorder(),
+              ),
+              validator: _validarInteiro(2, 50, 'um número'),
+            ),
+          ],
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Tenho equipamento próprio'),
+            subtitle: const Text('Som e/ou luz para o show'),
+            value: _equipamentoProprio,
+            onChanged: (value) => setState(() => _equipamentoProprio = value),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _duracaoController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Duração do show (minutos)',
+              hintText: 'Ex: 120',
+              border: OutlineInputBorder(),
+            ),
+            validator: _validarInteiro(10, 600, 'uma duração'),
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _repertorioController,
+            maxLines: 2,
+            maxLength: 200,
+            decoration: const InputDecoration(
+              labelText: 'Repertório',
+              hintText: 'Ex: autoral + covers de rock nacional',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               if (widget.onCancelar != null) ...[
@@ -242,4 +367,18 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
       ),
     );
   }
+}
+
+/// Escolhe uma foto na galeria já reduzida (até 256 px, JPEG 70%) e devolve
+/// em base64 para gravar no perfil (Plano 14). Funciona também no Web
+/// (`readAsBytes`); só GIF não é reduzido lá.
+Future<String?> escolherMiniatura() async {
+  final imagem = await ImagePicker().pickImage(
+    source: ImageSource.gallery,
+    maxWidth: 256,
+    maxHeight: 256,
+    imageQuality: 70,
+  );
+  if (imagem == null) return null;
+  return base64Encode(await imagem.readAsBytes());
 }

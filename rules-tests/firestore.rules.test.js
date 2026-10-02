@@ -163,6 +163,16 @@ test('perfis_musicos: só o dono escreve o próprio perfil', async () => {
   );
 });
 
+test('perfis_musicos: miniatura da foto até 200000 caracteres (Plano 14)', async () => {
+  const dono = asUser('u1');
+  const ref = doc(dono, 'perfis_musicos/u1');
+  await assertSucceeds(setDoc(ref, { nomeArtistico: 'Banda X', foto: 'a'.repeat(200000) }));
+  await assertSucceeds(setDoc(ref, { nomeArtistico: 'Banda X', foto: null }));
+  await assertFails(setDoc(ref, { nomeArtistico: 'Banda X', foto: 'a'.repeat(200001) }));
+  await assertFails(setDoc(ref, { nomeArtistico: 'Banda X', foto: 123 }));
+  await assertSucceeds(deleteDoc(ref));
+});
+
 // --- estabelecimentos -------------------------------------------------------
 
 test('estabelecimentos: só o dono escreve o próprio perfil', async () => {

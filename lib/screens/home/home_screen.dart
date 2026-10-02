@@ -88,11 +88,6 @@ class HomeScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.contratacoes),
           ),
           _HomeTile(
-            title: 'Filtro de busca',
-            icon: Icons.filter_list,
-            onTap: () => Navigator.pushNamed(context, AppRoutes.filtroBusca),
-          ),
-          _HomeTile(
             title: 'Agenda',
             icon: Icons.calendar_month,
             onTap: () => Navigator.pushNamed(context, AppRoutes.agenda),

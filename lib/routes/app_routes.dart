@@ -7,7 +7,6 @@ class AppRoutes {
   static const perfil = '/perfil';
   static const listaMusicos = '/lista-musicos';
   static const listaOportunidades = '/lista-oportunidades';
-  static const filtroBusca = '/filtro-busca';
   static const agenda = '/agenda';
   static const conversas = '/conversas';
   static const chat = '/chat';

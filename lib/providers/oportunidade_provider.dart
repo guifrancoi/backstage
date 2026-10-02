@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/agenda_publica.dart';
 import '../models/contratacao.dart';
+import '../models/filtro_musicos.dart';
 import '../models/filtro_oportunidades.dart';
 import '../models/interesse.dart';
 import '../models/musico.dart';
@@ -123,6 +124,8 @@ class OportunidadeProvider extends ChangeNotifier {
 
   String? _generoSelecionadoMusicos;
   String? _cidadeFiltroMusicos;
+  Formacao? _formacaoFiltro;
+  bool _soEquipamentoProprio = false;
   String _termoPesquisa = '';
   String _tipoOrdenacao = 'nome_asc';
 
@@ -135,6 +138,41 @@ class OportunidadeProvider extends ChangeNotifier {
 
   String? get generoSelecionadoMusicos => _generoSelecionadoMusicos;
   String? get cidadeFiltroMusicos => _cidadeFiltroMusicos;
+  Formacao? get formacaoFiltro => _formacaoFiltro;
+  bool get soEquipamentoProprio => _soEquipamentoProprio;
+
+  /// Todos os critérios atuais da lista de músicos (painel "Filtrar").
+  FiltroMusicos get filtroMusicos => FiltroMusicos(
+    termo: _termoPesquisa,
+    genero: _generoSelecionadoMusicos,
+    cidade: _cidadeFiltroMusicos,
+    formacao: _formacaoFiltro,
+    soEquipamentoProprio: _soEquipamentoProprio,
+    livresEm: _livresEm,
+    ordenacao: _tipoOrdenacao,
+  );
+
+  /// Troca todos os critérios de uma vez (painel e chips da lista). Só
+  /// refaz a consulta do "livres em" se o dia mudou.
+  void aplicarFiltroMusicos(FiltroMusicos filtro) {
+    _termoPesquisa = filtro.termo.trim();
+    _generoSelecionadoMusicos = filtro.genero;
+    _cidadeFiltroMusicos = filtro.cidade;
+    _formacaoFiltro = filtro.formacao;
+    _soEquipamentoProprio = filtro.soEquipamentoProprio;
+    _tipoOrdenacao = filtro.ordenacao;
+    final dia = filtro.livresEm;
+    final mesmoDia = dia == null
+        ? _livresEm == null
+        : _livresEm != null &&
+              Contratacao.diaDe(dia) == Contratacao.diaDe(_livresEm!);
+    if (mesmoDia) {
+      _aplicarFiltrosAtuais();
+      notifyListeners();
+    } else {
+      filtrarMusicosLivresEm(dia);
+    }
+  }
 
   /// Dia do filtro "livres em" (`null` = sem filtro de data).
   DateTime? get livresEm => _livresEm;
@@ -279,9 +317,18 @@ class OportunidadeProvider extends ChangeNotifier {
     }
   }
 
-  void filtrarMusicos({String? genero, String? cidade}) {
+  /// Troca os critérios de perfil (o que não vier fica sem filtro).
+  /// Formação e equipamento próprio são do Plano 14.
+  void filtrarMusicos({
+    String? genero,
+    String? cidade,
+    Formacao? formacao,
+    bool soEquipamentoProprio = false,
+  }) {
     _generoSelecionadoMusicos = genero;
     _cidadeFiltroMusicos = cidade;
+    _formacaoFiltro = formacao;
+    _soEquipamentoProprio = soEquipamentoProprio;
     _aplicarFiltrosAtuais();
     notifyListeners();
   }
@@ -339,6 +386,8 @@ class OportunidadeProvider extends ChangeNotifier {
     _pararLivresEm();
     _generoSelecionadoMusicos = null;
     _cidadeFiltroMusicos = null;
+    _formacaoFiltro = null;
+    _soEquipamentoProprio = false;
     _termoPesquisa = '';
     _tipoOrdenacao = 'nome_asc';
     _aplicarFiltrosAtuais();
@@ -385,6 +434,10 @@ class OportunidadeProvider extends ChangeNotifier {
     _musicos = _todosMusicos.where((m) {
       if (m.oculto && !_isAdmin) return false;
       if (_livresEm != null && _indisponiveis.contains(m.id)) return false;
+      if (_formacaoFiltro != null && m.formacao != _formacaoFiltro) {
+        return false;
+      }
+      if (_soEquipamentoProprio && !m.equipamentoProprio) return false;
       final genero = _generoSelecionadoMusicos;
       final cidade = _cidadeFiltroMusicos;
 

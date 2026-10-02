@@ -1,3 +1,4 @@
+import 'package:backstage/models/filtro_musicos.dart';
 import 'package:backstage/models/filtro_oportunidades.dart';
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
@@ -153,6 +154,68 @@ void main() {
       provider.filtrarMusicos(genero: 'MPB');
 
       expect(notificacoes, 1);
+    });
+  });
+
+  group('Plano 14: formação e equipamento próprio', () {
+    setUp(() async {
+      await firestore.collection('perfis_musicos').doc('1').update({
+        'formacao': 'banda',
+        'equipamentoProprio': true,
+      });
+      await firestore.collection('perfis_musicos').doc('2').update({
+        'formacao': 'duo',
+      });
+      await aguardar();
+    });
+
+    test('filtra por formação e por equipamento, combinando com cidade', () {
+      provider.filtrarMusicos(formacao: Formacao.duo);
+      expect(nomes(provider.musicos), ['Duo Acústico Sol']);
+
+      provider.filtrarMusicos(soEquipamentoProprio: true);
+      expect(nomes(provider.musicos), ['Banda Eclipse']);
+
+      provider.filtrarMusicos(cidade: 'franca', soEquipamentoProprio: true);
+      expect(provider.musicos, isEmpty);
+    });
+
+    test('aplicarFiltroMusicos troca tudo de uma vez e filtroMusicos devolve', () async {
+      await firestore.collection('bloqueios').doc('2_2099-03-10').set({
+        'usuarioId': '2',
+        'dia': '2099-03-10',
+      });
+      provider.aplicarFiltroMusicos(
+        FiltroMusicos(
+          cidade: 'ribeirão',
+          soEquipamentoProprio: true,
+          ordenacao: 'cache_menor',
+          livresEm: DateTime(2099, 3, 10),
+        ),
+      );
+      await aguardar();
+
+      expect(nomes(provider.musicos), ['Banda Eclipse']);
+      final atual = provider.filtroMusicos;
+      expect(atual.cidade, 'ribeirão');
+      expect(atual.soEquipamentoProprio, isTrue);
+      expect(atual.ordenacao, 'cache_menor');
+      expect(atual.livresEm, DateTime(2099, 3, 10));
+      expect(atual.ativos, 3);
+
+      provider.aplicarFiltroMusicos(const FiltroMusicos());
+      expect(provider.livresEm, isNull);
+      expect(provider.musicos, hasLength(_musicos.length));
+    });
+
+    test('resetar limpa formação e equipamento', () {
+      provider
+        ..filtrarMusicos(formacao: Formacao.banda, soEquipamentoProprio: true)
+        ..resetarFiltroMusicos();
+
+      expect(provider.formacaoFiltro, isNull);
+      expect(provider.soEquipamentoProprio, isFalse);
+      expect(provider.musicos, hasLength(_musicos.length));
     });
   });
 

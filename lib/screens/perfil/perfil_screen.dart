@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/utils/local_image_provider.dart';
+import '../../core/utils/foto_perfil.dart';
+import '../../widgets/dados_show_musico.dart';
 import '../../models/casa_show.dart';
 import '../../models/musico.dart';
 import '../../providers/auth_provider.dart';
@@ -146,7 +147,7 @@ class _PerfilMusicoAbaState extends State<_PerfilMusicoAba> {
   }
 
   Widget _visualizacao(Musico perfil) {
-    final imagem = localImageProvider(perfil.fotoPath);
+    final imagem = imagemDaFoto(perfil.foto);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -194,6 +195,7 @@ class _PerfilMusicoAbaState extends State<_PerfilMusicoAba> {
                 ),
                 const SizedBox(height: 16),
                 Text('Descrição: ${perfil.descricao}'),
+                DadosShowMusico(musico: perfil),
                 const SizedBox(height: 16),
                 const Text(
                   'Portfólio',

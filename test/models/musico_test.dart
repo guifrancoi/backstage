@@ -9,7 +9,12 @@ Musico _musico() => Musico(
   descricao: 'Descrição',
   cacheMedio: 1500,
   portfolioLinks: ['instagram.com/banda'],
-  fotoPath: '/fotos/banda.jpg',
+  foto: 'aGVsbG8=',
+  formacao: Formacao.banda,
+  integrantes: 5,
+  equipamentoProprio: true,
+  duracaoShowMin: 90,
+  repertorio: 'Autoral e covers',
 );
 
 void main() {
@@ -28,7 +33,13 @@ void main() {
       expect(copia.descricao, original.descricao);
       expect(copia.cacheMedio, original.cacheMedio);
       expect(copia.portfolioLinks, original.portfolioLinks);
-      expect(copia.fotoPath, original.fotoPath);
+      expect(copia.foto, original.foto);
+      expect(copia.formacao, Formacao.banda);
+      expect(map['formacao'], 'banda');
+      expect(copia.integrantes, 5);
+      expect(copia.equipamentoProprio, isTrue);
+      expect(copia.duracaoShowMin, 90);
+      expect(copia.repertorio, 'Autoral e covers');
       expect(map.containsKey('interesseEnviado'), isFalse);
     });
 
@@ -38,7 +49,34 @@ void main() {
       expect(musico.nomeArtistico, '');
       expect(musico.cacheMedio, 0);
       expect(musico.portfolioLinks, isEmpty);
-      expect(musico.fotoPath, isNull);
+      expect(musico.foto, isNull);
+      expect(musico.formacao, isNull);
+      expect(musico.integrantes, isNull);
+      expect(musico.equipamentoProprio, isFalse);
+      expect(musico.duracaoShowMin, isNull);
+      expect(musico.repertorio, isNull);
+    });
+
+    test('fromMap ignora o fotoPath antigo, formação desconhecida e texto vazio', () {
+      final musico = Musico.fromMap('x', {
+        'fotoPath': '/data/user/0/foto.jpg',
+        'formacao': 'orquestra',
+        'repertorio': '  ',
+        'foto': '',
+      });
+
+      expect(musico.foto, isNull);
+      expect(musico.formacao, isNull);
+      expect(musico.repertorio, isNull);
+    });
+
+    test('toMap grava os campos opcionais vazios como null (merge apaga)', () {
+      final map = Musico.fromMap('x', {}).toMap();
+
+      for (final chave in ['foto', 'formacao', 'integrantes', 'duracaoShowMin', 'repertorio']) {
+        expect(map.containsKey(chave), isTrue, reason: chave);
+        expect(map[chave], isNull, reason: chave);
+      }
     });
 
     test('fromMap converte cacheMedio inteiro para double', () {
@@ -55,29 +93,33 @@ void main() {
       expect(alterado.cidade, 'Ribeirão Preto');
       expect(alterado.cacheMedio, 2000);
       expect(alterado.nomeArtistico, original.nomeArtistico);
-      expect(alterado.fotoPath, original.fotoPath);
+      expect(alterado.foto, original.foto);
+      expect(alterado.formacao, original.formacao);
       expect(original.cidade, 'Franca');
     });
 
-    test('copyWith sem fotoPath mantém a foto atual', () {
-      expect(_musico().copyWith(cidade: 'X').fotoPath, '/fotos/banda.jpg');
-    });
-
     test('copyWith troca a foto quando informada', () {
-      expect(_musico().copyWith(fotoPath: '/nova.jpg').fotoPath, '/nova.jpg');
+      expect(_musico().copyWith(foto: 'bm92YQ==').foto, 'bm92YQ==');
     });
 
-    test('clearFotoPath remove a foto', () {
-      final semFoto = _musico().copyWith(clearFotoPath: true);
-
-      expect(semFoto.fotoPath, isNull);
-      expect(semFoto.toMap()['fotoPath'], isNull);
+    test('clearFoto remove a foto, com prioridade sobre uma informada', () {
+      expect(_musico().copyWith(clearFoto: true).foto, isNull);
+      expect(_musico().copyWith(foto: 'bm92YQ==', clearFoto: true).foto, isNull);
     });
 
-    test('clearFotoPath tem prioridade sobre uma foto informada', () {
-      final semFoto = _musico().copyWith(fotoPath: '/nova.jpg', clearFotoPath: true);
+    test('formacaoDescrita e resumoShow', () {
+      expect(_musico().formacaoDescrita, 'Banda (5 integrantes)');
+      expect(_musico().resumoShow, 'Banda · Equipamento próprio');
 
-      expect(semFoto.fotoPath, isNull);
+      final trio = Musico.fromMap('x', {'formacao': 'trio'});
+      expect(trio.formacaoDescrita, 'Trio');
+      expect(trio.resumoShow, 'Trio');
+
+      final soEquipamento = Musico.fromMap('x', {'equipamentoProprio': true});
+      expect(soEquipamento.formacaoDescrita, isNull);
+      expect(soEquipamento.resumoShow, 'Equipamento próprio');
+
+      expect(Musico.fromMap('x', {}).resumoShow, isNull);
     });
 
     test('completo exige os campos obrigatórios e gênero da lista', () {
@@ -88,6 +130,18 @@ void main() {
       expect(_musico().copyWith(cidade: ' ').completo, isFalse);
       expect(_musico().copyWith(descricao: '').completo, isFalse);
       expect(_musico().copyWith(cacheMedio: -1).completo, isFalse);
+    });
+
+    test('dados do show são opcionais: não afetam completo', () {
+      final semShow = Musico.fromMap('x', {
+        'nomeArtistico': 'Banda',
+        'generoMusical': 'Rock',
+        'cidade': 'Franca',
+        'descricao': 'Rock',
+        'cacheMedio': 1000,
+      });
+
+      expect(semShow.completo, isTrue);
     });
 
     test('oculto faz ida e volta e é false por padrão', () {

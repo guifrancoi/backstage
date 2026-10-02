@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/utils/local_image_provider.dart';
+import '../../core/utils/foto_perfil.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
+import '../../widgets/dados_show_musico.dart';
 import 'acoes_interesse.dart';
 import 'agenda_publica_secao.dart';
 
@@ -52,7 +53,7 @@ class DetalheMusicoScreen extends StatelessWidget {
       );
     }
 
-    final imageProvider = localImageProvider(musico.fotoPath);
+    final imageProvider = imagemDaFoto(musico.foto);
     final temFoto = imageProvider != null;
     final pode = podeConvidar(auth, musico);
 
@@ -103,6 +104,7 @@ class DetalheMusicoScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(musico.descricao),
+                  DadosShowMusico(musico: musico),
                   const SizedBox(height: 16),
                   const Text(
                     'Agenda',

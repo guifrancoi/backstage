@@ -42,22 +42,6 @@ Future<AgendaPublica?> carregarAgendaPublica(
   }
 }
 
-/// Escolhe o dia do filtro "livres em" da lista de músicos (Plano 13).
-Future<void> escolherDiaLivre(BuildContext context) async {
-  final provider = context.read<OportunidadeProvider>();
-  final agora = DateTime.now();
-  final hoje = DateTime(agora.year, agora.month, agora.day);
-  final atual = provider.livresEm;
-  final escolhida = await showDatePicker(
-    context: context,
-    helpText: 'Músicos livres em',
-    initialDate: atual != null && !atual.isBefore(hoje) ? atual : hoje,
-    firstDate: hoje,
-    lastDate: DateTime(hoje.year + 2),
-  );
-  if (escolhida != null) provider.filtrarMusicosLivresEm(escolhida);
-}
-
 /// Músico (ou admin) se candidata a oportunidade de outro dono que ainda não
 /// aconteceu (catálogo sem dono e vencida não; as regras também recusam).
 bool podeCandidatar(AuthProvider auth, Oportunidade oportunidade) {

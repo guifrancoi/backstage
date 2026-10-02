@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../core/utils/foto_perfil.dart';
 import '../models/musico.dart';
 
 class MusicoCard extends StatelessWidget {
@@ -23,6 +25,8 @@ class MusicoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mostrarAcao = onConvidar != null;
+    final foto = imagemDaFoto(musico.foto);
+    final resumoShow = musico.resumoShow;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -33,11 +37,25 @@ class MusicoCard extends StatelessWidget {
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const CircleAvatar(child: Icon(Icons.music_note)),
+              leading: CircleAvatar(
+                backgroundImage: foto,
+                child: foto == null ? const Icon(Icons.music_note) : null,
+              ),
               title: Text(musico.nomeArtistico),
               subtitle: Text('${musico.generoMusical} • ${musico.cidade}'),
               trailing: Text('R\$ ${musico.cacheMedio.toStringAsFixed(0)}'),
             ),
+            if (resumoShow != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  resumoShow,
+                  style: const TextStyle(
+                    color: Colors.deepPurple,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
             Text(
               musico.descricao,

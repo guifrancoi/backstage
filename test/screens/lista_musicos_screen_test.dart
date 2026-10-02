@@ -288,6 +288,54 @@ void main() {
     expect(docs.docs, hasLength(1));
   });
 
+  testWidgets('Filtrar abre o painel; critério vira chip removível com contador', (tester) async {
+    final service = await _logado();
+    await service.firestore.collection('perfis_musicos').doc('2').update({
+      'formacao': 'duo',
+    });
+    await tester.pumpWidget(_app(service: service));
+    await tester.pumpAndSettle();
+    expect(find.text('3 músicos'), findsOneWidget);
+
+    await tester.tap(find.text('Filtrar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Filtrar músicos'), findsOneWidget);
+    await tester.tap(find.text('Qualquer'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duo').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aplicar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Filtrar (1)'), findsOneWidget);
+    expect(find.text('1 músico'), findsOneWidget);
+    expect(find.text('Duo Acústico Sol'), findsOneWidget);
+    expect(find.text('Banda Eclipse'), findsNothing);
+
+    tester.widget<InputChip>(find.widgetWithText(InputChip, 'Duo')).onDeleted!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Filtrar'), findsOneWidget);
+    expect(find.text('3 músicos'), findsOneWidget);
+  });
+
+  testWidgets('Limpar tira todos os critérios', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        service: await _logado(),
+        preparar: (p) => p.filtrarMusicos(genero: 'MPB', soEquipamentoProprio: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Filtrar (2)'), findsOneWidget);
+
+    await tester.tap(find.text('Limpar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Filtrar'), findsOneWidget);
+    expect(find.byType(InputChip), findsNothing);
+  });
+
   group('Plano 13: livres em uma data', () {
     final dia = DateTime(2099, 3, 10);
 
