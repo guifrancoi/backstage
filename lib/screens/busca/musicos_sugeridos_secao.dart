@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/utils/foto_perfil.dart';
 import '../../models/contratacao.dart';
 import '../../models/oportunidade.dart';
+import '../../providers/avaliacao_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
@@ -44,6 +45,8 @@ class _MusicosSugeridosSecaoState extends State<MusicosSugeridosSecao> {
   Widget build(BuildContext context) {
     final provider = context.watch<OportunidadeProvider>();
     final interesses = context.watch<InteresseProvider>();
+    // Plano 17: a média aparece junto, mas não entra na nota.
+    final avaliacoes = context.watch<AvaliacaoProvider>();
 
     return StreamBuilder<Set<String>>(
       stream: _indisponiveis,
@@ -117,6 +120,12 @@ class _MusicosSugeridosSecaoState extends State<MusicosSugeridosSecao> {
                                 ],
                               ],
                             ),
+                            if (avaliacoes.resumoDe(sugestao.item.id)
+                                case final resumo when resumo.temAvaliacao)
+                              Text(
+                                resumo.rotuloCurto,
+                                style: const TextStyle(color: Colors.amber),
+                              ),
                             MotivosCompatibilidade(
                               compatibilidade: sugestao.compatibilidade,
                             ),

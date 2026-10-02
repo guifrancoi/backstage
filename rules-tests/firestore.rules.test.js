@@ -1035,3 +1035,83 @@ test('disponibilidades (coleção antiga) não é mais acessível', async () => 
     setDoc(doc(asUser('u1'), 'disponibilidades/u1_2026-05-10'), { usuarioId: 'u1' }),
   );
 });
+
+// --- avaliacoes (Plano 17) ---------------------------------------------------
+
+/** `yyyy-mm-dd` (fuso local) de [n] dias atrás. */
+function diaHa(n) {
+  const d = emDias(-n);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/** Contratação c1 (m1 × e1) com o show há [diasAtras] dias. */
+async function seedShow({ diasAtras = 2, status = 'confirmada' } = {}) {
+  await seed((db) =>
+    setDoc(doc(db, 'contratacoes/c1'), { ...proposta, dia: diaHa(diasAtras), status }),
+  );
+}
+
+function avaliacao(autorId, avaliadoId, extra = {}) {
+  return {
+    contratacaoId: 'c1',
+    autorId,
+    autorNome: autorId,
+    avaliadoId,
+    nota: 5,
+    comentario: 'Ótimo show',
+    criadaEm: new Date(),
+    ...extra,
+  };
+}
+
+test('avaliacoes: as duas partes avaliam a outra depois do show', async () => {
+  await seedShow();
+  await assertSucceeds(setDoc(doc(asUser('m1'), 'avaliacoes/c1_m1'), avaliacao('m1', 'e1')));
+  await assertSucceeds(setDoc(doc(asUser('e1'), 'avaliacoes/c1_e1'), avaliacao('e1', 'm1')));
+  // Leitura pública para autenticados; anônimo não.
+  await assertSucceeds(getDoc(doc(asUser('x9'), 'avaliacoes/c1_m1')));
+  await assertFails(getDoc(doc(asAnon(), 'avaliacoes/c1_m1')));
+});
+
+test('avaliacoes: não avalia antes do show acabar nem depois de 30 dias', async () => {
+  await seedShow({ diasAtras: 0 });
+  await assertFails(setDoc(doc(asUser('m1'), 'avaliacoes/c1_m1'), avaliacao('m1', 'e1')));
+
+  await seedShow({ diasAtras: 1 });
+  await assertSucceeds(setDoc(doc(asUser('m1'), 'avaliacoes/c1_m1'), avaliacao('m1', 'e1')));
+
+  await seedShow({ diasAtras: 32 });
+  await assertFails(setDoc(doc(asUser('e1'), 'avaliacoes/c1_e1'), avaliacao('e1', 'm1')));
+});
+
+test('avaliacoes: só quem participou, avaliando a outra parte, show confirmado', async () => {
+  await seedShow();
+  // Estranho.
+  await assertFails(setDoc(doc(asUser('x9'), 'avaliacoes/c1_x9'), avaliacao('x9', 'e1')));
+  // A si mesmo.
+  await assertFails(setDoc(doc(asUser('m1'), 'avaliacoes/c1_m1'), avaliacao('m1', 'm1')));
+  // Autor falso.
+  await assertFails(setDoc(doc(asUser('m1'), 'avaliacoes/c1_e1'), avaliacao('e1', 'm1')));
+
+  await seedShow({ status: 'cancelada' });
+  await assertFails(setDoc(doc(asUser('m1'), 'avaliacoes/c1_m1'), avaliacao('m1', 'e1')));
+});
+
+test('avaliacoes: nota 1 a 5, comentário até 300, chaves fechadas, uma vez só', async () => {
+  await seedShow();
+  const m1 = asUser('m1');
+  const ref = doc(m1, 'avaliacoes/c1_m1');
+  await assertFails(setDoc(ref, avaliacao('m1', 'e1', { nota: 0 })));
+  await assertFails(setDoc(ref, avaliacao('m1', 'e1', { nota: 6 })));
+  await assertFails(setDoc(ref, avaliacao('m1', 'e1', { nota: 4.5 })));
+  await assertFails(setDoc(ref, avaliacao('m1', 'e1', { comentario: 'x'.repeat(301) })));
+  await assertFails(setDoc(ref, avaliacao('m1', 'e1', { extra: true })));
+  await assertFails(setDoc(doc(m1, 'avaliacoes/outro_id'), avaliacao('m1', 'e1')));
+
+  await assertSucceeds(setDoc(ref, avaliacao('m1', 'e1', { comentario: 'x'.repeat(300) })));
+  // Sem editar nem apagar (criar de novo = update).
+  await assertFails(setDoc(ref, avaliacao('m1', 'e1', { nota: 1 })));
+  await assertFails(deleteDoc(ref));
+});

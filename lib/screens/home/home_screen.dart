@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/avaliacao_provider.dart';
 import '../../providers/contratacao_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/interesse_provider.dart';
@@ -20,6 +21,10 @@ class HomeScreen extends StatelessWidget {
     final naoLidas = context.watch<NotificacaoProvider>().naoLidas;
     final mensagensNaoLidas = context.watch<ChatProvider>().totalNaoLidas;
     final ehDono = authProvider.atuaComoDono;
+    // Plano 17: shows realizados ainda sem a avaliação do usuário.
+    final paraAvaliar = context.watch<AvaliacaoProvider>().paraAvaliar(
+      context.watch<ContratacaoProvider>().todas,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -53,6 +58,23 @@ class HomeScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
+          if (paraAvaliar.isNotEmpty)
+            Card(
+              color: Colors.amber.shade50,
+              margin: const EdgeInsets.only(bottom: 16),
+              child: ListTile(
+                leading: const Icon(Icons.star, color: Colors.amber),
+                title: Text(
+                  paraAvaliar.length == 1
+                      ? 'Você tem 1 show para avaliar'
+                      : 'Você tem ${paraAvaliar.length} shows para avaliar',
+                ),
+                subtitle: const Text('Até 30 dias depois do show.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.contratacoes),
+              ),
+            ),
           if (authProvider.atuaComoMusico) const OportunidadesParaVoce(),
           _HomeTile(
             title: 'Perfil',

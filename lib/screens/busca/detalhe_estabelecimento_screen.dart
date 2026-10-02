@@ -11,6 +11,7 @@ import '../../widgets/musico_card.dart' show SeloAssinante;
 import '../../widgets/oportunidade_card.dart';
 import 'abrir_mapa.dart';
 import 'acoes_interesse.dart';
+import 'avaliacoes_secao.dart';
 
 /// Perfil público do estabelecimento (Plano 16): endereço com mapa,
 /// capacidade, estilos, descrição e as oportunidades abertas do dono.
@@ -187,7 +188,8 @@ class _DetalheEstabelecimentoScreenState
               const SizedBox(height: 4),
               Text(casa.descricao),
             ],
-            // Plano 17: a nota média das avaliações entra aqui.
+            const SizedBox(height: 16),
+            AvaliacoesSecao(uid: widget.donoId),
             const SizedBox(height: 16),
             const Text(
               'Contato',

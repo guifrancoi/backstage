@@ -17,6 +17,9 @@ class MusicoCard extends StatelessWidget {
   /// Músico assinante (Plano 7): mostra o selo e vem primeiro na lista.
   final bool assinante;
 
+  /// "★ 4,6 (8)" (Plano 17); `null` = sem avaliações.
+  final String? avaliacao;
+
   const MusicoCard({
     super.key,
     required this.musico,
@@ -24,6 +27,7 @@ class MusicoCard extends StatelessWidget {
     this.onConvidar,
     this.rotuloConvidar = 'Convidar',
     this.assinante = false,
+    this.avaliacao,
   });
 
   @override
@@ -54,7 +58,10 @@ class MusicoCard extends StatelessWidget {
                   ],
                 ],
               ),
-              subtitle: Text('${musico.generoMusical} • ${musico.cidade}'),
+              subtitle: Text(
+                '${musico.generoMusical} • ${musico.cidade}'
+                '${avaliacao == null ? '' : ' • $avaliacao'}',
+              ),
               trailing: Text('R\$ ${musico.cacheMedio.toStringAsFixed(0)}'),
             ),
             if (resumoShow != null)

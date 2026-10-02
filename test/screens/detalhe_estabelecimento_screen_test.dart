@@ -1,3 +1,4 @@
+import 'package:backstage/providers/avaliacao_provider.dart';
 import 'package:backstage/providers/auth_provider.dart';
 import 'package:backstage/providers/interesse_provider.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
@@ -16,6 +17,7 @@ Widget _app(FirebaseDataService service, {String donoId = 'e1'}) {
   return MultiProvider(
     providers: [
       ChangeNotifierProvider(create: (_) => AuthProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => AvaliacaoProvider(service: service)),
       ChangeNotifierProvider(create: (_) => PerfilProvider(service: service)),
       ChangeNotifierProvider(create: (_) => OportunidadeProvider(service: service)),
       ChangeNotifierProvider(create: (_) => InteresseProvider(service: service)),
@@ -75,6 +77,8 @@ void main() {
     expect(find.text('Ver no mapa'), findsOneWidget);
     expect(find.text('Capacidade: 150 pessoas'), findsOneWidget);
     expect(find.text('Blues'), findsOneWidget);
+    expect(find.text('Ainda sem avaliações.'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Sexta do Rock'), 300);
     expect(find.text('Oportunidades abertas (1)'), findsOneWidget);
     expect(find.text('Sexta do Rock'), findsOneWidget);
     expect(find.text('Show de ontem'), findsNothing);
@@ -122,11 +126,37 @@ void main() {
     await tester.pumpWidget(_app(servicoFake(firestore: firestore, uid: 'm1')));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Ver detalhes'));
+    await tester.scrollUntilVisible(find.text('Ver detalhes'), 300);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ver detalhes'));
     await tester.pumpAndSettle();
 
     expect(find.text('/detalhe-oportunidade futura'), findsOneWidget);
+  });
+
+  testWidgets('mostra média e comentários recebidos (Plano 17)', (tester) async {
+    for (final (autor, nota, comentario, dia) in [
+      ('m1', 5, 'Ótima estrutura', 10),
+      ('m2', 4, '', 20),
+    ]) {
+      await firestore.collection('avaliacoes').doc('c${dia}_$autor').set({
+        'contratacaoId': 'c$dia',
+        'autorId': autor,
+        'autorNome': 'Banda $autor',
+        'avaliadoId': 'e1',
+        'nota': nota,
+        'comentario': comentario,
+        'criadaEm': DateTime(2026, 9, dia),
+      });
+    }
+    await tester.pumpWidget(_app(servicoFake(firestore: firestore, uid: 'm1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('★ 4,5 · 2 avaliações'), findsOneWidget);
+    expect(find.text('Ótima estrutura'), findsOneWidget);
+    // Mais recente primeiro.
+    final recente = tester.getTopLeft(find.textContaining('Banda m2')).dy;
+    final antiga = tester.getTopLeft(find.textContaining('Banda m1')).dy;
+    expect(recente, lessThan(antiga));
   });
 }

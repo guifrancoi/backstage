@@ -1,3 +1,4 @@
+import 'package:backstage/providers/avaliacao_provider.dart';
 import 'package:backstage/models/contratacao.dart';
 import 'package:backstage/providers/agenda_provider.dart';
 import 'package:backstage/providers/auth_provider.dart';
@@ -17,6 +18,7 @@ Widget _app(FirebaseDataService service) {
   return MultiProvider(
     providers: [
       ChangeNotifierProvider(create: (_) => AuthProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => AvaliacaoProvider(service: service)),
       ChangeNotifierProvider(create: (_) => AgendaProvider(service: service)),
       ChangeNotifierProvider(create: (_) => ContratacaoProvider(service: service)),
     ],

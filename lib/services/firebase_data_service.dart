@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/agenda_publica.dart';
+import '../models/avaliacao.dart';
 import '../models/casa_show.dart';
 import '../models/contratacao.dart';
 import '../models/conversa.dart';
@@ -508,6 +509,30 @@ class FirebaseDataService {
       uids('ocupacoes', 'musicoId'),
       (bloqueados, ocupados) => {...bloqueados, ...ocupados},
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Avaliações (Plano 17)
+  // ---------------------------------------------------------------------------
+
+  /// Grava a avaliação com id `{contratacaoId}_{autorId}`. As regras só
+  /// aceitam uma vez, por quem participou, dentro do prazo.
+  Future<void> avaliar(Avaliacao avaliacao) {
+    return firestore
+        .collection('avaliacoes')
+        .doc(avaliacao.id)
+        .set(avaliacao.toMap());
+  }
+
+  /// Todas as avaliações (leitura pública). A coleção é pequena num app de
+  /// TCC; se crescer, trocar por consultas por `avaliadoId`.
+  Stream<List<Avaliacao>> streamAvaliacoes() {
+    return firestore
+        .collection('avaliacoes')
+        .snapshots()
+        .map(
+          (s) => s.docs.map((d) => Avaliacao.fromMap(d.id, d.data())).toList(),
+        );
   }
 
   // ---------------------------------------------------------------------------

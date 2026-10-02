@@ -9,6 +9,7 @@ import '../../providers/oportunidade_provider.dart';
 import '../../widgets/dados_show_musico.dart';
 import 'acoes_interesse.dart';
 import 'agenda_publica_secao.dart';
+import 'avaliacoes_secao.dart';
 
 class DetalheMusicoScreen extends StatelessWidget {
   final String musicoId;
@@ -105,6 +106,8 @@ class DetalheMusicoScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(musico.descricao),
                   DadosShowMusico(musico: musico),
+                  const SizedBox(height: 16),
+                  AvaliacoesSecao(uid: musico.id),
                   const SizedBox(height: 16),
                   const Text(
                     'Agenda',

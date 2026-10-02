@@ -291,6 +291,42 @@ service cloud.firestore {
         && vinculada(request.resource.data);
     }
 
+    // Avaliação pós-show (Plano 17): uma por parte da contratação, sem
+    // editar nem apagar. Leitura pública (reputação).
+    match /avaliacoes/{avaliacaoId} {
+      // Meia-noite de Brasília (UTC-3) do dia seguinte ao show: a
+      // contratação guarda o dia como texto `yyyy-MM-dd`.
+      function abreAvaliacao(dia) {
+        let p = dia.split('-');
+        return timestamp.date(int(p[0]), int(p[1]), int(p[2]))
+          + duration.value(27, 'h');
+      }
+
+      function avaliacaoValida(d) {
+        let c = get(/databases/$(database)/documents/contratacoes/$(d.contratacaoId)).data;
+        let abre = abreAvaliacao(c.dia);
+        return c.status == 'confirmada'
+          && ((c.musicoId == d.autorId && c.donoId == d.avaliadoId)
+            || (c.donoId == d.autorId && c.musicoId == d.avaliadoId))
+          && request.time >= abre
+          && request.time < abre + duration.value(30, 'd');
+      }
+
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'contratacaoId', 'autorId', 'autorNome', 'avaliadoId', 'nota',
+          'comentario', 'criadaEm'])
+        && request.resource.data.autorId == request.auth.uid
+        && avaliacaoId == request.resource.data.contratacaoId + '_' + request.auth.uid
+        && request.resource.data.nota is int
+        && request.resource.data.nota >= 1
+        && request.resource.data.nota <= 5
+        && request.resource.data.comentario is string
+        && request.resource.data.comentario.size() <= 300
+        && avaliacaoValida(request.resource.data);
+    }
+
     // Dias que o músico bloqueou na agenda (todo dia é livre por padrão).
     // Leitura pública (agenda do músico no detalhe, avisos e filtro); escrita
     // só do próprio usuário.

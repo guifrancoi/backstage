@@ -1,3 +1,4 @@
+import 'package:backstage/providers/avaliacao_provider.dart';
 import 'package:backstage/models/contratacao.dart';
 import 'package:backstage/models/interesse.dart';
 import 'package:backstage/providers/agenda_provider.dart';
@@ -41,6 +42,7 @@ Widget _app(FirebaseDataService service, Widget home) {
   return MultiProvider(
     providers: [
       ChangeNotifierProvider(create: (_) => AuthProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => AvaliacaoProvider(service: service)),
       ChangeNotifierProvider(create: (_) => PerfilProvider(service: service)),
       ChangeNotifierProvider(create: (_) => OportunidadeProvider(service: service)),
       ChangeNotifierProvider(create: (_) => InteresseProvider(service: service)),
@@ -405,5 +407,55 @@ void main() {
 
     expect(find.text('Recebidas'), findsOneWidget);
     expect(find.text('Enviadas'), findsOneWidget);
+  });
+
+  testWidgets('show realizado: músico avalia e o card mostra a nota (Plano 17)', (tester) async {
+    final ontem = Contratacao.diaDe(DateTime.now().subtract(const Duration(days: 2)));
+    await firestore.collection('contratacoes').doc('c9').set(
+      Contratacao(
+        id: 'c9',
+        interesseId: 'i1',
+        musicoId: 'm1',
+        musicoNome: 'Banda',
+        donoId: 'e1',
+        donoNome: 'Bar Central',
+        titulo: 'Show que já passou',
+        dia: ontem,
+        horaInicio: '20:00',
+        horaFim: '23:00',
+        cacheAcordado: 1500,
+        logradouro: 'Rua A',
+        numero: '10',
+        cidade: 'Franca',
+        estado: 'SP',
+        criadoEm: DateTime(2026, 9, 1),
+        status: StatusContratacao.confirmada,
+      ).toMap(),
+    );
+    await tester.pumpWidget(
+      _app(servicoFake(firestore: firestore, uid: 'm1'), const ContratacoesScreen()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Realizada'), findsWidgets);
+    await tester.tap(find.text('Avaliar'));
+    await tester.pumpAndSettle();
+    // Sem estrela escolhida não envia.
+    expect(
+      tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Enviar avaliação')).onPressed,
+      isNull,
+    );
+    await tester.tap(find.byTooltip('4 estrelas'));
+    await tester.enterText(find.widgetWithText(TextField, 'Comentário (opcional)'), 'Bom palco');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enviar avaliação'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Avaliação enviada. Obrigado!'), findsOneWidget);
+    expect(find.text('Você avaliou: 4'), findsOneWidget);
+    expect(find.text('Avaliar'), findsNothing);
+    final doc = await firestore.collection('avaliacoes').doc('c9_m1').get();
+    expect(doc.data()?['avaliadoId'], 'e1');
+    expect(doc.data()?['comentario'], 'Bom palco');
   });
 }

@@ -1,3 +1,4 @@
+import 'package:backstage/providers/avaliacao_provider.dart';
 import 'package:backstage/providers/interesse_provider.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
 import 'package:backstage/providers/perfil_provider.dart';
@@ -16,6 +17,7 @@ Widget _app(FirebaseDataService service) {
       ChangeNotifierProvider(create: (_) => PerfilProvider(service: service)),
       ChangeNotifierProvider(create: (_) => OportunidadeProvider(service: service)),
       ChangeNotifierProvider(create: (_) => InteresseProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => AvaliacaoProvider(service: service)),
     ],
     child: MaterialApp(
       home: const Scaffold(body: SingleChildScrollView(child: OportunidadesParaVoce())),

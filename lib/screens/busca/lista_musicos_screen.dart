@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/filtro_musicos.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/avaliacao_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
@@ -156,6 +157,7 @@ class ListaMusicosScreen extends StatelessWidget {
                     : null,
                 rotuloConvidar: rotuloConvidar(interesses, musico.id),
                 assinante: provider.ehAssinante(musico.id),
+                avaliacao: _avaliacao(context, musico.id),
                 onVerDetalhes: () {
                   Navigator.pushNamed(
                     context,
@@ -170,6 +172,12 @@ class ListaMusicosScreen extends StatelessWidget {
       ],
     );
   }
+}
+
+/// "★ 4,6 (8)" do músico, ou `null` se ainda não foi avaliado (Plano 17).
+String? _avaliacao(BuildContext context, String uid) {
+  final resumo = context.watch<AvaliacaoProvider>().resumoDe(uid);
+  return resumo.temAvaliacao ? resumo.rotuloCurto : null;
 }
 
 class _Mensagem extends StatelessWidget {

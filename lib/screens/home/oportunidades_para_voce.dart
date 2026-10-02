@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/utils/data_hora.dart';
+import '../../providers/avaliacao_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../providers/perfil_provider.dart';
@@ -21,6 +22,8 @@ class OportunidadesParaVoce extends StatelessWidget {
     if (perfil == null) return const SizedBox.shrink();
     final provider = context.watch<OportunidadeProvider>();
     final interesses = context.watch<InteresseProvider>();
+    // Plano 17: média do dono, só informativa.
+    final avaliacoes = context.watch<AvaliacaoProvider>();
     final sugestoes = provider.oportunidadesSugeridas(
       perfil,
       comInteresse: interesses.oportunidadesComInteresse(),
@@ -60,6 +63,12 @@ class OportunidadesParaVoce extends StatelessWidget {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (avaliacoes.resumoDe(sugestao.item.donoId)
+                        case final resumo when resumo.temAvaliacao)
+                      Text(
+                        resumo.rotuloCurto,
+                        style: const TextStyle(color: Colors.amber),
+                      ),
                     Text(
                       '${sugestao.item.contratante} · '
                       '${formatarData(sugestao.item.dataEvento)} · '

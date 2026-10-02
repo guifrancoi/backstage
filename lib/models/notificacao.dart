@@ -12,6 +12,9 @@ enum TipoNotificacao {
   contratacaoConfirmada,
   contratacaoRecusada,
   contratacaoCancelada,
+
+  /// Plano 17: a outra parte avaliou o show (convite para avaliar também).
+  avaliacaoRecebida,
 }
 
 /// Para onde a notificação leva ao ser tocada.
@@ -216,12 +219,40 @@ class Notificacao {
     );
   }
 
+  /// Plano 17: [autorId] avaliou o show com [nota] estrelas; avisa a outra
+  /// parte e a convida a avaliar também (se ainda não avaliou).
+  factory Notificacao.avaliacaoRecebida(
+    Contratacao contratacao, {
+    required String autorId,
+    required int nota,
+    required bool outraParteJaAvaliou,
+  }) {
+    final c = contratacao;
+    final autorEhDono = autorId == c.donoId;
+    final autorNome = autorEhDono ? c.donoNome : c.musicoNome;
+    return Notificacao(
+      destinatarioId: autorEhDono ? c.musicoId : c.donoId,
+      autorId: autorId,
+      autorNome: autorNome,
+      tipo: TipoNotificacao.avaliacaoRecebida,
+      titulo: 'Nova avaliação',
+      texto:
+          '$autorNome avaliou o show "${c.titulo}" com $nota '
+          'estrela${nota == 1 ? '' : 's'}.'
+          '${outraParteJaAvaliou ? '' : ' Avalie também.'}',
+      interesseId: c.interesseId,
+      oportunidadeId: c.oportunidadeId,
+      contratacaoId: c.id,
+    );
+  }
+
   DestinoNotificacao get destino => switch (tipo) {
     TipoNotificacao.oportunidadeAlterada => DestinoNotificacao.oportunidade,
     TipoNotificacao.contratacaoProposta ||
     TipoNotificacao.contratacaoConfirmada ||
     TipoNotificacao.contratacaoRecusada ||
-    TipoNotificacao.contratacaoCancelada => DestinoNotificacao.contratacoes,
+    TipoNotificacao.contratacaoCancelada ||
+    TipoNotificacao.avaliacaoRecebida => DestinoNotificacao.contratacoes,
     _ => DestinoNotificacao.interesses,
   };
 

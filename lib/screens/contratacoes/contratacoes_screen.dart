@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/contratacao.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/avaliacao_provider.dart';
 import '../../providers/contratacao_provider.dart';
 import '../../routes/app_routes.dart';
+import 'avaliar_show.dart';
 
 /// Contratações do usuário, conforme o papel: o músico vê as propostas que
 /// recebeu (confirmar/recusar); o dono, as que enviou (retirar). Só a conta
@@ -307,6 +309,11 @@ class ContratacaoCard extends StatelessWidget {
     final outraParte = souMusico ? c.donoNome : c.musicoNome;
     final proposta = c.status == StatusContratacao.proposta;
     final confirmada = c.status == StatusContratacao.confirmada;
+    // Plano 17: avaliação do show realizado (uma por parte, até 30 dias).
+    final avaliacoes = context.watch<AvaliacaoProvider>();
+    final minha = avaliacoes.minhaAvaliacao(c.id);
+    final podeAvaliar =
+        minha == null && c.podeAvaliarEm(DateTime.now());
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -387,6 +394,18 @@ class ContratacaoCard extends StatelessWidget {
                   OutlinedButton(
                     onPressed: () => _cancelar(context),
                     child: const Text('Cancelar show'),
+                  ),
+                if (podeAvaliar)
+                  ElevatedButton.icon(
+                    onPressed: () => avaliarShow(context, c),
+                    icon: const Icon(Icons.star_outline),
+                    label: const Text('Avaliar'),
+                  ),
+                if (minha != null)
+                  Chip(
+                    avatar: const Icon(Icons.star, color: Colors.amber, size: 18),
+                    label: Text('Você avaliou: ${minha.nota}'),
+                    visualDensity: VisualDensity.compact,
                   ),
               ],
             ),

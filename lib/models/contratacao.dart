@@ -98,6 +98,20 @@ class Contratacao {
     ?canceladoEm,
   ].reduce((a, b) => a.isAfter(b) ? a : b);
 
+  /// Prazo para avaliar o show (Plano 17), contado a partir do dia seguinte.
+  static const diasParaAvaliar = 30;
+
+  /// Show confirmado cuja janela de avaliação está aberta em [agora]: do
+  /// dia seguinte ao show até [diasParaAvaliar] dias depois. As regras
+  /// conferem o mesmo intervalo (meia-noite de Brasília).
+  bool podeAvaliarEm(DateTime agora) {
+    if (status != StatusContratacao.confirmada) return false;
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final abre = DateTime(data.year, data.month, data.day + 1);
+    final fecha = DateTime(data.year, data.month, data.day + 1 + diasParaAvaliar);
+    return !hoje.isBefore(abre) && hoje.isBefore(fecha);
+  }
+
   /// Não pede mais ação: recusada, cancelada ou realizada.
   bool get encerrada => !ativa || realizada;
 
