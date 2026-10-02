@@ -576,6 +576,30 @@ test('bloqueios: qualquer autenticado lê (agenda pública); anônimo não', asy
   await assertFails(getDoc(doc(asAnon(), 'bloqueios/m1_2026-05-10')));
 });
 
+test('músicos livres no dia (Plano 13): consulta por dia em bloqueios e ocupacoes', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'bloqueios/m1_2026-05-10'), {
+      usuarioId: 'm1',
+      dia: '2026-05-10',
+    });
+    await setDoc(doc(db, 'ocupacoes/m2_2026-05-10'), {
+      musicoId: 'm2',
+      dia: '2026-05-10',
+      contratacaoId: 'c1',
+    });
+  });
+  const e1 = asUser('e1');
+  await assertSucceeds(
+    getDocs(query(collection(e1, 'bloqueios'), where('dia', '==', '2026-05-10'))),
+  );
+  await assertSucceeds(
+    getDocs(query(collection(e1, 'ocupacoes'), where('dia', '==', '2026-05-10'))),
+  );
+  await assertFails(
+    getDocs(query(collection(asAnon(), 'bloqueios'), where('dia', '==', '2026-05-10'))),
+  );
+});
+
 // --- contratacoes / ocupacoes (Plano 9B) ----------------------------------
 
 const proposta = {

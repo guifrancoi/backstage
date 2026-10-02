@@ -201,6 +201,23 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
               ),
             ),
           ],
+          // Atalho do dono (Plano 13): quem pode tocar nesse dia.
+          if (podeGerenciar(auth, oportunidade) &&
+              auth.atuaComoDono &&
+              !oportunidade.vencida) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  provider.filtrarMusicosLivresEm(oportunidade.dataEvento);
+                  Navigator.pushNamed(context, AppRoutes.listaMusicos);
+                },
+                icon: const Icon(Icons.event_available),
+                label: const Text('Ver músicos livres neste dia'),
+              ),
+            ),
+          ],
           if (podeGerenciar(auth, oportunidade)) ...[
             const SizedBox(height: 20),
             Row(

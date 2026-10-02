@@ -335,6 +335,9 @@ class FirebaseDataService {
         .set({
           'usuarioId': usuarioId,
           'data': DateTime(data.year, data.month, data.day),
+          // Texto `yyyy-MM-dd`, igual em qualquer fuso: chave da busca de
+          // músicos livres no dia (Plano 13).
+          'dia': Contratacao.diaDe(data),
         });
   }
 
@@ -452,6 +455,29 @@ class FirebaseDataService {
       dias('ocupacoes', 'musicoId', (d) => d['dia'] as String? ?? ''),
       (bloqueados, ocupados) =>
           AgendaPublica(bloqueados: bloqueados, ocupados: ocupados),
+    );
+  }
+
+  /// Uids dos músicos que **não** estão livres no [dia] (`yyyy-MM-dd`):
+  /// bloquearam o dia ou já têm show confirmado nele (Plano 13). Duas
+  /// consultas por igualdade (índice automático), leitura aberta a
+  /// autenticados.
+  Stream<Set<String>> streamIndisponiveisNoDia(String dia) {
+    Stream<Set<String>> uids(String colecao, String campoUsuario) => firestore
+        .collection(colecao)
+        .where('dia', isEqualTo: dia)
+        .snapshots()
+        .map(
+          (s) => {
+            for (final d in s.docs)
+              if (d.data()[campoUsuario] case final String uid) uid,
+          },
+        );
+
+    return _combinar(
+      uids('bloqueios', 'usuarioId'),
+      uids('ocupacoes', 'musicoId'),
+      (bloqueados, ocupados) => {...bloqueados, ...ocupados},
     );
   }
 

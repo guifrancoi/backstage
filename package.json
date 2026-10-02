@@ -10,9 +10,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:rules:run": "node --test rules-tests/firestore.rules.test.js",
-    "test:rules": "firebase emulators:exec --only firestore \"npm run test:rules:run\"",
-    "test:restore:run": "node --test restore.test.js",
-    "test:restore": "firebase emulators:exec --only firestore \"npm run test:restore:run\""
+    "test:rules": "firebase emulators:exec --only firestore \"npm run test:rules:run\""
   },
   "keywords": [],
   "author": "",

@@ -24,6 +24,7 @@ Future<EscolhaConvite?> abrirPainelConvite(
   required List<Oportunidade> oportunidades,
   required AgendaPublica? agenda,
   bool jaConversam = false,
+  String? marcadaInicial,
 }) {
   return showModalBottomSheet<EscolhaConvite>(
     context: context,
@@ -34,6 +35,7 @@ Future<EscolhaConvite?> abrirPainelConvite(
       oportunidades: oportunidades,
       agenda: agenda,
       jaConversam: jaConversam,
+      marcadaInicial: marcadaInicial,
     ),
   );
 }
@@ -44,6 +46,7 @@ class _PainelConvite extends StatefulWidget {
     required this.oportunidades,
     required this.agenda,
     required this.jaConversam,
+    this.marcadaInicial,
   });
 
   final Musico musico;
@@ -51,13 +54,16 @@ class _PainelConvite extends StatefulWidget {
   final List<Oportunidade> oportunidades;
   final AgendaPublica? agenda;
 
+  /// Oportunidade já marcada ao abrir (ex.: a do dia buscado no Plano 13).
+  final String? marcadaInicial;
+
   @override
   State<_PainelConvite> createState() => _PainelConviteState();
 }
 
 class _PainelConviteState extends State<_PainelConvite> {
   /// Opção marcada: `''` = sem oportunidade; senão o id da oportunidade.
-  String? _marcada;
+  late String? _marcada = widget.marcadaInicial;
 
   SituacaoConvite _situacao(InteresseProvider interesses, String? opId) =>
       interesses.situacaoConvite(widget.musico.id, oportunidadeId: opId);

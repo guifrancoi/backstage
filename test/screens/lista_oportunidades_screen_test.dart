@@ -2,6 +2,7 @@ import 'package:backstage/providers/auth_provider.dart';
 import 'package:backstage/providers/interesse_provider.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
 import 'package:backstage/providers/perfil_provider.dart';
+import 'package:backstage/routes/app_routes.dart';
 import 'package:backstage/screens/busca/detalhe_oportunidade_screen.dart';
 import 'package:backstage/screens/busca/lista_oportunidades_screen.dart';
 import 'package:backstage/screens/oportunidades/minhas_oportunidades_screen.dart';
@@ -170,5 +171,39 @@ void main() {
 
     expect(find.text('Evento encerrado'), findsNothing);
     expect(find.text('Candidatar-se'), findsOneWidget);
+    expect(find.text('Ver músicos livres neste dia'), findsNothing);
+  });
+
+  testWidgets('dono abre os músicos livres no dia da oportunidade (Plano 13)', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        servicoFake(firestore: firestore, uid: 'e1'),
+        const DetalheOportunidadeScreen(oportunidadeId: 'rock'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Ver músicos livres neste dia'));
+    await tester.tap(find.text('Ver músicos livres neste dia'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('${AppRoutes.listaMusicos} null'), findsOneWidget);
+    final provider = Provider.of<OportunidadeProvider>(
+      tester.element(find.text('${AppRoutes.listaMusicos} null')),
+      listen: false,
+    );
+    expect(provider.livresEm, DateTime(2099, 3, 1));
+  });
+
+  testWidgets('oportunidade vencida não oferece músicos livres', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        servicoFake(firestore: firestore, uid: 'e1'),
+        const DetalheOportunidadeScreen(oportunidadeId: 'velha'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ver músicos livres neste dia'), findsNothing);
   });
 }

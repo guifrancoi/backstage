@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/utils/data_hora.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
 
@@ -17,6 +18,7 @@ class _FiltroBuscaScreenState extends State<FiltroBuscaScreen> {
   final _pesquisaController = TextEditingController();
   String? _generoSelecionado;
   String _tipoOrdenacao = 'nome_asc';
+  DateTime? _livresEm;
 
   @override
   void initState() {
@@ -27,6 +29,21 @@ class _FiltroBuscaScreenState extends State<FiltroBuscaScreen> {
     _cidadeController.text = provider.cidadeFiltroMusicos ?? '';
     _pesquisaController.text = provider.termoPesquisa;
     _tipoOrdenacao = provider.tipoOrdenacao;
+    _livresEm = provider.livresEm;
+  }
+
+  Future<void> _escolherDia() async {
+    final agora = DateTime.now();
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final atual = _livresEm;
+    final escolhida = await showDatePicker(
+      context: context,
+      helpText: 'Músicos livres em',
+      initialDate: atual != null && !atual.isBefore(hoje) ? atual : hoje,
+      firstDate: hoje,
+      lastDate: DateTime(hoje.year + 2),
+    );
+    if (escolhida != null) setState(() => _livresEm = escolhida);
   }
 
   @override
@@ -45,6 +62,9 @@ class _FiltroBuscaScreenState extends State<FiltroBuscaScreen> {
     );
     provider.pesquisarMusicos(_pesquisaController.text.trim());
     provider.ordenarMusicos(_tipoOrdenacao);
+    if (provider.livresEm != _livresEm) {
+      provider.filtrarMusicosLivresEm(_livresEm);
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Filtro aplicado com sucesso.')),
@@ -63,6 +83,7 @@ class _FiltroBuscaScreenState extends State<FiltroBuscaScreen> {
       _cidadeController.clear();
       _pesquisaController.clear();
       _tipoOrdenacao = 'nome_asc';
+      _livresEm = null;
     });
 
     ScaffoldMessenger.of(
@@ -118,6 +139,39 @@ class _FiltroBuscaScreenState extends State<FiltroBuscaScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Cidade',
                   border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Livres em',
+                  helperText: 'Sem bloqueio na agenda e sem show confirmado',
+                  border: OutlineInputBorder(),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          alignment: Alignment.centerLeft,
+                          padding: EdgeInsets.zero,
+                        ),
+                        onPressed: _escolherDia,
+                        icon: const Icon(Icons.event_available),
+                        label: Text(
+                          _livresEm == null
+                              ? 'Qualquer data'
+                              : formatarData(_livresEm!),
+                        ),
+                      ),
+                    ),
+                    if (_livresEm != null)
+                      IconButton(
+                        tooltip: 'Tirar a data',
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => setState(() => _livresEm = null),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),

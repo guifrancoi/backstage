@@ -156,6 +156,60 @@ void main() {
     });
   });
 
+  group('Plano 13: músicos livres em uma data', () {
+    final dia = DateTime(2099, 3, 10);
+
+    Future<void> bloquear(String uid, DateTime data) =>
+        servicoFake(firestore: firestore, uid: uid).bloquearDia(uid, data);
+
+    test('tira quem bloqueou o dia ou tem show confirmado nele', () async {
+      await bloquear('1', dia);
+      await bloquear('2', DateTime(2099, 3, 11)); // outro dia: continua livre
+      await firestore.collection('ocupacoes').doc('3_2099-03-10').set({
+        'musicoId': '3',
+        'dia': '2099-03-10',
+        'contratacaoId': 'c1',
+      });
+
+      provider.filtrarMusicosLivresEm(DateTime(2099, 3, 10, 21, 30));
+      expect(provider.carregandoLivres, isTrue);
+      await aguardar();
+
+      expect(provider.carregandoLivres, isFalse);
+      expect(provider.livresEm, dia);
+      expect(nomes(provider.musicos), ['Duo Acústico Sol']);
+    });
+
+    test('combina com gênero e acompanha bloqueios novos em tempo real', () async {
+      provider
+        ..filtrarMusicos(cidade: 'ribeirão')
+        ..filtrarMusicosLivresEm(dia);
+      await aguardar();
+      expect(nomes(provider.musicos), ['Banda Eclipse', 'DJ Pulse']);
+
+      await bloquear('3', dia);
+      await aguardar();
+      expect(nomes(provider.musicos), ['Banda Eclipse']);
+    });
+
+    test('null tira o filtro; resetar também', () async {
+      await bloquear('1', dia);
+      provider.filtrarMusicosLivresEm(dia);
+      await aguardar();
+      expect(provider.musicos, hasLength(2));
+
+      provider.filtrarMusicosLivresEm(null);
+      expect(provider.livresEm, isNull);
+      expect(provider.musicos, hasLength(_musicos.length));
+
+      provider.filtrarMusicosLivresEm(dia);
+      await aguardar();
+      provider.resetarFiltroMusicos();
+      expect(provider.livresEm, isNull);
+      expect(provider.musicos, hasLength(_musicos.length));
+    });
+  });
+
   group('ordenação de músicos', () {
     test('nome_asc e nome_desc', () {
       const esperado = ['Banda Eclipse', 'DJ Pulse', 'Duo Acústico Sol'];

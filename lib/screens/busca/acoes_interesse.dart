@@ -42,6 +42,22 @@ Future<AgendaPublica?> carregarAgendaPublica(
   }
 }
 
+/// Escolhe o dia do filtro "livres em" da lista de músicos (Plano 13).
+Future<void> escolherDiaLivre(BuildContext context) async {
+  final provider = context.read<OportunidadeProvider>();
+  final agora = DateTime.now();
+  final hoje = DateTime(agora.year, agora.month, agora.day);
+  final atual = provider.livresEm;
+  final escolhida = await showDatePicker(
+    context: context,
+    helpText: 'Músicos livres em',
+    initialDate: atual != null && !atual.isBefore(hoje) ? atual : hoje,
+    firstDate: hoje,
+    lastDate: DateTime(hoje.year + 2),
+  );
+  if (escolhida != null) provider.filtrarMusicosLivresEm(escolhida);
+}
+
 /// Músico (ou admin) se candidata a oportunidade de outro dono que ainda não
 /// aconteceu (catálogo sem dono e vencida não; as regras também recusam).
 bool podeCandidatar(AuthProvider auth, Oportunidade oportunidade) {
@@ -165,12 +181,26 @@ String rotuloConvidar(InteresseProvider interesses, String musicoId) {
 Future<void> confirmarConvite(BuildContext context, Musico musico) async {
   final auth = context.read<AuthProvider>();
   final interesses = context.read<InteresseProvider>();
+  final catalogo = context.read<OportunidadeProvider>();
   // Só oportunidades que ainda vão acontecer (as regras recusam as vencidas).
-  final minhas = context
-      .read<OportunidadeProvider>()
+  final minhas = catalogo
       .minhasOportunidades(auth.userId)
       .where((o) => !o.vencida)
       .toList();
+  // Buscando músicos livres num dia: já marca a oportunidade daquele dia.
+  final livresEm = catalogo.livresEm;
+  final sugerida = livresEm == null
+      ? null
+      : minhas
+            .where(
+              (o) =>
+                  Contratacao.diaDe(o.dataEvento) ==
+                      Contratacao.diaDe(livresEm) &&
+                  interesses
+                      .situacaoConvite(musico.id, oportunidadeId: o.id)
+                      .selecionavel,
+            )
+            .firstOrNull;
 
   final agenda = await carregarAgendaPublica(context, musico.id);
   if (!context.mounted) return;
@@ -183,6 +213,7 @@ Future<void> confirmarConvite(BuildContext context, Musico musico) async {
     oportunidades: minhas,
     agenda: agenda,
     jaConversam: aceito != null,
+    marcadaInicial: sugerida?.id,
   );
   if (escolha == null || !context.mounted) return;
   if (escolha.abrirConversa && aceito != null) {

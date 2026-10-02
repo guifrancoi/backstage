@@ -287,4 +287,86 @@ void main() {
     final docs = await service.firestore.collection('interesses').get();
     expect(docs.docs, hasLength(1));
   });
+
+  group('Plano 13: livres em uma data', () {
+    final dia = DateTime(2099, 3, 10);
+
+    testWidgets('chip mostra o dia, esconde quem não está livre e sai ao remover', (tester) async {
+      final service = await _donoLogado();
+      await service.firestore.collection('bloqueios').doc('1_2099-03-10').set({
+        'usuarioId': '1',
+        'data': dia,
+        'dia': '2099-03-10',
+      });
+      await tester.pumpWidget(
+        _app(service: service, preparar: (p) => p.filtrarMusicosLivresEm(dia)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Livres em 10/03/2099'), findsOneWidget);
+      expect(find.text('Banda Eclipse'), findsNothing);
+      expect(find.text('Duo Acústico Sol'), findsOneWidget);
+
+      tester.widget<InputChip>(find.byType(InputChip)).onDeleted!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Livres em 10/03/2099'), findsNothing);
+      expect(find.text('Banda Eclipse'), findsOneWidget);
+    });
+
+    testWidgets('ninguém livre: mensagem cita o dia', (tester) async {
+      final service = await _donoLogado();
+      await tester.pumpWidget(
+        _app(
+          service: service,
+          preparar: (p) => p
+            ..pesquisarMusicos('Eclipse')
+            ..filtrarMusicosLivresEm(dia),
+        ),
+      );
+      await service.firestore.collection('ocupacoes').doc('1_2099-03-10').set({
+        'musicoId': '1',
+        'dia': '2099-03-10',
+        'contratacaoId': 'c1',
+      });
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Nenhum músico livre em 10/03/2099 com os filtros informados.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('convite já vem marcado na oportunidade do dia buscado', (tester) async {
+      final service = await _donoLogado();
+      await gravarCatalogo(
+        service.firestore,
+        oportunidades: [
+          oportunidadeTeste(id: 'outra', titulo: 'Show de outro dia', donoId: 'e1')
+              .copyWith(dataEvento: DateTime(2099, 1, 5)),
+          oportunidadeTeste(id: 'sexta', titulo: 'Show da sexta', donoId: 'e1')
+              .copyWith(dataEvento: dia),
+        ],
+      );
+      await tester.pumpWidget(
+        _app(
+          service: service,
+          preparar: (p) => p
+            ..pesquisarMusicos('Eclipse')
+            ..filtrarMusicosLivresEm(dia),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await abrirPainel(tester);
+      await tester.tap(find.text('Enviar convite'));
+      await tester.pumpAndSettle();
+
+      final doc = await service.firestore
+          .collection('interesses')
+          .doc('e1_mu_1_sexta')
+          .get();
+      expect(doc.exists, isTrue);
+    });
+  });
 }

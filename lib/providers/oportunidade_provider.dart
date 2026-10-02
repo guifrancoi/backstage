@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/agenda_publica.dart';
+import '../models/contratacao.dart';
 import '../models/filtro_oportunidades.dart';
 import '../models/interesse.dart';
 import '../models/musico.dart';
@@ -25,6 +26,13 @@ class OportunidadeProvider extends ChangeNotifier {
   StreamSubscription<List<Musico>>? _musicosSubscription;
   StreamSubscription<List<Oportunidade>>? _oportunidadesSubscription;
   StreamSubscription<AgendaPublica>? _minhaAgendaSubscription;
+  StreamSubscription<Set<String>>? _indisponiveisSubscription;
+
+  /// Filtro "livres em [dia]" da lista de músicos (Plano 13): sai quem
+  /// bloqueou o dia ou já tem show confirmado nele.
+  DateTime? _livresEm;
+  Set<String> _indisponiveis = {};
+  bool _carregandoLivres = false;
 
   /// Agenda do próprio usuário: base do filtro "só dias em que estou livre"
   /// (Plano 12).
@@ -52,6 +60,7 @@ class OportunidadeProvider extends ChangeNotifier {
   /// encerra os listeners, e sem reassinar a lista ficaria congelada no
   /// próximo login. Por isso reassina a cada troca de conta.
   void _escutar(String? uid) {
+    _assinarLivresEm();
     _musicosSubscription?.cancel();
     _oportunidadesSubscription?.cancel();
     _minhaAgendaSubscription?.cancel();
@@ -126,6 +135,12 @@ class OportunidadeProvider extends ChangeNotifier {
 
   String? get generoSelecionadoMusicos => _generoSelecionadoMusicos;
   String? get cidadeFiltroMusicos => _cidadeFiltroMusicos;
+
+  /// Dia do filtro "livres em" (`null` = sem filtro de data).
+  DateTime? get livresEm => _livresEm;
+
+  /// A consulta do dia ainda não respondeu: a lista não é confiável.
+  bool get carregandoLivres => _carregandoLivres;
   String get termoPesquisa => _termoPesquisa;
   String get tipoOrdenacao => _tipoOrdenacao;
   String? get errorMessage => _errorMessage;
@@ -271,7 +286,57 @@ class OportunidadeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Mostra só os músicos livres no [dia] (sem bloqueio e sem show
+  /// confirmado); `null` tira o filtro. Combina com gênero, cidade,
+  /// pesquisa e ordem.
+  void filtrarMusicosLivresEm(DateTime? dia) {
+    _pararLivresEm();
+    if (dia != null) {
+      _livresEm = DateTime(dia.year, dia.month, dia.day);
+      _assinarLivresEm();
+    }
+    _aplicarFiltrosAtuais();
+    notifyListeners();
+  }
+
+  /// Assina a consulta do dia de [_livresEm]. Como o catálogo, é refeita a
+  /// cada troca de conta (o listener morre no logout).
+  void _assinarLivresEm() {
+    final dia = _livresEm;
+    _indisponiveisSubscription?.cancel();
+    _indisponiveis = {};
+    _carregandoLivres = dia != null && _service.currentUserId != null;
+    if (!_carregandoLivres) return;
+    _indisponiveisSubscription = _service
+        .streamIndisponiveisNoDia(Contratacao.diaDe(dia!))
+        .listen(
+          (uids) {
+            _indisponiveis = uids;
+            _carregandoLivres = false;
+            _aplicarFiltrosAtuais();
+            notifyListeners();
+          },
+          onError: (_) {
+            // Sem a consulta não dá para saber quem está livre: tira o
+            // filtro em vez de mostrar todos como livres.
+            _pararLivresEm();
+            _errorMessage = 'Não foi possível consultar a agenda do dia.';
+            _aplicarFiltrosAtuais();
+            notifyListeners();
+          },
+        );
+  }
+
+  void _pararLivresEm() {
+    _indisponiveisSubscription?.cancel();
+    _indisponiveisSubscription = null;
+    _livresEm = null;
+    _indisponiveis = {};
+    _carregandoLivres = false;
+  }
+
   void resetarFiltroMusicos() {
+    _pararLivresEm();
     _generoSelecionadoMusicos = null;
     _cidadeFiltroMusicos = null;
     _termoPesquisa = '';
@@ -319,6 +384,7 @@ class OportunidadeProvider extends ChangeNotifier {
   void _aplicarFiltrosAtuais() {
     _musicos = _todosMusicos.where((m) {
       if (m.oculto && !_isAdmin) return false;
+      if (_livresEm != null && _indisponiveis.contains(m.id)) return false;
       final genero = _generoSelecionadoMusicos;
       final cidade = _cidadeFiltroMusicos;
 
@@ -380,6 +446,7 @@ class OportunidadeProvider extends ChangeNotifier {
     _musicosSubscription?.cancel();
     _oportunidadesSubscription?.cancel();
     _minhaAgendaSubscription?.cancel();
+    _indisponiveisSubscription?.cancel();
     super.dispose();
   }
 }

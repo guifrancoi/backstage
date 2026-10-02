@@ -382,6 +382,23 @@ void main() {
       expect(doc.exists, isTrue);
       expect(doc.data()?['usuarioId'], 'u1');
       expect(doc.data()?['data'], isNotNull);
+      expect(doc.data()?['dia'], '2026-05-10');
+    });
+
+    test('indisponíveis no dia: bloqueio ou show confirmado, só daquele dia', () async {
+      await service.bloquearDia('u1', DateTime(2026, 5, 10));
+      await service.bloquearDia('u2', DateTime(2026, 5, 11));
+      await firestore.collection('ocupacoes').doc('u3_2026-05-10').set({
+        'musicoId': 'u3',
+        'dia': '2026-05-10',
+        'contratacaoId': 'c1',
+      });
+
+      expect(
+        await service.streamIndisponiveisNoDia('2026-05-10').first,
+        {'u1', 'u3'},
+      );
+      expect(await service.streamIndisponiveisNoDia('2026-05-12').first, isEmpty);
     });
 
     test('listar retorna só os dias do usuário, ordenados', () async {
