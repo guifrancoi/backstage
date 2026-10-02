@@ -11,6 +11,9 @@ class AppRoutes {
   static const conversas = '/conversas';
   static const chat = '/chat';
   static const sobre = '/sobre';
+
+  /// Painel de números (Plano 20).
+  static const meusNumeros = '/meus-numeros';
   static const interesses = '/interesses';
   static const minhasOportunidades = '/minhas-oportunidades';
   static const novaOportunidade = '/nova-oportunidade';

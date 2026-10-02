@@ -22,6 +22,7 @@ import 'screens/oportunidades/nova_oportunidade_screen.dart';
 import 'screens/perfil/perfil_screen.dart';
 import 'screens/sobre/sobre_screen.dart';
 import 'screens/busca/detalhe_estabelecimento_screen.dart';
+import 'screens/numeros/meus_numeros_screen.dart';
 import 'screens/busca/detalhe_musico_screen.dart';
 import 'screens/busca/detalhe_oportunidade_screen.dart';
 
@@ -49,6 +50,7 @@ class MyApp extends StatelessWidget {
         AppRoutes.agenda: (_) => const AgendaScreen(),
         AppRoutes.conversas: (_) => const ConversasScreen(),
         AppRoutes.sobre: (_) => const SobreScreen(),
+        AppRoutes.meusNumeros: (_) => const MeusNumerosScreen(),
         AppRoutes.interesses: (_) => const InteressesScreen(),
         AppRoutes.minhasOportunidades: (_) => const MinhasOportunidadesScreen(),
         AppRoutes.novaOportunidade: (_) => const NovaOportunidadeScreen(),

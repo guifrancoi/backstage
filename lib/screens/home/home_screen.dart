@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/utils/lembrete_show.dart';
+import '../../core/utils/painel_numeros.dart';
+import '../../widgets/grafico_shows_por_mes.dart' show resumoNumeros;
 import '../../providers/auth_provider.dart';
 import '../../providers/avaliacao_provider.dart';
 import '../../providers/contratacao_provider.dart';
@@ -32,6 +34,25 @@ class HomeScreen extends StatelessWidget {
     final lembretes = uid == null
         ? const <LembreteShow>[]
         : lembretesDeShow(contratacoes, uid: uid, agora: DateTime.now());
+    // Plano 20: resumo do lado principal (músico, se atua como músico).
+    final agora = DateTime.now();
+    final avaliacao = uid == null
+        ? null
+        : context.watch<AvaliacaoProvider>().resumoDe(uid);
+    final resumo = uid == null
+        ? null
+        : resumoNumeros(
+            calcularNumeros(
+              contratacoes,
+              uid: uid,
+              comoMusico: authProvider.atuaComoMusico,
+              agora: agora,
+            ),
+            agora.year,
+            avaliacao: avaliacao != null && avaliacao.temAvaliacao
+                ? avaliacao.rotuloCurto
+                : null,
+          );
 
     return Scaffold(
       appBar: AppBar(
@@ -140,6 +161,12 @@ class HomeScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.contratacoes),
           ),
           _HomeTile(
+            title: 'Meus números',
+            icon: Icons.bar_chart,
+            subtitle: resumo,
+            onTap: () => Navigator.pushNamed(context, AppRoutes.meusNumeros),
+          ),
+          _HomeTile(
             title: 'Agenda',
             icon: Icons.calendar_month,
             onTap: () => Navigator.pushNamed(context, AppRoutes.agenda),
@@ -169,11 +196,15 @@ class _HomeTile extends StatelessWidget {
   /// Quantidade de itens pendentes; 0 esconde o selo.
   final int contador;
 
+  /// Linha de resumo embaixo do título (ex.: "Meus números").
+  final String? subtitle;
+
   const _HomeTile({
     required this.title,
     required this.icon,
     required this.onTap,
     this.contador = 0,
+    this.subtitle,
   });
 
   @override
@@ -186,6 +217,7 @@ class _HomeTile extends StatelessWidget {
           child: Icon(icon),
         ),
         title: Text(title),
+        subtitle: subtitle == null ? null : Text(subtitle!),
         trailing: const Icon(Icons.arrow_forward_ios, size: 18),
         onTap: onTap,
       ),
