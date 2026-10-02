@@ -458,4 +458,43 @@ void main() {
     expect(doc.data()?['avaliadoId'], 'e1');
     expect(doc.data()?['comentario'], 'Bom palco');
   });
+
+  testWidgets('"Adicionar à agenda" só no show confirmado que ainda vai acontecer (Plano 19)', (tester) async {
+    Map<String, dynamic> show(String titulo, int diasAFrente) => Contratacao(
+      id: '',
+      interesseId: 'i1',
+      musicoId: 'm1',
+      musicoNome: 'Banda',
+      donoId: 'e1',
+      donoNome: 'Bar Central',
+      titulo: titulo,
+      dia: Contratacao.diaDe(DateTime.now().add(Duration(days: diasAFrente))),
+      horaInicio: '20:00',
+      horaFim: '23:00',
+      cacheAcordado: 1500,
+      logradouro: 'Rua A',
+      numero: '10',
+      cidade: 'Franca',
+      estado: 'SP',
+      criadoEm: DateTime(2026, 9, 1),
+      status: StatusContratacao.confirmada,
+    ).toMap();
+    await firestore.collection('contratacoes').doc('futuro').set(show('Show futuro', 5));
+    await firestore.collection('contratacoes').doc('passado').set(show('Show passado', -3));
+    await tester.pumpWidget(
+      _app(servicoFake(firestore: firestore, uid: 'm1'), const ContratacoesScreen()),
+    );
+    await tester.pumpAndSettle();
+
+    final futuro = find.ancestor(of: find.text('Show futuro'), matching: find.byType(Card));
+    final passado = find.ancestor(of: find.text('Show passado'), matching: find.byType(Card));
+    expect(
+      find.descendant(of: futuro, matching: find.text('Adicionar à agenda')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: passado, matching: find.text('Adicionar à agenda')),
+      findsNothing,
+    );
+  });
 }

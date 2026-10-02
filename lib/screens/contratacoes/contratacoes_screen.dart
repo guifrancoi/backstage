@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/utils/data_hora.dart';
+import '../../core/utils/lembrete_show.dart';
 import '../../models/contratacao.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/avaliacao_provider.dart';
@@ -256,6 +258,17 @@ class ContratacaoCard extends StatelessWidget {
     );
   }
 
+  /// Abre o Google Agenda com o show preenchido (Plano 19).
+  Future<void> _adicionarAgenda(BuildContext context) async {
+    final uri = linkGoogleAgenda(contratacao, souMusico: souMusico);
+    final abriu = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!abriu && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir a agenda.')),
+      );
+    }
+  }
+
   Future<void> _cancelar(BuildContext context) async {
     final motivoController = TextEditingController();
     final confirmada = contratacao.status == StatusContratacao.confirmada;
@@ -394,6 +407,13 @@ class ContratacaoCard extends StatelessWidget {
                   OutlinedButton(
                     onPressed: () => _cancelar(context),
                     child: const Text('Cancelar show'),
+                  ),
+                // Plano 19: leva o show para o Google Agenda do celular.
+                if (confirmada && !c.realizada)
+                  OutlinedButton.icon(
+                    onPressed: () => _adicionarAgenda(context),
+                    icon: const Icon(Icons.event),
+                    label: const Text('Adicionar à agenda'),
                   ),
                 if (podeAvaliar)
                   ElevatedButton.icon(

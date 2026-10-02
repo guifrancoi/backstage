@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/utils/lembrete_show.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/avaliacao_provider.dart';
 import '../../providers/contratacao_provider.dart';
@@ -22,9 +23,15 @@ class HomeScreen extends StatelessWidget {
     final mensagensNaoLidas = context.watch<ChatProvider>().totalNaoLidas;
     final ehDono = authProvider.atuaComoDono;
     // Plano 17: shows realizados ainda sem a avaliação do usuário.
+    final contratacoes = context.watch<ContratacaoProvider>().todas;
     final paraAvaliar = context.watch<AvaliacaoProvider>().paraAvaliar(
-      context.watch<ContratacaoProvider>().todas,
+      contratacoes,
     );
+    // Plano 19: shows confirmados de hoje e amanhã (nada é gravado).
+    final uid = authProvider.userId;
+    final lembretes = uid == null
+        ? const <LembreteShow>[]
+        : lembretesDeShow(contratacoes, uid: uid, agora: DateTime.now());
 
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +65,27 @@ class HomeScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
+          for (final lembrete in lembretes)
+            Card(
+              color: lembrete.hoje
+                  ? Colors.deepPurple.shade50
+                  : Colors.blueGrey.shade50,
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: Icon(
+                  lembrete.hoje ? Icons.music_note : Icons.event,
+                  color: Colors.deepPurple,
+                ),
+                title: Text(
+                  lembrete.titulo,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(lembrete.detalhe),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.contratacoes),
+              ),
+            ),
           if (paraAvaliar.isNotEmpty)
             Card(
               color: Colors.amber.shade50,

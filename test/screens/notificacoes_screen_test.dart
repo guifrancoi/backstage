@@ -1,3 +1,4 @@
+import 'package:backstage/models/contratacao.dart';
 import 'package:backstage/providers/avaliacao_provider.dart';
 import 'package:backstage/models/mensagem.dart';
 import 'package:backstage/models/notificacao.dart';
@@ -194,5 +195,36 @@ void main() {
 
     final doc = await firestore.collection('conversas').doc('i1').get();
     expect((doc.data()?['lidaEm'] as Map?)?.containsKey('m1'), isTrue);
+  });
+
+  testWidgets('Home: lembrete do show de hoje (Plano 19)', (tester) async {
+    await firestore.collection('contratacoes').doc('c1').set(
+      Contratacao(
+        id: 'c1',
+        interesseId: 'i1',
+        musicoId: 'm1',
+        musicoNome: 'Banda',
+        donoId: 'e1',
+        donoNome: 'Bar Central',
+        titulo: 'Sexta do Rock',
+        dia: Contratacao.diaDe(DateTime.now()),
+        horaInicio: '21:00',
+        horaFim: '23:00',
+        cacheAcordado: 1500,
+        logradouro: 'Rua A',
+        numero: '10',
+        cidade: 'Franca',
+        estado: 'SP',
+        criadoEm: DateTime(2026, 9, 1),
+        status: StatusContratacao.confirmada,
+      ).toMap(),
+    );
+    await tester.pumpWidget(
+      _app(servicoFake(firestore: firestore, uid: 'm1'), const HomeScreen()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Seu show é hoje às 21:00 em Bar Central'), findsOneWidget);
+    expect(find.text('Sexta do Rock · Rua A, 10 — Franca/SP'), findsOneWidget);
   });
 }
