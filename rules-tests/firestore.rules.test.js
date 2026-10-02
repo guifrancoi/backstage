@@ -173,6 +173,22 @@ test('perfis_musicos: miniatura da foto até 200000 caracteres (Plano 14)', asyn
   await assertSucceeds(deleteDoc(ref));
 });
 
+// --- assinantes (Plano 7) --------------------------------------------------
+
+test('assinantes: autenticado lê; ninguém grava pelo app, nem o próprio uid', async () => {
+  await seed((db) => setDoc(doc(db, 'assinantes/u1'), { desde: new Date() }));
+
+  await assertSucceeds(getDocs(collection(asUser('u2'), 'assinantes')));
+  await assertFails(getDoc(doc(asAnon(), 'assinantes/u1')));
+  await assertFails(setDoc(doc(asUser('u2'), 'assinantes/u2'), { desde: new Date() }));
+  await assertFails(deleteDoc(doc(asUser('u1'), 'assinantes/u1')));
+  await assertFails(
+    setDoc(doc(testEnv.authenticatedContext('adm', { admin: true }).firestore(), 'assinantes/u3'), {
+      desde: new Date(),
+    }),
+  );
+});
+
 // --- estabelecimentos -------------------------------------------------------
 
 test('estabelecimentos: só o dono escreve o próprio perfil', async () => {

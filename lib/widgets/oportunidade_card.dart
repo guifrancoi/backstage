@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../models/oportunidade.dart';
+import 'musico_card.dart' show SeloAssinante;
 
 class OportunidadeCard extends StatelessWidget {
   final Oportunidade oportunidade;
@@ -13,12 +15,16 @@ class OportunidadeCard extends StatelessWidget {
   /// desabilitado.
   final String? statusCandidatura;
 
+  /// Dono assinante (Plano 7): mostra o selo e vem primeiro na lista.
+  final bool assinante;
+
   const OportunidadeCard({
     super.key,
     required this.oportunidade,
     required this.onVerDetalhes,
     this.onCandidatar,
     this.statusCandidatura,
+    this.assinante = false,
   });
 
   String get dataFormatada {
@@ -42,9 +48,22 @@ class OportunidadeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              oportunidade.titulo,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    oportunidade.titulo,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (assinante) ...[
+                  const SizedBox(width: 6),
+                  const SeloAssinante(),
+                ],
+              ],
             ),
             const SizedBox(height: 8),
             Text('Contratante: ${oportunidade.contratante}'),

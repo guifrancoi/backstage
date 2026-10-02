@@ -8,6 +8,7 @@ import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../services/location_service.dart';
 import 'acoes_interesse.dart';
+import 'musicos_sugeridos_secao.dart';
 
 class DetalheOportunidadeScreen extends StatefulWidget {
   final String oportunidadeId;
@@ -217,6 +218,8 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
                 label: const Text('Ver músicos livres neste dia'),
               ),
             ),
+            const SizedBox(height: 20),
+            MusicosSugeridosSecao(oportunidade: oportunidade),
           ],
           if (podeGerenciar(auth, oportunidade)) ...[
             const SizedBox(height: 20),

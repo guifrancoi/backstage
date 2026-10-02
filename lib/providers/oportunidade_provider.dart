@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/utils/compatibilidade.dart';
 import '../models/agenda_publica.dart';
 import '../models/contratacao.dart';
 import '../models/filtro_musicos.dart';
@@ -28,6 +29,11 @@ class OportunidadeProvider extends ChangeNotifier {
   StreamSubscription<List<Oportunidade>>? _oportunidadesSubscription;
   StreamSubscription<AgendaPublica>? _minhaAgendaSubscription;
   StreamSubscription<Set<String>>? _indisponiveisSubscription;
+  StreamSubscription<Set<String>>? _assinantesSubscription;
+
+  /// Uids com assinatura válida (Plano 7): vêm primeiro nas listas e
+  /// desempatam as sugestões.
+  Set<String> _assinantes = {};
 
   /// Filtro "livres em [dia]" da lista de músicos (Plano 13): sai quem
   /// bloqueou o dia ou já tem show confirmado nele.
@@ -65,6 +71,9 @@ class OportunidadeProvider extends ChangeNotifier {
     _musicosSubscription?.cancel();
     _oportunidadesSubscription?.cancel();
     _minhaAgendaSubscription?.cancel();
+    _assinantesSubscription?.cancel();
+    _assinantesSubscription = null;
+    _assinantes = {};
     _musicosSubscription = null;
     _oportunidadesSubscription = null;
     _minhaAgendaSubscription = null;
@@ -104,6 +113,11 @@ class OportunidadeProvider extends ChangeNotifier {
       agenda,
     ) {
       _minhaAgenda = agenda;
+      _aplicarFiltrosAtuais();
+      notifyListeners();
+    }, onError: (_) {});
+    _assinantesSubscription = _service.streamAssinantes().listen((uids) {
+      _assinantes = uids;
       _aplicarFiltrosAtuais();
       notifyListeners();
     }, onError: (_) {});
@@ -458,13 +472,94 @@ class OportunidadeProvider extends ChangeNotifier {
     }).toList();
 
     _aplicarOrdenacao();
+    // Plano 7: depois dos filtros e da ordem escolhida, assinantes no topo.
+    _musicos = assinantesPrimeiro(_musicos, (m) => ehAssinante(m.id));
 
-    // Lista pública: sem ocultas (exceto para o admin) e sem vencidas.
-    _oportunidades = _filtroOportunidades.aplicar(
-      _todasOportunidades.where((o) => !o.oculto || _isAdmin),
-      hoje: DateTime.now(),
-      bloqueados: _minhaAgenda.bloqueados,
-      ocupados: _minhaAgenda.ocupados,
+    // Lista pública: sem ocultas (exceto para o admin) e sem vencidas;
+    // oportunidades de dono assinante primeiro.
+    _oportunidades = assinantesPrimeiro(
+      _filtroOportunidades.aplicar(
+        _todasOportunidades.where((o) => !o.oculto || _isAdmin),
+        hoje: DateTime.now(),
+        bloqueados: _minhaAgenda.bloqueados,
+        ocupados: _minhaAgenda.ocupados,
+      ),
+      (o) => ehAssinante(o.donoId),
+    );
+  }
+
+  bool ehAssinante(String uid) => _assinantes.contains(uid);
+
+  /// Uids indisponíveis no dia (bloqueio ou show), para as sugestões do
+  /// dono (Plano 15) — mesma consulta do filtro "livres em".
+  Stream<Set<String>> indisponiveisNoDia(DateTime dia) =>
+      _service.streamIndisponiveisNoDia(Contratacao.diaDe(dia));
+
+  /// Plano 15, lado do dono: músicos mais compatíveis com [oportunidade].
+  /// [indisponiveis] `null` = agenda do dia desconhecida (não elimina, mas
+  /// ninguém ganha "livre no dia"). [comInteresse]: músicos que já têm
+  /// convite ou candidatura nessa oportunidade.
+  List<Sugestao<Musico>> musicosSugeridos(
+    Oportunidade oportunidade, {
+    required Set<String>? indisponiveis,
+    required Set<String> comInteresse,
+    int limite = 5,
+  }) {
+    final hoje = DateTime.now();
+    return ordenarSugestoes(
+      [
+        for (final musico in _todosMusicos)
+          if (avaliarCompatibilidade(
+                musico: musico,
+                oportunidade: oportunidade,
+                hoje: hoje,
+                ocupado: indisponiveis?.contains(musico.id) ?? false,
+                agendaConhecida: indisponiveis != null,
+                jaTemInteresse: comInteresse.contains(musico.id),
+              )
+              case final avaliacao?)
+            Sugestao(musico, avaliacao, assinante: ehAssinante(musico.id)),
+      ],
+      desempate: (a, b) => a.nomeArtistico.toLowerCase().compareTo(
+        b.nomeArtistico.toLowerCase(),
+      ),
+      limite: limite,
+    );
+  }
+
+  /// Plano 15, lado do músico: oportunidades futuras mais compatíveis com o
+  /// perfil [musico] (o do usuário logado), usando a própria agenda.
+  /// [comInteresse]: oportunidades em que já há candidatura ou convite.
+  List<Sugestao<Oportunidade>> oportunidadesSugeridas(
+    Musico musico, {
+    required Set<String> comInteresse,
+    int limite = 3,
+  }) {
+    final hoje = DateTime.now();
+    return ordenarSugestoes(
+      [
+        for (final oportunidade in _todasOportunidades)
+          if (avaliarCompatibilidade(
+                musico: musico,
+                oportunidade: oportunidade,
+                hoje: hoje,
+                ocupado: _minhaAgenda.ocupado(
+                  Contratacao.diaDe(oportunidade.dataEvento),
+                ),
+                bloqueado: _minhaAgenda.bloqueado(
+                  Contratacao.diaDe(oportunidade.dataEvento),
+                ),
+                jaTemInteresse: comInteresse.contains(oportunidade.id),
+              )
+              case final avaliacao?)
+            Sugestao(
+              oportunidade,
+              avaliacao,
+              assinante: ehAssinante(oportunidade.donoId),
+            ),
+      ],
+      desempate: (a, b) => a.dataEvento.compareTo(b.dataEvento),
+      limite: limite,
     );
   }
 
@@ -500,6 +595,7 @@ class OportunidadeProvider extends ChangeNotifier {
     _oportunidadesSubscription?.cancel();
     _minhaAgendaSubscription?.cancel();
     _indisponiveisSubscription?.cancel();
+    _assinantesSubscription?.cancel();
     super.dispose();
   }
 }

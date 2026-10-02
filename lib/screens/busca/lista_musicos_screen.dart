@@ -155,6 +155,7 @@ class ListaMusicosScreen extends StatelessWidget {
                     ? () => confirmarConvite(context, musico)
                     : null,
                 rotuloConvidar: rotuloConvidar(interesses, musico.id),
+                assinante: provider.ehAssinante(musico.id),
                 onVerDetalhes: () {
                   Navigator.pushNamed(
                     context,

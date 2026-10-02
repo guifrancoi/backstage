@@ -1,3 +1,4 @@
+import 'package:backstage/providers/agenda_provider.dart';
 import 'package:backstage/providers/auth_provider.dart';
 import 'package:backstage/providers/interesse_provider.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
@@ -22,6 +23,7 @@ Widget _app(FirebaseDataService service, Widget home) {
       ChangeNotifierProvider(create: (_) => PerfilProvider(service: service)),
       ChangeNotifierProvider(create: (_) => InteresseProvider(service: service)),
       ChangeNotifierProvider(create: (_) => OportunidadeProvider(service: service)),
+      ChangeNotifierProvider(create: (_) => AgendaProvider(service: service)),
       Provider<LocationService>(
         create: (_) => LocationService(),
         dispose: (_, s) => s.dispose(),
@@ -193,6 +195,54 @@ void main() {
       listen: false,
     );
     expect(provider.livresEm, DateTime(2099, 3, 1));
+  });
+
+  testWidgets('dono vê músicos sugeridos e convida já nesta oportunidade (Plano 15)', (tester) async {
+    await gravarCatalogo(
+      firestore,
+      musicos: [
+        musicoTeste(id: 'm2', nomeArtistico: 'Banda Compatível'),
+        musicoTeste(id: 'm3', nomeArtistico: 'Banda Ocupada'),
+        musicoTeste(
+          id: 'm4',
+          nomeArtistico: 'Duo Distante',
+          generoMusical: 'MPB',
+          cidade: 'Outra',
+        ),
+      ],
+    );
+    await firestore.collection('ocupacoes').doc('m3_2099-03-01').set({
+      'musicoId': 'm3',
+      'dia': '2099-03-01',
+      'contratacaoId': 'c1',
+    });
+    await tester.pumpWidget(
+      _app(
+        servicoFake(firestore: firestore, uid: 'e1'),
+        const DetalheOportunidadeScreen(oportunidadeId: 'rock'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Músicos sugeridos'), findsOneWidget);
+    expect(find.text('Banda Compatível'), findsOneWidget);
+    expect(find.text('Banda Ocupada'), findsNothing);
+    expect(find.text('Duo Distante'), findsNothing);
+    expect(find.textContaining('Compatibilidade'), findsOneWidget);
+
+    await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Convidar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Convidar'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    // A oportunidade já vem marcada: é só enviar.
+    await tester.tap(find.text('Enviar convite'));
+    await tester.pumpAndSettle();
+
+    final convite = await firestore.collection('interesses').doc('e1_mu_m2_rock').get();
+    expect(convite.exists, isTrue);
+    // Com convite enviado, sai das sugestões.
+    expect(find.text('Banda Compatível'), findsNothing);
   });
 
   testWidgets('oportunidade vencida não oferece músicos livres', (tester) async {

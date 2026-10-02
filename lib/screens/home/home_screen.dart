@@ -7,6 +7,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/notificacao_provider.dart';
 import '../../routes/app_routes.dart';
+import 'oportunidades_para_voce.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -52,6 +53,7 @@ class HomeScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
+          if (authProvider.atuaComoMusico) const OportunidadesParaVoce(),
           _HomeTile(
             title: 'Perfil',
             icon: Icons.person,

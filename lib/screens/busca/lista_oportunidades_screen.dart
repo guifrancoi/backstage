@@ -150,6 +150,7 @@ class ListaOportunidadesScreen extends StatelessWidget {
                           final pode = podeCandidatar(auth, oportunidade);
                           return OportunidadeCard(
                             oportunidade: oportunidade,
+                            assinante: provider.ehAssinante(oportunidade.donoId),
                             onCandidatar: pode
                                 ? () =>
                                       confirmarCandidatura(context, oportunidade)

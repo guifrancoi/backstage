@@ -14,12 +14,16 @@ class MusicoCard extends StatelessWidget {
   /// fica desabilitado: o estado é por oportunidade, no painel de convite.
   final String rotuloConvidar;
 
+  /// Músico assinante (Plano 7): mostra o selo e vem primeiro na lista.
+  final bool assinante;
+
   const MusicoCard({
     super.key,
     required this.musico,
     required this.onVerDetalhes,
     this.onConvidar,
     this.rotuloConvidar = 'Convidar',
+    this.assinante = false,
   });
 
   @override
@@ -41,7 +45,15 @@ class MusicoCard extends StatelessWidget {
                 backgroundImage: foto,
                 child: foto == null ? const Icon(Icons.music_note) : null,
               ),
-              title: Text(musico.nomeArtistico),
+              title: Row(
+                children: [
+                  Flexible(child: Text(musico.nomeArtistico)),
+                  if (assinante) ...[
+                    const SizedBox(width: 6),
+                    const SeloAssinante(),
+                  ],
+                ],
+              ),
               subtitle: Text('${musico.generoMusical} • ${musico.cidade}'),
               trailing: Text('R\$ ${musico.cacheMedio.toStringAsFixed(0)}'),
             ),
@@ -84,6 +96,30 @@ class MusicoCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Selo "Assinante" (Plano 7), usado nos cards de músico e de oportunidade.
+class SeloAssinante extends StatelessWidget {
+  const SeloAssinante({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade100,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.star, size: 14, color: Colors.amber),
+          SizedBox(width: 2),
+          Text('Assinante', style: TextStyle(fontSize: 12)),
+        ],
       ),
     );
   }

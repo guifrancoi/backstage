@@ -32,6 +32,13 @@ service cloud.firestore {
       allow update: if isOwner(userId) && tipoUsuarioNaoMudou();
     }
 
+    // Plano 7: quem é assinante. Público para ordenar as listas; só o Admin
+    // SDK grava (definir-assinante.js), para ninguém se marcar sozinho.
+    match /assinantes/{userId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     match /perfis_musicos/{userId} {
       // Miniatura em base64 no próprio perfil (Plano 14): limitada para o
       // catálogo, que todos baixam inteiro, não pesar (o app reduz a 256 px).

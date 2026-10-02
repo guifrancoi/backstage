@@ -162,7 +162,14 @@ String rotuloConvidar(InteresseProvider interesses, String musicoId) {
 /// Abre o painel de convite (escolha da oportunidade, com o estado de cada
 /// uma) e envia. Se o músico já se candidatou à oportunidade escolhida,
 /// `enviarConvite` aceita a candidatura (match).
-Future<void> confirmarConvite(BuildContext context, Musico musico) async {
+///
+/// [oportunidade]: já vem marcada no painel (ex.: "Músicos sugeridos" no
+/// detalhe da oportunidade, Plano 15).
+Future<void> confirmarConvite(
+  BuildContext context,
+  Musico musico, {
+  Oportunidade? oportunidade,
+}) async {
   final auth = context.read<AuthProvider>();
   final interesses = context.read<InteresseProvider>();
   final catalogo = context.read<OportunidadeProvider>();
@@ -171,18 +178,24 @@ Future<void> confirmarConvite(BuildContext context, Musico musico) async {
       .minhasOportunidades(auth.userId)
       .where((o) => !o.vencida)
       .toList();
-  // Buscando músicos livres num dia: já marca a oportunidade daquele dia.
+  bool selecionavel(Oportunidade o) => interesses
+      .situacaoConvite(musico.id, oportunidadeId: o.id)
+      .selecionavel;
+  // A oportunidade pedida; senão, buscando músicos livres num dia, a
+  // oportunidade daquele dia.
   final livresEm = catalogo.livresEm;
-  final sugerida = livresEm == null
+  final sugerida = oportunidade != null
+      ? minhas
+            .where((o) => o.id == oportunidade.id && selecionavel(o))
+            .firstOrNull
+      : livresEm == null
       ? null
       : minhas
             .where(
               (o) =>
                   Contratacao.diaDe(o.dataEvento) ==
                       Contratacao.diaDe(livresEm) &&
-                  interesses
-                      .situacaoConvite(musico.id, oportunidadeId: o.id)
-                      .selecionavel,
+                  selecionavel(o),
             )
             .firstOrNull;
 
@@ -215,15 +228,15 @@ Future<void> confirmarConvite(BuildContext context, Musico musico) async {
     return;
   }
 
-  final oportunidade = escolha.oportunidade;
+  final escolhida = escolha.oportunidade;
   final eraCandidatura =
-      interesses.situacaoConvite(musico.id, oportunidadeId: oportunidade?.id) ==
+      interesses.situacaoConvite(musico.id, oportunidadeId: escolhida?.id) ==
       SituacaoConvite.candidaturaPendente;
   final ok = await interesses.enviarConvite(
     musico: musico,
     remetenteId: auth.userId!,
     remetenteNome: auth.nomeExibicao,
-    oportunidade: oportunidade,
+    oportunidade: escolhida,
   );
 
   if (!context.mounted) return;

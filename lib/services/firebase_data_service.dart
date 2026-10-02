@@ -91,16 +91,30 @@ class FirebaseDataService {
     required String email,
     required String telefone,
     TipoUsuario? tipoUsuario,
-    bool? assinante,
   }) {
     return firestore.collection('usuarios').doc(uid).set({
       'nome': nome,
       'email': email,
       'telefone': telefone,
       if (tipoUsuario != null) 'tipoUsuario': tipoUsuario.name,
-      'assinante': ?assinante,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  /// Uids com assinatura válida (Plano 7): documento em `assinantes/{uid}`
+  /// sem `expiraEm` ou com `expiraEm` no futuro. A coleção é gravada só pelo
+  /// Admin SDK (`definir-assinante.js`) e lida por qualquer autenticado —
+  /// diferente de `usuarios`, que o próprio usuário escreve.
+  Stream<Set<String>> streamAssinantes() {
+    return firestore.collection('assinantes').snapshots().map((s) {
+      final agora = DateTime.now();
+      return {
+        for (final d in s.docs)
+          if (d.data()['expiraEm'] == null ||
+              _dateTimeFromValue(d.data()['expiraEm']).isAfter(agora))
+            d.id,
+      };
+    });
   }
 
   Future<void> definirTipoUsuario(String uid, TipoUsuario tipoUsuario) {

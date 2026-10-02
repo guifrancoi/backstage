@@ -1,12 +1,14 @@
 enum TipoUsuario { musico, casaShow }
 
+/// Dados básicos da conta (`usuarios/{uid}`, lido e escrito só pelo dono).
+/// Ser assinante **não** fica aqui (o próprio usuário poderia se marcar):
+/// vem da coleção `assinantes`, gravada pelo Admin SDK (Plano 7).
 class Usuario {
   final String id;
   final String nome;
   final String email;
   final String telefone;
   final TipoUsuario? tipoUsuario;
-  final bool assinante;
 
   Usuario({
     required this.id,
@@ -14,8 +16,7 @@ class Usuario {
     required this.email,
     required this.telefone,
     this.tipoUsuario,
-    bool? assinante,
-  }) : assinante = assinante ?? false;
+  });
 
   Usuario copyWith({
     String? id,
@@ -23,7 +24,6 @@ class Usuario {
     String? email,
     String? telefone,
     TipoUsuario? tipoUsuario,
-    bool? assinante,
     bool clearTipoUsuario = false,
   }) {
     return Usuario(
@@ -32,7 +32,6 @@ class Usuario {
       email: email ?? this.email,
       telefone: telefone ?? this.telefone,
       tipoUsuario: clearTipoUsuario ? null : (tipoUsuario ?? this.tipoUsuario),
-      assinante: assinante ?? this.assinante,
     );
   }
 
@@ -43,7 +42,6 @@ class Usuario {
       email: map['email'] as String? ?? '',
       telefone: map['telefone'] as String? ?? '',
       tipoUsuario: _tipoUsuarioFromValue(map['tipoUsuario']),
-      assinante: map['assinante'] as bool? ?? false,
     );
   }
 
@@ -53,7 +51,6 @@ class Usuario {
       'email': email,
       'telefone': telefone,
       if (tipoUsuario != null) 'tipoUsuario': tipoUsuario!.name,
-      'assinante': assinante,
     };
   }
 }

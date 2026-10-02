@@ -292,20 +292,18 @@ void main() {
       expect(await service.carregarUsuario('u1'), isNull);
     });
 
-    test('salvar com tipoUsuario e assinante, e carregar de volta', () async {
+    test('salvar com tipoUsuario e carregar de volta', () async {
       await service.salvarUsuario(
         uid: 'u1',
         nome: 'Guilherme',
         email: 'g@backstage.com',
         telefone: '16999999999',
         tipoUsuario: TipoUsuario.musico,
-        assinante: true,
       );
 
       final usuario = await service.carregarUsuario('u1');
 
       expect(usuario?.tipoUsuario, TipoUsuario.musico);
-      expect(usuario?.assinante, isTrue);
     });
 
     test('definirTipoUsuario grava sem apagar outros campos', () async {
@@ -383,6 +381,18 @@ void main() {
       expect(doc.data()?['usuarioId'], 'u1');
       expect(doc.data()?['data'], isNotNull);
       expect(doc.data()?['dia'], '2026-05-10');
+    });
+
+    test('assinantes: só documentos sem expiração ou com expiração futura', () async {
+      await firestore.collection('assinantes').doc('a1').set({'desde': DateTime(2026)});
+      await firestore.collection('assinantes').doc('a2').set({
+        'expiraEm': DateTime.now().add(const Duration(days: 30)),
+      });
+      await firestore.collection('assinantes').doc('a3').set({
+        'expiraEm': DateTime.now().subtract(const Duration(days: 1)),
+      });
+
+      expect(await service.streamAssinantes().first, {'a1', 'a2'});
     });
 
     test('indisponíveis no dia: bloqueio ou show confirmado, só daquele dia', () async {

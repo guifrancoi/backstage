@@ -112,6 +112,19 @@ class InteresseProvider extends ChangeNotifier {
     };
   }
 
+  /// Músicos que já têm convite ou candidatura (qualquer status) na
+  /// oportunidade — ficam fora das sugestões do dono (Plano 15).
+  Set<String> musicosComInteresseEm(String oportunidadeId) => {
+    for (final i in [..._enviados, ..._recebidos])
+      if (i.oportunidadeId == oportunidadeId) i.musicoId,
+  };
+
+  /// Oportunidades em que o usuário já tem candidatura ou convite —
+  /// ficam fora de "Oportunidades para você" (Plano 15).
+  Set<String> oportunidadesComInteresse() => {
+    for (final i in [..._enviados, ..._recebidos]) ?i.oportunidadeId,
+  };
+
   /// Convites ainda sem resposta enviados ao músico (resumo do botão).
   int convitesPendentesPara(String musicoId) => _enviados
       .where(

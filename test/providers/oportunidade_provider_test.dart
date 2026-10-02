@@ -157,6 +157,71 @@ void main() {
     });
   });
 
+  group('Plano 7: assinantes primeiro', () {
+    test('músico assinante sobe, mantendo a ordem escolhida entre os demais', () async {
+      await firestore.collection('assinantes').doc('3').set({'desde': DateTime(2026)});
+      await aguardar();
+
+      expect(nomes(provider.musicos), ['DJ Pulse', 'Banda Eclipse', 'Duo Acústico Sol']);
+      expect(provider.ehAssinante('3'), isTrue);
+
+      // Filtro vem antes: assinante que não atende não aparece.
+      provider.filtrarMusicos(genero: 'Rock');
+      expect(nomes(provider.musicos), ['Banda Eclipse']);
+
+      provider
+        ..filtrarMusicos()
+        ..ordenarMusicos('cache_maior');
+      expect(nomes(provider.musicos), ['DJ Pulse', 'Banda Eclipse', 'Duo Acústico Sol']);
+    });
+
+    test('oportunidade de dono assinante sobe na lista pública', () async {
+      await firestore.collection('assinantes').doc('e3').set({'desde': DateTime(2026)});
+      await aguardar();
+
+      expect(provider.oportunidades.first.donoId, 'e3');
+    });
+  });
+
+  group('Plano 15: sugestões', () {
+    test('músicos sugeridos: elimina indisponível e quem já tem interesse', () {
+      final oportunidade = oportunidadeTeste(
+        id: 'x',
+        generoMusical: 'Rock',
+        cidade: 'Ribeirão Preto',
+        donoId: 'e9',
+      ).copyWith(cacheOferecido: 2000);
+
+      final todos = provider.musicosSugeridos(
+        oportunidade,
+        indisponiveis: {},
+        comInteresse: {},
+      );
+      // Banda Eclipse: gênero + cidade + cachê + livre = 90; DJ Pulse:
+      // cidade + cachê + livre = 55; Duo (Franca, MPB): 30 → fora.
+      expect(todos.map((s) => s.item.nomeArtistico), ['Banda Eclipse', 'DJ Pulse']);
+      expect(todos.first.compatibilidade.nota, 90);
+
+      expect(
+        provider
+            .musicosSugeridos(oportunidade, indisponiveis: {'1'}, comInteresse: {'3'})
+            .map((s) => s.item.nomeArtistico),
+        isEmpty,
+      );
+    });
+
+    test('oportunidades sugeridas usam a própria agenda e pulam as com interesse', () async {
+      final eu = _musicos.first; // Banda Eclipse: Rock, Ribeirão Preto
+      final antes = provider.oportunidadesSugeridas(eu, comInteresse: {});
+      expect(antes.map((s) => s.item.id), contains('1'));
+
+      expect(
+        provider.oportunidadesSugeridas(eu, comInteresse: {'1'}).map((s) => s.item.id),
+        isNot(contains('1')),
+      );
+    });
+  });
+
   group('Plano 14: formação e equipamento próprio', () {
     setUp(() async {
       await firestore.collection('perfis_musicos').doc('1').update({
