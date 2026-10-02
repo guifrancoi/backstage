@@ -245,6 +245,21 @@ void main() {
     expect(find.text('Banda Compatível'), findsNothing);
   });
 
+  testWidgets('contratante abre o perfil do estabelecimento (Plano 16)', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        servicoFake(firestore: firestore, uid: 'm1'),
+        const DetalheOportunidadeScreen(oportunidadeId: 'rock'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Contratante:'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('${AppRoutes.detalheEstabelecimento} e1'), findsOneWidget);
+  });
+
   testWidgets('oportunidade vencida não oferece músicos livres', (tester) async {
     await tester.pumpWidget(
       _app(

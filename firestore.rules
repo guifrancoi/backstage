@@ -54,9 +54,29 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
+    // Perfil público do estabelecimento (Plano 16): qualquer autenticado lê.
+    // Contato e CNPJ não podem ficar aqui — vão para privado/dados.
     match /estabelecimentos/{userId} {
       allow read: if signedIn();
-      allow write: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && !request.resource.data.keys().hasAny(['contato', 'cnpj']);
+      allow delete: if isOwner(userId);
+
+      // Contato e CNPJ: o dono e quem já conversa com ele (a conversa do
+      // par só nasce de um interesse aceito; id = os dois uids em ordem).
+      match /privado/{docId} {
+        function conversam() {
+          let eu = request.auth.uid;
+          let par = eu < userId ? eu + '_' + userId : userId + '_' + eu;
+          return exists(/databases/$(database)/documents/conversas/$(par));
+        }
+
+        allow read: if signedIn() && (request.auth.uid == userId || conversam());
+        allow create, update: if isOwner(userId)
+          && docId == 'dados'
+          && request.resource.data.keys().hasOnly(['contato', 'cnpj']);
+        allow delete: if isOwner(userId);
+      }
     }
 
     match /oportunidades/{oportunidadeId} {

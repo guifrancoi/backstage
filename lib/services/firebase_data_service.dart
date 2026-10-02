@@ -131,22 +131,37 @@ class FirebaseDataService {
     return Usuario.fromMap(doc.id, data);
   }
 
+  /// Perfil do estabelecimento (Plano 16). Contato e CNPJ vêm do documento
+  /// `privado/dados`, que as regras só deixam o dono e quem já conversa com
+  /// ele ler; sem permissão eles voltam vazios (não é erro).
   Future<CasaShow?> carregarEstabelecimento(String usuarioId) async {
-    final doc = await firestore
-        .collection('estabelecimentos')
-        .doc(usuarioId)
-        .get();
+    final ref = firestore.collection('estabelecimentos').doc(usuarioId);
+    final doc = await ref.get();
     final data = doc.data();
     if (data == null) return null;
 
-    return CasaShow.fromMap(doc.id, data);
+    Map<String, dynamic>? privado;
+    try {
+      privado = (await ref.collection('privado').doc('dados').get()).data();
+    } on FirebaseException catch (erro) {
+      if (erro.code != 'permission-denied') rethrow;
+    }
+    return CasaShow.fromMap(doc.id, data, privado: privado);
   }
 
+  /// Grava a parte pública e a privada no mesmo batch. Apaga do documento
+  /// público o contato/CNPJ de antes do Plano 16 (as regras recusam o
+  /// documento público com essas chaves).
   Future<void> salvarEstabelecimento(String usuarioId, CasaShow perfil) {
-    return firestore
-        .collection('estabelecimentos')
-        .doc(usuarioId)
-        .set(perfil.toMap(), SetOptions(merge: true));
+    final ref = firestore.collection('estabelecimentos').doc(usuarioId);
+    return (firestore.batch()
+          ..set(ref, {
+            ...perfil.toMap(),
+            'contato': FieldValue.delete(),
+            'cnpj': FieldValue.delete(),
+          }, SetOptions(merge: true))
+          ..set(ref.collection('privado').doc('dados'), perfil.toMapPrivado()))
+        .commit();
   }
 
   Stream<List<Musico>> streamMusicos() {

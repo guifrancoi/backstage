@@ -18,7 +18,11 @@ void main() {
       final original = _casaShow();
 
       final map = original.toMap();
-      final copia = CasaShow.fromMap('e1', map);
+      final copia = CasaShow.fromMap(
+        'e1',
+        map,
+        privado: original.toMapPrivado(),
+      );
 
       expect(map.containsKey('id'), isFalse);
       expect(copia.id, 'e1');
@@ -29,6 +33,31 @@ void main() {
       expect(copia.descricao, original.descricao);
       expect(copia.contato, original.contato);
       expect(copia.cnpj, original.cnpj);
+    });
+
+    test('Plano 16: contato e CNPJ só no mapa privado', () {
+      final original = _casaShow();
+
+      expect(original.toMap().containsKey('contato'), isFalse);
+      expect(original.toMap().containsKey('cnpj'), isFalse);
+      expect(original.toMapPrivado(), {
+        'contato': '16999999999',
+        'cnpj': '12.345.678/0001-90',
+      });
+      // Sem acesso ao privado: vazios.
+      expect(CasaShow.fromMap('e1', original.toMap()).contato, '');
+    });
+
+    test('documento antigo com contato no público ainda é lido', () {
+      final antigo = CasaShow.fromMap('e1', {'contato': '111', 'cnpj': '222'});
+
+      expect(antigo.contato, '111');
+      expect(antigo.cnpj, '222');
+      // O privado vence o público.
+      expect(
+        CasaShow.fromMap('e1', {'contato': '111'}, privado: {'contato': '999'}).contato,
+        '999',
+      );
     });
 
     test('fromMap aplica valores padrão para campos ausentes', () {

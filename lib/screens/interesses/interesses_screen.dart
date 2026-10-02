@@ -235,6 +235,17 @@ class _InteresseCard extends StatelessWidget {
                     ),
                     child: const Text('Ver perfil'),
                   ),
+                // Plano 16: o músico vê o perfil de quem o convidou ou de
+                // quem recebeu a candidatura.
+                if (interesse.donoId != uid)
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.detalheEstabelecimento,
+                      arguments: interesse.donoId,
+                    ),
+                    child: const Text('Ver estabelecimento'),
+                  ),
                 if (!verPerfil && oportunidadeId != null)
                   TextButton(
                     onPressed: () => Navigator.pushNamed(

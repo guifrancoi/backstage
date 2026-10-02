@@ -5,6 +5,7 @@ import '../../core/utils/data_hora.dart';
 import '../../models/contratacao.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/contratacao_provider.dart';
+import '../../routes/app_routes.dart';
 
 /// Contratações do usuário, conforme o papel: o músico vê as propostas que
 /// recebeu (confirmar/recusar); o dono, as que enviou (retirar). Só a conta
@@ -349,6 +350,16 @@ class ContratacaoCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 4,
               children: [
+                // Plano 16: perfil público de quem contrata.
+                if (souMusico)
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.detalheEstabelecimento,
+                      arguments: c.donoId,
+                    ),
+                    child: const Text('Ver estabelecimento'),
+                  ),
                 if (proposta && souMusico) ...[
                   OutlinedButton(
                     onPressed: () => _executar(

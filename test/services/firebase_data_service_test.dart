@@ -366,6 +366,39 @@ void main() {
 
       expect(carregado?.id, 'u1');
       expect(carregado?.nome, estabelecimento.nome);
+      expect(carregado?.contato, '16999999999');
+    });
+
+    test('Plano 16: contato/CNPJ no privado; o antigo sai do público', () async {
+      await firestore.collection('estabelecimentos').doc('u1').set({
+        'nome': 'Bar Antigo',
+        'contato': '111',
+        'cnpj': '222',
+      });
+      final casa = CasaShow(
+        id: 'u1',
+        nome: 'Bar Central',
+        cidade: 'Franca',
+        capacidade: 50,
+        estilosDesejados: const [],
+        descricao: '',
+        contato: '16999999999',
+        cnpj: '12.345.678/0001-90',
+      );
+
+      await service.salvarEstabelecimento('u1', casa);
+
+      final publico = await firestore.collection('estabelecimentos').doc('u1').get();
+      expect(publico.data()?.containsKey('contato'), isFalse);
+      expect(publico.data()?.containsKey('cnpj'), isFalse);
+      expect(publico.data()?['nome'], 'Bar Central');
+      final privado = await firestore
+          .collection('estabelecimentos')
+          .doc('u1')
+          .collection('privado')
+          .doc('dados')
+          .get();
+      expect(privado.data(), {'contato': '16999999999', 'cnpj': '12.345.678/0001-90'});
     });
   });
 

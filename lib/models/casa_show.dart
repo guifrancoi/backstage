@@ -1,4 +1,7 @@
-/// Perfil do dono de estabelecimento, em `estabelecimentos/{uid}`.
+/// Perfil do dono de estabelecimento. Os dados públicos ficam em
+/// `estabelecimentos/{uid}` (qualquer autenticado lê); contato e CNPJ ficam
+/// em `estabelecimentos/{uid}/privado/dados` (Plano 16), lido só pelo dono e
+/// por quem já conversa com ele. Sem acesso, `contato`/`cnpj` vêm vazios.
 class CasaShow {
   final String id;
   final String nome;
@@ -75,7 +78,13 @@ class CasaShow {
     );
   }
 
-  factory CasaShow.fromMap(String id, Map<String, dynamic> map) {
+  /// [privado]: o documento `privado/dados`, quando a leitura foi
+  /// permitida. Documento antigo com contato/CNPJ no público ainda é lido.
+  factory CasaShow.fromMap(
+    String id,
+    Map<String, dynamic> map, {
+    Map<String, dynamic>? privado,
+  }) {
     return CasaShow(
       id: id,
       nome: map['nome'] as String? ?? '',
@@ -89,12 +98,13 @@ class CasaShow {
         map['estilosDesejados'] as List? ?? [],
       ),
       descricao: map['descricao'] as String? ?? '',
-      contato: map['contato'] as String? ?? '',
-      cnpj: map['cnpj'] as String? ?? '',
+      contato: (privado?['contato'] ?? map['contato']) as String? ?? '',
+      cnpj: (privado?['cnpj'] ?? map['cnpj']) as String? ?? '',
       oculto: map['oculto'] as bool? ?? false,
     );
   }
 
+  /// Só os dados públicos (sem contato/CNPJ — ver [toMapPrivado]).
   Map<String, dynamic> toMap() {
     return {
       'nome': nome,
@@ -106,9 +116,10 @@ class CasaShow {
       'capacidade': capacidade,
       'estilosDesejados': estilosDesejados,
       'descricao': descricao,
-      'contato': contato,
-      'cnpj': cnpj,
       'oculto': oculto,
     };
   }
+
+  /// Conteúdo de `estabelecimentos/{uid}/privado/dados` (Plano 16).
+  Map<String, dynamic> toMapPrivado() => {'contato': contato, 'cnpj': cnpj};
 }

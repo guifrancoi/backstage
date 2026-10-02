@@ -209,6 +209,50 @@ test('estabelecimentos: qualquer autenticado lê', async () => {
   await assertSucceeds(getDoc(doc(asUser('u2'), 'estabelecimentos/e1')));
 });
 
+// Plano 16: contato e CNPJ só em estabelecimentos/{uid}/privado/dados.
+const privadoE1 = 'estabelecimentos/e1/privado/dados';
+
+test('estabelecimentos: documento público não aceita contato nem CNPJ', async () => {
+  const dono = asUser('e1');
+  await assertFails(
+    setDoc(doc(dono, 'estabelecimentos/e1'), { nome: 'Bar', contato: '16 9999' }),
+  );
+  await assertFails(
+    setDoc(doc(dono, 'estabelecimentos/e1'), { nome: 'Bar', cnpj: '00.000' }),
+  );
+});
+
+test('estabelecimentos/privado: o dono grava e lê; só contato e cnpj', async () => {
+  const dono = asUser('e1');
+  await assertSucceeds(setDoc(doc(dono, privadoE1), { contato: '16 9999', cnpj: '00.000' }));
+  await assertSucceeds(getDoc(doc(dono, privadoE1)));
+  await assertFails(setDoc(doc(dono, privadoE1), { contato: '1', outro: 'x' }));
+  await assertFails(
+    setDoc(doc(dono, 'estabelecimentos/e1/privado/outro'), { contato: '1' }),
+  );
+  await assertFails(setDoc(doc(asUser('m1'), privadoE1), { contato: '1' }));
+});
+
+test('estabelecimentos/privado: só lê quem já conversa com o dono', async () => {
+  await seed((db) => setDoc(doc(db, privadoE1), { contato: '16 9999', cnpj: '00.000' }));
+
+  // Sem conversa: nem músico nem anônimo leem.
+  await assertFails(getDoc(doc(asUser('m1'), privadoE1)));
+  await assertFails(getDoc(doc(asAnon(), privadoE1)));
+
+  // Conversa do par (id = uids em ordem): libera só para esse par.
+  await seed((db) => setDoc(doc(db, 'conversas/e1_m1'), { participantes: ['e1', 'm1'] }));
+  await assertSucceeds(getDoc(doc(asUser('m1'), privadoE1)));
+  await assertFails(getDoc(doc(asUser('m2'), privadoE1)));
+
+  // Ordem inversa (uid do músico menor que o do dono) também vale.
+  await seed(async (db) => {
+    await setDoc(doc(db, 'estabelecimentos/z9/privado/dados'), { contato: '1' });
+    await setDoc(doc(db, 'conversas/m1_z9'), { participantes: ['m1', 'z9'] });
+  });
+  await assertSucceeds(getDoc(doc(asUser('m1'), 'estabelecimentos/z9/privado/dados')));
+});
+
 // --- oportunidades -----------------------------------------------------------
 
 test('oportunidades: criar exige donoId == uid autenticado', async () => {

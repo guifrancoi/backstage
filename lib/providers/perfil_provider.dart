@@ -96,6 +96,12 @@ class PerfilProvider extends ChangeNotifier {
     });
   }
 
+  /// Perfil público de qualquer estabelecimento (Plano 16). Contato e CNPJ
+  /// só vêm preenchidos para o dono e para quem já conversa com ele.
+  /// Lança [FirebaseException] em falha de leitura (a tela mostra o erro).
+  Future<CasaShow?> estabelecimentoPublico(String donoId) =>
+      _service.carregarEstabelecimento(donoId);
+
   Future<bool> _salvar(Future<void> Function() gravar) async {
     _errorMessage = null;
     try {

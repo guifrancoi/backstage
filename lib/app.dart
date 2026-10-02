@@ -21,6 +21,7 @@ import 'screens/oportunidades/minhas_oportunidades_screen.dart';
 import 'screens/oportunidades/nova_oportunidade_screen.dart';
 import 'screens/perfil/perfil_screen.dart';
 import 'screens/sobre/sobre_screen.dart';
+import 'screens/busca/detalhe_estabelecimento_screen.dart';
 import 'screens/busca/detalhe_musico_screen.dart';
 import 'screens/busca/detalhe_oportunidade_screen.dart';
 
@@ -81,6 +82,13 @@ class MyApp extends StatelessWidget {
           return MaterialPageRoute(
             builder: (_) =>
                 NovaOportunidadeScreen(oportunidadeId: oportunidadeId),
+          );
+        }
+
+        if (settings.name == AppRoutes.detalheEstabelecimento) {
+          final donoId = settings.arguments as String;
+          return MaterialPageRoute(
+            builder: (_) => DetalheEstabelecimentoScreen(donoId: donoId),
           );
         }
 

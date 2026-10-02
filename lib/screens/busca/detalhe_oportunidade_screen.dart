@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
-import '../../services/location_service.dart';
+import 'abrir_mapa.dart';
 import 'acoes_interesse.dart';
 import 'musicos_sugeridos_secao.dart';
 
@@ -36,41 +35,16 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
     required String estado,
     String? cep,
   }) async {
-    final locationService = context.read<LocationService>();
     setState(() => _carregandoMapa = true);
-
     try {
-      final coordenadas = await locationService.geocodeEndereco(
+      await abrirMapa(
+        context,
         logradouro: logradouro,
         numero: numero,
         cidade: cidade,
         estado: estado,
         cep: cep,
       );
-
-      Uri uri;
-      if (coordenadas != null) {
-        final (lat, lon) = coordenadas;
-        uri = Uri.parse(
-          'https://www.google.com/maps/search/?api=1&query=$lat,$lon',
-        );
-      } else {
-        final query = Uri.encodeComponent(
-          '$logradouro $numero, $cidade - $estado',
-        );
-        uri = Uri.parse(
-          'https://www.google.com/maps/search/?api=1&query=$query',
-        );
-      }
-
-      if (!mounted) return;
-
-      final abriu = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!abriu && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível abrir o mapa.')),
-        );
-      }
     } finally {
       if (mounted) setState(() => _carregandoMapa = false);
     }
@@ -124,7 +98,31 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('Contratante: ${oportunidade.contratante}'),
+                  if (oportunidade.temDono)
+                    // Plano 16: o contratante abre o perfil do estabelecimento.
+                    InkWell(
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.detalheEstabelecimento,
+                        arguments: oportunidade.donoId,
+                      ),
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'Contratante: ',
+                          children: [
+                            TextSpan(
+                              text: oportunidade.contratante,
+                              style: const TextStyle(
+                                color: Colors.deepPurple,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Text('Contratante: ${oportunidade.contratante}'),
                   const SizedBox(height: 8),
                   const Text(
                     'Localização',

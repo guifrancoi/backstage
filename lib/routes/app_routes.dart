@@ -20,4 +20,7 @@ class AppRoutes {
   static const proporContratacao = '/propor-contratacao';
   static const detalheMusico = '/detalhe-musico';
   static const detalheOportunidade = '/detalhe-oportunidade';
+
+  /// Perfil público do estabelecimento (Plano 16); recebe o uid do dono.
+  static const detalheEstabelecimento = '/detalhe-estabelecimento';
 }
