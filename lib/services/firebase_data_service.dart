@@ -431,6 +431,26 @@ class FirebaseDataService {
     return batch.commit();
   }
 
+  /// Plano 21: o músico pede outro cachê (uma vez só; as regras conferem).
+  Future<void> contraproporContratacao(String contratacaoId, double valor) {
+    return firestore.collection('contratacoes').doc(contratacaoId).update({
+      'status': StatusContratacao.contraproposta.name,
+      'cacheContraproposto': valor,
+      'houveContraproposta': true,
+      'respondidoEm': DateTime.now(),
+    });
+  }
+
+  /// Plano 21: o dono aceita o valor do músico; volta a ser proposta, agora
+  /// com esse cachê, e o músico confirma normalmente.
+  Future<void> aceitarContraproposta(Contratacao contratacao) {
+    return firestore.collection('contratacoes').doc(contratacao.id).update({
+      'status': StatusContratacao.proposta.name,
+      'cacheAcordado': contratacao.cacheContraproposto,
+      'respondidoEm': DateTime.now(),
+    });
+  }
+
   Future<void> recusarContratacao(String contratacaoId) {
     return firestore.collection('contratacoes').doc(contratacaoId).update({
       'status': StatusContratacao.recusada.name,

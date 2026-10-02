@@ -13,6 +13,11 @@ enum TipoNotificacao {
   contratacaoRecusada,
   contratacaoCancelada,
 
+  /// Plano 21: o músico pediu outro cachê / o dono aceitou ou recusou.
+  contrapropostaEnviada,
+  contrapropostaAceita,
+  contrapropostaRecusada,
+
   /// Plano 17: a outra parte avaliou o show (convite para avaliar também).
   avaliacaoRecebida,
 }
@@ -200,6 +205,22 @@ class Notificacao {
         'Proposta recusada',
         '$autorNome recusou a proposta "${c.titulo}" de $data.',
       ),
+      TipoNotificacao.contrapropostaEnviada => (
+        'Contraproposta de cachê',
+        '$autorNome pediu R\$ ${(c.cacheContraproposto ?? 0).toStringAsFixed(2)} '
+            'para "${c.titulo}" em $data (proposta: '
+            'R\$ ${c.cacheAcordado.toStringAsFixed(2)}).',
+      ),
+      TipoNotificacao.contrapropostaAceita => (
+        'Contraproposta aceita',
+        '$autorNome aceitou R\$ ${c.cacheAcordado.toStringAsFixed(2)} para '
+            '"${c.titulo}" em $data. Agora é só confirmar.',
+      ),
+      TipoNotificacao.contrapropostaRecusada => (
+        'Contraproposta recusada',
+        '$autorNome recusou a contraproposta para "${c.titulo}" de $data'
+            '${c.motivoCancelamento == null ? '' : ': ${c.motivoCancelamento}'}.',
+      ),
       _ => (
         'Contratação cancelada',
         '$autorNome cancelou "${c.titulo}" de $data'
@@ -252,6 +273,9 @@ class Notificacao {
     TipoNotificacao.contratacaoConfirmada ||
     TipoNotificacao.contratacaoRecusada ||
     TipoNotificacao.contratacaoCancelada ||
+    TipoNotificacao.contrapropostaEnviada ||
+    TipoNotificacao.contrapropostaAceita ||
+    TipoNotificacao.contrapropostaRecusada ||
     TipoNotificacao.avaliacaoRecebida => DestinoNotificacao.contratacoes,
     _ => DestinoNotificacao.interesses,
   };

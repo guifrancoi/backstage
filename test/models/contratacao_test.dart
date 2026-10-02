@@ -130,4 +130,44 @@ void main() {
     expect(agenda.livre('2026-11-21'), isFalse);
     expect(agenda.livre('2026-11-22'), isTrue);
   });
+
+  group('Plano 21: contraproposta no modelo', () {
+    Contratacao base() => Contratacao.fromMap('c1', {
+      'interesseId': 'i1',
+      'musicoId': 'm1',
+      'donoId': 'e1',
+      'dia': '2099-01-10',
+      'cacheAcordado': 1000,
+      'status': 'proposta',
+    });
+
+    test('ida e volta de cacheContraproposto e houveContraproposta', () {
+      final c = base().copyWith(
+        status: StatusContratacao.contraproposta,
+        cacheContraproposto: 1200,
+        houveContraproposta: true,
+      );
+      final copia = Contratacao.fromMap('c1', c.toMap());
+
+      expect(copia.status, StatusContratacao.contraproposta);
+      expect(copia.cacheContraproposto, 1200);
+      expect(copia.houveContraproposta, isTrue);
+      expect(copia.rotuloStatus, 'Contraproposta');
+      expect(copia.ativa, isTrue);
+      expect(copia.emNegociacao, isTrue);
+    });
+
+    test('documento antigo: sem contraproposta e pode contrapropor', () {
+      final c = base();
+      expect(c.houveContraproposta, isFalse);
+      expect(c.cacheContraproposto, isNull);
+      expect(c.podeContrapropor, isTrue);
+      expect(c.toMap().containsKey('cacheContraproposto'), isFalse);
+      expect(c.copyWith(houveContraproposta: true).podeContrapropor, isFalse);
+      expect(
+        c.copyWith(status: StatusContratacao.confirmada).podeContrapropor,
+        isFalse,
+      );
+    });
+  });
 }

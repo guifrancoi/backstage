@@ -54,7 +54,7 @@ class MeusNumerosScreen extends StatelessWidget {
                       ),
                     ],
                     rotuloValor: 'Cachê recebido em ${agora.year}',
-                    rotuloPropostas: 'Propostas para responder',
+                    rotuloPropostas: 'Propostas em negociação',
                   ),
                 if (auth.atuaComoDono)
                   _Secao(
@@ -74,7 +74,7 @@ class MeusNumerosScreen extends StatelessWidget {
                       ),
                     ],
                     rotuloValor: 'Total pago em ${agora.year}',
-                    rotuloPropostas: 'Propostas aguardando resposta',
+                    rotuloPropostas: 'Propostas em negociação',
                   ),
               ],
             ),

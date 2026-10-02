@@ -242,4 +242,79 @@ void main() {
       expect(dono.filtrar(lista, termo: 'xyz'), isEmpty);
     });
   });
+
+  group('Plano 21: contraproposta', () {
+    Future<Contratacao> propostaGravada() async {
+      await dono.propor(proposta());
+      await aguardar();
+      return musico.recebidas.single;
+    }
+
+    test('músico contrapropõe; dono aceita; volta a proposta com o novo valor', () async {
+      final c = await propostaGravada();
+      expect(c.podeContrapropor, isTrue);
+
+      expect(await musico.contrapropor(c, 1800), isTrue);
+      await aguardar();
+      final pedida = dono.enviadas.single;
+      expect(pedida.status, StatusContratacao.contraproposta);
+      expect(pedida.cacheContraproposto, 1800);
+      expect(pedida.houveContraproposta, isTrue);
+      expect(pedida.ativa, isTrue);
+      // Agora é o dono quem precisa responder (selo da Home).
+      expect(dono.propostasPendentes, 1);
+      expect(musico.propostasPendentes, 0);
+
+      expect(await dono.aceitarContraproposta(pedida), isTrue);
+      await aguardar();
+      final ajustada = musico.recebidas.single;
+      expect(ajustada.status, StatusContratacao.proposta);
+      expect(ajustada.cacheAcordado, 1800);
+      expect(ajustada.podeContrapropor, isFalse); // uma rodada só
+      expect(musico.propostasPendentes, 1);
+
+      final avisos = await firestore.collection('notificacoes').get();
+      expect(
+        avisos.docs.map((d) => d.data()['tipo']),
+        containsAll(['contrapropostaEnviada', 'contrapropostaAceita']),
+      );
+    });
+
+    test('dono recusa a contraproposta: a contratação é cancelada e avisa', () async {
+      final c = await propostaGravada();
+      await musico.contrapropor(c, 2500);
+      await aguardar();
+
+      expect(
+        await dono.recusarContraproposta(dono.enviadas.single, motivo: 'Fora do orçamento'),
+        isTrue,
+      );
+      await aguardar();
+
+      final cancelada = musico.recebidas.single;
+      expect(cancelada.status, StatusContratacao.cancelada);
+      expect(cancelada.motivoCancelamento, 'Fora do orçamento');
+      expect(dono.ativaParaInteresse('i1'), isNull);
+      final aviso = (await firestore
+              .collection('notificacoes')
+              .where('tipo', isEqualTo: 'contrapropostaRecusada')
+              .get())
+          .docs
+          .single
+          .data();
+      expect(aviso['destinatarioId'], 'm1');
+      expect(aviso['texto'], contains('Fora do orçamento'));
+    });
+
+    test('filtro "propostas" inclui contrapropostas', () async {
+      final c = await propostaGravada();
+      await musico.contrapropor(c, 1800);
+      await aguardar();
+
+      expect(
+        dono.filtrar(dono.enviadas, filtro: FiltroContratacao.propostas),
+        hasLength(1),
+      );
+    });
+  });
 }

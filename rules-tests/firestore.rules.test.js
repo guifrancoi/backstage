@@ -1143,3 +1143,80 @@ test('avaliacoes: nota 1 a 5, comentário até 300, chaves fechadas, uma vez só
   await assertFails(setDoc(ref, avaliacao('m1', 'e1', { nota: 1 })));
   await assertFails(deleteDoc(ref));
 });
+
+// --- contraproposta de cachê (Plano 21) -------------------------------------
+
+/** Músico m1 pede [valor] na proposta c1. */
+function contrapropor(db, valor = 1800, extra = {}) {
+  return updateDoc(doc(db, 'contratacoes/c1'), {
+    status: 'contraproposta',
+    cacheContraproposto: valor,
+    houveContraproposta: true,
+    respondidoEm: new Date(),
+    ...extra,
+  });
+}
+
+test('contraproposta: músico pede outro valor; dono aceita e o músico confirma', async () => {
+  await seedContratacao();
+  await assertSucceeds(contrapropor(asUser('m1')));
+
+  // Só o dono aceita, e só pelo valor pedido.
+  await assertFails(
+    updateDoc(doc(asUser('m1'), 'contratacoes/c1'), {
+      status: 'proposta', cacheAcordado: 1800, respondidoEm: new Date(),
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(asUser('e1'), 'contratacoes/c1'), {
+      status: 'proposta', cacheAcordado: 1700, respondidoEm: new Date(),
+    }),
+  );
+  await assertSucceeds(
+    updateDoc(doc(asUser('e1'), 'contratacoes/c1'), {
+      status: 'proposta', cacheAcordado: 1800, respondidoEm: new Date(),
+    }),
+  );
+
+  // Segunda rodada não.
+  await assertFails(contrapropor(asUser('m1'), 2000));
+  // Confirmação segue normal.
+  await assertSucceeds(confirmar(asUser('m1')));
+});
+
+test('contraproposta: só o músico, valor válido e diferente, sem mexer em outros campos', async () => {
+  await seedContratacao();
+  await assertFails(contrapropor(asUser('e1')));
+  await assertFails(contrapropor(asUser('x9')));
+  await assertFails(contrapropor(asUser('m1'), 1500)); // igual ao proposto
+  await assertFails(contrapropor(asUser('m1'), 0));
+  await assertFails(contrapropor(asUser('m1'), 1800, { houveContraproposta: false }));
+  await assertFails(contrapropor(asUser('m1'), 1800, { dia: '2026-12-01' }));
+  // Não dá para confirmar direto da contraproposta.
+  await assertSucceeds(contrapropor(asUser('m1')));
+  await assertFails(confirmar(asUser('m1')));
+});
+
+test('contraproposta: dono recusa (cancela); músico não cancela por ele', async () => {
+  await seedContratacao();
+  await assertSucceeds(contrapropor(asUser('m1')));
+  const cancelamento = (uid) => ({
+    status: 'cancelada', canceladoEm: new Date(), canceladoPor: uid,
+  });
+  await assertFails(updateDoc(doc(asUser('m1'), 'contratacoes/c1'), cancelamento('m1')));
+  await assertSucceeds(updateDoc(doc(asUser('e1'), 'contratacoes/c1'), cancelamento('e1')));
+});
+
+test('contraproposta: proposta não nasce já com contraproposta', async () => {
+  await seedContratacao({ comProposta: false });
+  const dono = asUser('e1');
+  await assertFails(
+    setDoc(doc(dono, 'contratacoes/x'), { ...proposta, houveContraproposta: true }),
+  );
+  await assertFails(
+    setDoc(doc(dono, 'contratacoes/y'), { ...proposta, cacheContraproposto: 900 }),
+  );
+  await assertSucceeds(
+    setDoc(doc(dono, 'contratacoes/z'), { ...proposta, houveContraproposta: false }),
+  );
+});

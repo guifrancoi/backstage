@@ -39,8 +39,7 @@ class NumerosDoLado {
   final double valorNoAno;
   final double valorNoTotal;
 
-  /// Propostas ainda sem resposta (o músico precisa responder; o dono
-  /// aguarda).
+  /// Propostas ou contrapropostas ainda sem acordo (Plano 21).
   final int propostasPendentes;
 
   /// Últimos meses, do mais antigo ao atual.
@@ -78,9 +77,7 @@ NumerosDoLado calcularNumeros(
     proximos: confirmadas.where((c) => !c.data.isBefore(hoje)).length,
     valorNoAno: soma(realizadas.where(noAno)),
     valorNoTotal: soma(realizadas),
-    propostasPendentes: minhas
-        .where((c) => c.status == StatusContratacao.proposta)
-        .length,
+    propostasPendentes: minhas.where((c) => c.emNegociacao).length,
     porMes: [
       for (var i = meses - 1; i >= 0; i--)
         _doMes(realizadas, DateTime(agora.year, agora.month - i)),

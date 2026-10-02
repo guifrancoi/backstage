@@ -48,10 +48,13 @@ class ContratacaoProvider extends ChangeNotifier {
   List<Contratacao> get enviadas =>
       _contratacoes.where((c) => c.donoId == _uid).toList();
 
-  /// Propostas aguardando a minha confirmação (selo da Home).
-  int get propostasPendentes => recebidas
-      .where((c) => c.status == StatusContratacao.proposta)
-      .length;
+  /// O que espera a minha resposta (selo da Home): propostas recebidas
+  /// (sou o músico) e contrapropostas recebidas (sou o dono, Plano 21).
+  int get propostasPendentes =>
+      recebidas.where((c) => c.status == StatusContratacao.proposta).length +
+      enviadas
+          .where((c) => c.status == StatusContratacao.contraproposta)
+          .length;
 
   void _escutar(String? uid) {
     _contratacoesSubscription?.cancel();
@@ -80,7 +83,7 @@ class ContratacaoProvider extends ChangeNotifier {
     final resultado = lista.where((c) {
       final situacaoOk = switch (filtro) {
         FiltroContratacao.todas => true,
-        FiltroContratacao.propostas => c.status == StatusContratacao.proposta,
+        FiltroContratacao.propostas => c.emNegociacao,
         FiltroContratacao.confirmadas =>
           c.status == StatusContratacao.confirmada && !c.realizada,
         FiltroContratacao.encerradas => c.encerrada,
@@ -141,6 +144,47 @@ class ContratacaoProvider extends ChangeNotifier {
     return ok;
   }
 
+  /// Plano 21: o músico pede [valor] em vez do cachê proposto.
+  Future<bool> contrapropor(Contratacao contratacao, double valor) async {
+    final ok = await _executar(
+      () => _service.contraproporContratacao(contratacao.id, valor),
+    );
+    if (ok) {
+      await _avisar(
+        contratacao.copyWith(cacheContraproposto: valor),
+        TipoNotificacao.contrapropostaEnviada,
+      );
+    }
+    return ok;
+  }
+
+  /// Plano 21: o dono aceita o valor pedido.
+  Future<bool> aceitarContraproposta(Contratacao contratacao) async {
+    final ok = await _executar(
+      () => _service.aceitarContraproposta(contratacao),
+    );
+    if (ok) {
+      await _avisar(
+        contratacao.copyWith(cacheAcordado: contratacao.cacheContraproposto),
+        TipoNotificacao.contrapropostaAceita,
+      );
+    }
+    return ok;
+  }
+
+  /// Plano 21: o dono recusa a contraproposta — a contratação é cancelada
+  /// (para outro valor, conversam e ele faz uma nova proposta).
+  Future<bool> recusarContraproposta(
+    Contratacao contratacao, {
+    String? motivo,
+  }) {
+    return cancelar(
+      contratacao,
+      motivo: motivo,
+      tipo: TipoNotificacao.contrapropostaRecusada,
+    );
+  }
+
   Future<bool> recusar(Contratacao contratacao) async {
     final ok = await _executar(
       () => _service.recusarContratacao(contratacao.id),
@@ -149,7 +193,11 @@ class ContratacaoProvider extends ChangeNotifier {
     return ok;
   }
 
-  Future<bool> cancelar(Contratacao contratacao, {String? motivo}) async {
+  Future<bool> cancelar(
+    Contratacao contratacao, {
+    String? motivo,
+    TipoNotificacao tipo = TipoNotificacao.contratacaoCancelada,
+  }) async {
     final uid = _uid;
     if (uid == null) return false;
     final ok = await _executar(
@@ -165,7 +213,7 @@ class ContratacaoProvider extends ChangeNotifier {
         contratacao.copyWith(
           motivoCancelamento: texto.isEmpty ? null : texto,
         ),
-        TipoNotificacao.contratacaoCancelada,
+        tipo,
       );
     }
     return ok;

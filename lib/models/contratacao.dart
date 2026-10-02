@@ -1,9 +1,12 @@
 /// `proposta`: o dono propôs, aguarda o músico.
+/// `contraproposta` (Plano 21): o músico pediu outro cachê
+/// (`cacheContraproposto`), aguarda o dono aceitar (volta a `proposta` com o
+/// novo valor) ou recusar (`cancelada`). Uma rodada só.
 /// `confirmada`: o músico aceitou; o dia fica ocupado (`ocupacoes`).
 /// `recusada`: o músico recusou a proposta.
 /// `cancelada`: o dono retirou a proposta, ou uma das partes desfez a
 /// confirmada. "Realizada" não é gravado: é confirmada com o dia já passado.
-enum StatusContratacao { proposta, confirmada, recusada, cancelada }
+enum StatusContratacao { proposta, contraproposta, confirmada, recusada, cancelada }
 
 /// Show combinado entre dono e músico, nascido de um interesse aceito
 /// (coleção `contratacoes`, id automático). Só as duas partes leem.
@@ -33,6 +36,12 @@ class Contratacao {
   final String? canceladoPor;
   final String? motivoCancelamento;
 
+  /// Plano 21: valor pedido pelo músico na contraproposta.
+  final double? cacheContraproposto;
+
+  /// Plano 21: já houve contraproposta (trava a segunda rodada).
+  final bool houveContraproposta;
+
   Contratacao({
     required this.id,
     required this.interesseId,
@@ -56,6 +65,8 @@ class Contratacao {
     this.canceladoEm,
     this.canceladoPor,
     this.motivoCancelamento,
+    this.cacheContraproposto,
+    this.houveContraproposta = false,
   }) : status = status ?? StatusContratacao.proposta;
 
   /// `yyyy-MM-dd` do dia (sem hora), no fuso local.
@@ -70,9 +81,16 @@ class Contratacao {
 
   DateTime get data => DateTime.tryParse(dia) ?? DateTime(0);
 
-  bool get ativa =>
+  bool get ativa => emNegociacao || status == StatusContratacao.confirmada;
+
+  /// Proposta ou contraproposta: ainda sem acordo.
+  bool get emNegociacao =>
       status == StatusContratacao.proposta ||
-      status == StatusContratacao.confirmada;
+      status == StatusContratacao.contraproposta;
+
+  /// Plano 21: o músico ainda pode pedir outro cachê (uma vez só).
+  bool get podeContrapropor =>
+      status == StatusContratacao.proposta && !houveContraproposta;
 
   bool get realizada {
     if (status != StatusContratacao.confirmada) return false;
@@ -84,6 +102,7 @@ class Contratacao {
     if (realizada) return 'Realizada';
     return switch (status) {
       StatusContratacao.proposta => 'Proposta',
+      StatusContratacao.contraproposta => 'Contraproposta',
       StatusContratacao.confirmada => 'Confirmada',
       StatusContratacao.recusada => 'Recusada',
       StatusContratacao.cancelada => 'Cancelada',
@@ -124,6 +143,9 @@ class Contratacao {
     DateTime? canceladoEm,
     String? canceladoPor,
     String? motivoCancelamento,
+    double? cacheAcordado,
+    double? cacheContraproposto,
+    bool? houveContraproposta,
   }) {
     return Contratacao(
       id: id ?? this.id,
@@ -137,7 +159,7 @@ class Contratacao {
       dia: dia,
       horaInicio: horaInicio,
       horaFim: horaFim,
-      cacheAcordado: cacheAcordado,
+      cacheAcordado: cacheAcordado ?? this.cacheAcordado,
       logradouro: logradouro,
       numero: numero,
       cidade: cidade,
@@ -148,6 +170,8 @@ class Contratacao {
       canceladoEm: canceladoEm ?? this.canceladoEm,
       canceladoPor: canceladoPor ?? this.canceladoPor,
       motivoCancelamento: motivoCancelamento ?? this.motivoCancelamento,
+      cacheContraproposto: cacheContraproposto ?? this.cacheContraproposto,
+      houveContraproposta: houveContraproposta ?? this.houveContraproposta,
     );
   }
 
@@ -175,6 +199,8 @@ class Contratacao {
       canceladoEm: _dateTimeFromValue(map['canceladoEm']),
       canceladoPor: map['canceladoPor'] as String?,
       motivoCancelamento: map['motivoCancelamento'] as String?,
+      cacheContraproposto: (map['cacheContraproposto'] as num?)?.toDouble(),
+      houveContraproposta: map['houveContraproposta'] as bool? ?? false,
     );
   }
 
@@ -201,6 +227,8 @@ class Contratacao {
       'canceladoEm': ?canceladoEm,
       'canceladoPor': ?canceladoPor,
       'motivoCancelamento': ?motivoCancelamento,
+      'cacheContraproposto': ?cacheContraproposto,
+      'houveContraproposta': houveContraproposta,
     };
   }
 }

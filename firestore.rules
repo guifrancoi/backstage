@@ -207,6 +207,8 @@ service cloud.firestore {
         return d.donoId == request.auth.uid
           && d.musicoId != request.auth.uid
           && d.status == 'proposta'
+          && d.get('houveContraproposta', false) == false
+          && !('cacheContraproposto' in d)
           && d.dia is string
           && d.dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
           && i.status == 'aceito'
@@ -247,6 +249,24 @@ service cloud.firestore {
           && mudou().hasOnly(['status', 'respondidoEm']))
         // dono retira a proposta
         || (vaiPara('proposta', 'cancelada')
+          && request.auth.uid == resource.data.donoId
+          && cancelamentoValido())
+        // Plano 21: músico contrapropõe outro cachê — uma rodada só
+        || (vaiPara('proposta', 'contraproposta')
+          && request.auth.uid == resource.data.musicoId
+          && resource.data.get('houveContraproposta', false) == false
+          && mudou().hasOnly(['status', 'cacheContraproposto', 'houveContraproposta', 'respondidoEm'])
+          && request.resource.data.houveContraproposta == true
+          && request.resource.data.cacheContraproposto is number
+          && request.resource.data.cacheContraproposto > 0
+          && request.resource.data.cacheContraproposto != resource.data.cacheAcordado)
+        // Plano 21: dono aceita o valor pedido (volta a proposta)
+        || (vaiPara('contraproposta', 'proposta')
+          && request.auth.uid == resource.data.donoId
+          && mudou().hasOnly(['status', 'cacheAcordado', 'respondidoEm'])
+          && request.resource.data.cacheAcordado == resource.data.cacheContraproposto)
+        // Plano 21: dono recusa a contraproposta (encerra)
+        || (vaiPara('contraproposta', 'cancelada')
           && request.auth.uid == resource.data.donoId
           && cancelamentoValido())
         // qualquer parte desfaz a confirmada: o dia tem que ser liberado junto

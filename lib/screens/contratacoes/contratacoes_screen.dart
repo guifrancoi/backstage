@@ -236,6 +236,7 @@ class ContratacaoCard extends StatelessWidget {
     if (contratacao.realizada) return Colors.grey;
     return switch (contratacao.status) {
       StatusContratacao.proposta => Colors.orange,
+      StatusContratacao.contraproposta => Colors.blue,
       StatusContratacao.confirmada => Colors.deepPurple,
       StatusContratacao.recusada || StatusContratacao.cancelada => Colors.red,
     };
@@ -267,6 +268,64 @@ class ContratacaoCard extends StatelessWidget {
         const SnackBar(content: Text('Não foi possível abrir a agenda.')),
       );
     }
+  }
+
+  /// Plano 21: o músico pede outro cachê (uma rodada só).
+  Future<void> _contrapropor(BuildContext context) async {
+    final valor = await showDialog<double>(
+      context: context,
+      builder: (_) => _DialogoContraproposta(atual: contratacao.cacheAcordado),
+    );
+    if (valor == null || !context.mounted) return;
+    await _executar(
+      context,
+      (p) => p.contrapropor(contratacao, valor),
+      'Contraproposta enviada.',
+    );
+  }
+
+  /// Plano 21: o dono recusa a contraproposta (encerra a contratação).
+  Future<void> _recusarContraproposta(BuildContext context) async {
+    final motivoController = TextEditingController();
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Recusar contraproposta'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'A contratação será encerrada. Para combinar outro valor, '
+              'converse com o músico e faça uma nova proposta.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: motivoController,
+              decoration: const InputDecoration(labelText: 'Motivo (opcional)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Voltar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Recusar'),
+          ),
+        ],
+      ),
+    );
+    final motivo = motivoController.text;
+    motivoController.dispose();
+    if (confirmar != true || !context.mounted) return;
+    await _executar(
+      context,
+      (p) => p.recusarContraproposta(contratacao, motivo: motivo),
+      'Contraproposta recusada.',
+    );
   }
 
   Future<void> _cancelar(BuildContext context) async {
@@ -321,7 +380,9 @@ class ContratacaoCard extends StatelessWidget {
     final c = contratacao;
     final outraParte = souMusico ? c.donoNome : c.musicoNome;
     final proposta = c.status == StatusContratacao.proposta;
+    final contraproposta = c.status == StatusContratacao.contraproposta;
     final confirmada = c.status == StatusContratacao.confirmada;
+    final pedido = c.cacheContraproposto;
     // Plano 17: avaliação do show realizado (uma por parte, até 30 dias).
     final avaliacoes = context.watch<AvaliacaoProvider>();
     final minha = avaliacoes.minhaAvaliacao(c.id);
@@ -357,6 +418,23 @@ class ContratacaoCard extends StatelessWidget {
               '${formatarData(c.data)}, ${c.horaInicio} às ${c.horaFim}',
             ),
             Text('Cachê: R\$ ${c.cacheAcordado.toStringAsFixed(2)}'),
+            // Plano 21: o valor pedido pelo músico, enquanto o dono decide.
+            if (contraproposta && pedido != null)
+              Text(
+                souMusico
+                    ? 'Você pediu R\$ ${pedido.toStringAsFixed(2)} — '
+                          'aguardando o contratante.'
+                    : 'O músico pediu R\$ ${pedido.toStringAsFixed(2)}.',
+                style: const TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            else if (proposta && c.houveContraproposta)
+              const Text(
+                'Valor ajustado após contraproposta.',
+                style: TextStyle(color: Colors.grey),
+              ),
             Text(c.endereco),
             if (c.motivoCancelamento != null) ...[
               const SizedBox(height: 4),
@@ -397,6 +475,27 @@ class ContratacaoCard extends StatelessWidget {
                     ),
                     child: const Text('Confirmar'),
                   ),
+                  if (c.podeContrapropor)
+                    OutlinedButton(
+                      onPressed: () => _contrapropor(context),
+                      child: const Text('Contrapropor'),
+                    ),
+                ],
+                if (contraproposta && !souMusico) ...[
+                  OutlinedButton(
+                    onPressed: () => _recusarContraproposta(context),
+                    child: const Text('Recusar'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _executar(
+                      context,
+                      (p) => p.aceitarContraproposta(c),
+                      'Contraproposta aceita. Agora o músico confirma.',
+                    ),
+                    child: Text(
+                      'Aceitar R\$ ${(pedido ?? 0).toStringAsFixed(2)}',
+                    ),
+                  ),
                 ],
                 if (proposta && !souMusico)
                   OutlinedButton(
@@ -432,6 +531,78 @@ class ContratacaoCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Plano 21: pede o novo cachê (número > 0 e diferente do proposto).
+class _DialogoContraproposta extends StatefulWidget {
+  const _DialogoContraproposta({required this.atual});
+
+  final double atual;
+
+  @override
+  State<_DialogoContraproposta> createState() => _DialogoContrapropostaState();
+}
+
+class _DialogoContrapropostaState extends State<_DialogoContraproposta> {
+  final _formKey = GlobalKey<FormState>();
+  final _valor = TextEditingController();
+
+  @override
+  void dispose() {
+    _valor.dispose();
+    super.dispose();
+  }
+
+  double? get _lido => double.tryParse(_valor.text.trim().replaceAll(',', '.'));
+
+  String? _validar(String? _) {
+    final valor = _lido;
+    if (valor == null || valor <= 0) return 'Informe um valor maior que zero.';
+    if (valor == widget.atual) return 'Informe um valor diferente do proposto.';
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Contrapropor cachê'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Proposta atual: R\$ ${widget.atual.toStringAsFixed(2)}. '
+              'Você só pode contrapropor uma vez.',
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _valor,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Cachê pedido (R\$)'),
+              validator: _validar,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Voltar'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pop(context, _lido);
+            }
+          },
+          child: const Text('Enviar'),
+        ),
+      ],
     );
   }
 }

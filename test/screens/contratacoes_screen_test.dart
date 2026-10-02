@@ -497,4 +497,65 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('Plano 21: músico contrapropõe e o dono aceita o valor pedido', (tester) async {
+    await firestore.collection('contratacoes').doc('c5').set(
+      Contratacao(
+        id: 'c5',
+        interesseId: 'i1',
+        musicoId: 'm1',
+        musicoNome: 'Banda',
+        donoId: 'e1',
+        donoNome: 'Bar Central',
+        titulo: 'Show negociado',
+        dia: '2099-03-01',
+        horaInicio: '20:00',
+        horaFim: '23:00',
+        cacheAcordado: 1500,
+        logradouro: 'Rua A',
+        numero: '10',
+        cidade: 'Franca',
+        estado: 'SP',
+        criadoEm: DateTime(2026, 9, 1),
+      ).toMap(),
+    );
+
+    // Músico pede R$ 1800.
+    await tester.pumpWidget(
+      _app(servicoFake(firestore: firestore, uid: 'm1'), const ContratacoesScreen()),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Contrapropor'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enviar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Informe um valor maior que zero.'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Cachê pedido (R\$)'), '1500');
+    await tester.tap(find.text('Enviar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Informe um valor diferente do proposto.'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Cachê pedido (R\$)'), '1800');
+    await tester.tap(find.text('Enviar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Contraproposta enviada.'), findsOneWidget);
+    expect(find.text('Você pediu R\$ 1800.00 — aguardando o contratante.'), findsOneWidget);
+    expect(find.text('Contrapropor'), findsNothing);
+    expect(find.text('Confirmar'), findsNothing);
+
+    // Dono aceita.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      _app(servicoFake(firestore: firestore, uid: 'e1'), const ContratacoesScreen()),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('O músico pediu R\$ 1800.00.'), findsOneWidget);
+    await tester.tap(find.text('Aceitar R\$ 1800.00'));
+    await tester.pumpAndSettle();
+
+    final doc = await firestore.collection('contratacoes').doc('c5').get();
+    expect(doc.data()?['status'], 'proposta');
+    expect(doc.data()?['cacheAcordado'], 1800);
+    expect(find.text('Valor ajustado após contraproposta.'), findsOneWidget);
+  });
 }
