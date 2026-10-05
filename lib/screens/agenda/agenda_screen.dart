@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/contratacao.dart';
 import '../../providers/agenda_provider.dart';
@@ -14,9 +15,9 @@ import '../contratacoes/contratacoes_screen.dart';
 enum _Marca { bloqueado, proposta, confirmada }
 
 const _cores = {
-  _Marca.bloqueado: Colors.grey,
-  _Marca.proposta: Colors.orange,
-  _Marca.confirmada: Colors.deepPurple,
+  _Marca.bloqueado: AppColors.textoSecundario,
+  _Marca.proposta: AppColors.aviso,
+  _Marca.confirmada: AppColors.primariaTexto,
 };
 
 /// Calendário mensal. Músico: todo dia é livre por padrão; ele bloqueia os
@@ -83,6 +84,28 @@ class _AgendaScreenState extends State<AgendaScreen> {
               formatButtonVisible: false,
               titleCentered: true,
             ),
+            // O table_calendar não lê o tema: hoje e selecionado nas cores
+            // do Backstage (Plano 8).
+            calendarStyle: const CalendarStyle(
+              todayDecoration: BoxDecoration(
+                color: AppColors.primariaContainer,
+                shape: BoxShape.circle,
+              ),
+              todayTextStyle: TextStyle(
+                color: AppColors.primariaTexto,
+                fontWeight: FontWeight.w700,
+              ),
+              selectedDecoration: BoxDecoration(
+                color: AppColors.primaria,
+                shape: BoxShape.circle,
+              ),
+              selectedTextStyle: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+              weekendTextStyle: TextStyle(color: AppColors.textoSecundario),
+              outsideTextStyle: TextStyle(color: AppColors.textoTerciario),
+            ),
             selectedDayPredicate: (dia) => _mesmoDia(dia, _selecionado),
             onDaySelected: (selecionado, focado) => setState(() {
               _selecionado = selecionado;
@@ -129,7 +152,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
             child: doDia.isEmpty
                 ? const Text(
                     'Nenhum show neste dia.',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: AppColors.textoSecundario),
                   )
                 : Column(
                     children: [

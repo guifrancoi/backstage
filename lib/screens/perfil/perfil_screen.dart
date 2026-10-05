@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/foto_perfil.dart';
 import '../../widgets/dados_show_musico.dart';
 import '../../models/casa_show.dart';
@@ -174,10 +175,10 @@ class _PerfilMusicoAbaState extends State<_PerfilMusicoAba> {
         Center(
           child: CircleAvatar(
             radius: 55,
-            backgroundColor: Colors.deepPurple.shade100,
+            backgroundColor: AppColors.primariaContainer,
             backgroundImage: imagem,
             child: imagem == null
-                ? const Icon(Icons.person, size: 55, color: Colors.deepPurple)
+                ? const Icon(Icons.person, size: 55, color: AppColors.primariaTexto)
                 : null,
           ),
         ),
@@ -194,7 +195,7 @@ class _PerfilMusicoAbaState extends State<_PerfilMusicoAba> {
             child: Text(
               'Perfil incompleto: ele só aparece bem na busca depois de preenchido.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.orange),
+              style: TextStyle(color: AppColors.aviso),
             ),
           ),
         ],
@@ -232,7 +233,7 @@ class _PerfilMusicoAbaState extends State<_PerfilMusicoAba> {
                         child: Text(
                           link,
                           style: const TextStyle(
-                            color: Colors.blue,
+                            color: AppColors.info,
                             decoration: TextDecoration.underline,
                           ),
                         ),

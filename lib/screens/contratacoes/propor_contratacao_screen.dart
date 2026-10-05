@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../core/utils/validators.dart';
 import '../../models/agenda_publica.dart';
@@ -262,7 +263,7 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
               ),
               if (aviso != null) ...[
                 const SizedBox(height: 8),
-                Text(aviso, style: const TextStyle(color: Colors.orange)),
+                Text(aviso, style: const TextStyle(color: AppColors.aviso)),
               ],
               const SizedBox(height: 8),
               Row(

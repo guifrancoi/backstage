@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/agenda_publica.dart';
 import '../../models/interesse.dart';
@@ -101,12 +102,12 @@ class _PainelConviteState extends State<_PainelConvite> {
               Text(
                 situacao.rotulo,
                 style: TextStyle(
-                  color: habilitada ? Colors.deepPurple : Colors.grey,
+                  color: habilitada ? AppColors.primariaTexto : AppColors.textoSecundario,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             if (aviso != null && habilitada)
-              Text(aviso, style: const TextStyle(color: Colors.orange)),
+              Text(aviso, style: const TextStyle(color: AppColors.aviso)),
           ],
         ),
       );
@@ -125,7 +126,7 @@ class _PainelConviteState extends State<_PainelConvite> {
           const SizedBox(height: 4),
           const Text(
             'Para qual oportunidade?',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: AppColors.textoSecundario),
           ),
           const SizedBox(height: 8),
           Flexible(
@@ -174,7 +175,7 @@ class _PainelConviteState extends State<_PainelConvite> {
             const Text(
               'Você não tem oportunidades futuras. Crie uma para convidar '
               'para um show.',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: AppColors.textoSecundario),
             ),
             TextButton.icon(
               onPressed: () {

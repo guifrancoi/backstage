@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Backstage',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.escuro,
       locale: DevicePreview.locale(context),
       builder: DevicePreview.appBuilder,
       initialRoute: AppRoutes.login,

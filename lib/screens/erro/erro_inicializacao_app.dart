@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/firebase/firebase_bootstrap.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 
 /// App mínimo mostrado quando o Firebase não inicializa. Substitui o antigo
@@ -35,7 +36,7 @@ class _ErroInicializacaoAppState extends State<ErroInicializacaoApp> {
     return MaterialApp(
       title: 'Backstage',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.escuro,
       home: Scaffold(
         body: SafeArea(
           child: Center(
@@ -44,7 +45,7 @@ class _ErroInicializacaoAppState extends State<ErroInicializacaoApp> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+                  const Icon(Icons.cloud_off, size: 64, color: AppColors.textoSecundario),
                   const SizedBox(height: 16),
                   const Text(
                     'Não foi possível conectar ao Backstage',
@@ -62,7 +63,7 @@ class _ErroInicializacaoAppState extends State<ErroInicializacaoApp> {
                       'Nesta plataforma o Firebase precisa das chaves via '
                       '--dart-define (veja o CLAUDE.md da raiz).',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: AppColors.textoSecundario),
                     ),
                   ],
                   const SizedBox(height: 24),

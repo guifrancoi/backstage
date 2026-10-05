@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/filtro_musicos.dart';
 import '../../providers/auth_provider.dart';
@@ -143,7 +144,7 @@ class ListaMusicosScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Text(
             musicos.length == 1 ? '1 músico' : '${musicos.length} músicos',
-            style: const TextStyle(color: Colors.grey),
+            style: const TextStyle(color: AppColors.textoSecundario),
           ),
         ),
         Expanded(

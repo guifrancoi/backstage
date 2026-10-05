@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
 import '../core/utils/painel_numeros.dart';
 
 const _meses = [
@@ -29,7 +30,7 @@ class GraficoShowsPorMes extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: 16),
         child: Text(
           'Nenhum show realizado nesses meses.',
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(color: AppColors.textoSecundario),
         ),
       );
     }
@@ -53,7 +54,7 @@ class GraficoShowsPorMes extends StatelessWidget {
               drawVerticalLine: false,
               horizontalInterval: intervalo,
               getDrawingHorizontalLine: (_) =>
-                  FlLine(color: Colors.grey.shade300, strokeWidth: 1),
+                  FlLine(color: AppColors.borda, strokeWidth: 1),
             ),
             titlesData: FlTitlesData(
               topTitles: const AxisTitles(),
@@ -84,14 +85,14 @@ class GraficoShowsPorMes extends StatelessWidget {
             ),
             barTouchData: BarTouchData(
               touchTooltipData: BarTouchTooltipData(
-                getTooltipColor: (_) => Colors.black87,
+                getTooltipColor: (_) => AppColors.superficieAlta,
                 getTooltipItem: (grupo, _, barra, _) {
                   final s = porMes[grupo.x];
                   final n = barra.toY.toInt();
                   return BarTooltipItem(
                     '$n show${n == 1 ? '' : 's'} em '
                     '${rotuloMes(s.mes)}/${s.mes.year}',
-                    const TextStyle(color: Colors.white),
+                    const TextStyle(color: AppColors.texto),
                   );
                 },
               ),

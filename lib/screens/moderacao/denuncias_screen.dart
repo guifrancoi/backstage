@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/denuncia.dart';
 import '../../providers/denuncia_provider.dart';
@@ -88,7 +89,7 @@ class _DenunciasScreenState extends State<DenunciasScreen> {
                               Text(
                                 'Por ${d.autorNome} em ${formatarData(d.criadaEm)}'
                                 ' · alvo ${d.alvoUid}',
-                                style: const TextStyle(color: Colors.grey),
+                                style: const TextStyle(color: AppColors.textoSecundario),
                               ),
                               if (!d.analisada)
                                 Align(

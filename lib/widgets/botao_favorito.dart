@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
+
 /// Coração de favorito (Plano 18): cheio e vermelho quando [favorito].
 class BotaoFavorito extends StatelessWidget {
   const BotaoFavorito({
@@ -18,7 +20,7 @@ class BotaoFavorito extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(
         favorito ? Icons.favorite : Icons.favorite_border,
-        color: favorito ? Colors.red : null,
+        color: favorito ? AppColors.erro : null,
       ),
     );
   }

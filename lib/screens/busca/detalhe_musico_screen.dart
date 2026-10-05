@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/foto_perfil.dart';
 import '../../models/denuncia.dart';
 import '../../providers/auth_provider.dart';
@@ -93,13 +94,13 @@ class DetalheMusicoScreen extends StatelessWidget {
           Center(
             child: CircleAvatar(
               radius: 55,
-              backgroundColor: Colors.deepPurple.shade100,
+              backgroundColor: AppColors.primariaContainer,
               backgroundImage: imageProvider,
               child: !temFoto
                   ? const Icon(
                       Icons.music_note,
                       size: 50,
-                      color: Colors.deepPurple,
+                      color: AppColors.primariaTexto,
                     )
                   : null,
             ),
@@ -159,7 +160,7 @@ class DetalheMusicoScreen extends StatelessWidget {
                           child: Text(
                             link,
                             style: const TextStyle(
-                              color: Colors.blue,
+                              color: AppColors.info,
                               decoration: TextDecoration.underline,
                             ),
                           ),

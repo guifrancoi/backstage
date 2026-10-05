@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/agenda_publica.dart';
 import '../../providers/agenda_provider.dart';
@@ -43,7 +44,7 @@ class _AgendaPublicaSecaoState extends State<AgendaPublicaSecao> {
           Text(titulo),
           const SizedBox(height: 4),
           if (dias.isEmpty)
-            const Text('—', style: TextStyle(color: Colors.grey))
+            const Text('—', style: TextStyle(color: AppColors.textoSecundario))
           else
             Wrap(
               spacing: 6,
@@ -86,11 +87,11 @@ class _AgendaPublicaSecaoState extends State<AgendaPublicaSecao> {
           children: [
             const Text(
               'Livre nos demais dias.',
-              style: TextStyle(color: Colors.green),
+              style: TextStyle(color: AppColors.sucesso),
             ),
             const SizedBox(height: 8),
-            _linha('Com show', ocupados, Colors.deepPurple),
-            _linha('Bloqueado', bloqueados, Colors.grey),
+            _linha('Com show', ocupados, AppColors.primariaTexto),
+            _linha('Bloqueado', bloqueados, AppColors.textoSecundario),
           ],
         );
       },

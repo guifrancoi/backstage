@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../models/casa_show.dart';
 import '../../models/denuncia.dart';
 import '../../providers/auth_provider.dart';
@@ -218,7 +219,7 @@ class _DetalheEstabelecimentoScreenState
                     ? 'Você ainda não informou o contato.'
                     : 'Contato e CNPJ são liberados depois de um interesse '
                           'aceito entre vocês.',
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.textoSecundario),
               ),
           ],
         ),

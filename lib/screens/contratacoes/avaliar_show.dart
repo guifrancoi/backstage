@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../models/avaliacao.dart';
 import '../../models/contratacao.dart';
 import '../../providers/auth_provider.dart';
@@ -83,7 +84,7 @@ class _FolhaAvaliacaoState extends State<_FolhaAvaliacao> {
             ),
             Text(
               widget.contratacao.titulo,
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(color: AppColors.textoSecundario),
             ),
             const SizedBox(height: 12),
             Row(
@@ -93,7 +94,7 @@ class _FolhaAvaliacaoState extends State<_FolhaAvaliacao> {
                   IconButton(
                     tooltip: '$i estrela${i == 1 ? '' : 's'}',
                     iconSize: 36,
-                    color: Colors.amber,
+                    color: AppColors.estrela,
                     icon: Icon(i <= _nota ? Icons.star : Icons.star_border),
                     onPressed: () => setState(() => _nota = i),
                   ),

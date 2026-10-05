@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/foto_perfil.dart';
 import '../../models/contratacao.dart';
 import '../../models/oportunidade.dart';
@@ -79,7 +80,7 @@ class _MusicosSugeridosSecaoState extends State<MusicosSugeridosSecao> {
                 const SizedBox(height: 4),
                 const Text(
                   'Pelo gênero, cidade, cachê e agenda do dia.',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: AppColors.textoSecundario),
                 ),
                 if (sugestoes.isEmpty)
                   const Padding(
@@ -124,7 +125,7 @@ class _MusicosSugeridosSecaoState extends State<MusicosSugeridosSecao> {
                                 case final resumo when resumo.temAvaliacao)
                               Text(
                                 resumo.rotuloCurto,
-                                style: const TextStyle(color: Colors.amber),
+                                style: const TextStyle(color: AppColors.estrela),
                               ),
                             MotivosCompatibilidade(
                               compatibilidade: sugestao.compatibilidade,

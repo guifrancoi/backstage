@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/lembrete_show.dart';
 import '../../core/utils/painel_numeros.dart';
 import '../../widgets/grafico_shows_por_mes.dart' show resumoNumeros;
@@ -90,13 +91,13 @@ class HomeScreen extends StatelessWidget {
           for (final lembrete in lembretes)
             Card(
               color: lembrete.hoje
-                  ? Colors.deepPurple.shade50
-                  : Colors.blueGrey.shade50,
+                  ? AppColors.primariaContainer
+                  : AppColors.superficieAlta,
               margin: const EdgeInsets.only(bottom: 12),
               child: ListTile(
                 leading: Icon(
                   lembrete.hoje ? Icons.music_note : Icons.event,
-                  color: Colors.deepPurple,
+                  color: AppColors.primariaTexto,
                 ),
                 title: Text(
                   lembrete.titulo,
@@ -110,10 +111,10 @@ class HomeScreen extends StatelessWidget {
             ),
           if (paraAvaliar.isNotEmpty)
             Card(
-              color: Colors.amber.shade50,
+              color: AppColors.avisoFundo,
               margin: const EdgeInsets.only(bottom: 16),
               child: ListTile(
-                leading: const Icon(Icons.star, color: Colors.amber),
+                leading: const Icon(Icons.star, color: AppColors.estrela),
                 title: Text(
                   paraAvaliar.length == 1
                       ? 'Você tem 1 show para avaliar'

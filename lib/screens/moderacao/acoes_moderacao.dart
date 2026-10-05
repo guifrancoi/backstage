@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../models/denuncia.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/denuncia_provider.dart';
@@ -162,7 +163,7 @@ class AvisoBloqueado extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialBanner(
-      leading: const Icon(Icons.block, color: Colors.red),
+      leading: const Icon(Icons.block, color: AppColors.erro),
       content: Text('Você bloqueou $nome.'),
       actions: [
         TextButton(
@@ -238,7 +239,7 @@ class _FolhaDenunciaState extends State<_FolhaDenuncia> {
               widget.descricao,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(color: AppColors.textoSecundario),
             ),
             const SizedBox(height: 8),
             RadioGroup<MotivoDenuncia>(

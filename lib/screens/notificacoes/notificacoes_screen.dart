@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/notificacao.dart';
 import '../../providers/notificacao_provider.dart';
@@ -74,7 +75,7 @@ class NotificacoesScreen extends StatelessWidget {
                   key: ValueKey(n.id),
                   direction: DismissDirection.endToStart,
                   background: Container(
-                    color: Colors.red,
+                    color: AppColors.erro,
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 24),
                     child: const Icon(Icons.delete, color: Colors.white),
@@ -90,7 +91,7 @@ class NotificacoesScreen extends StatelessWidget {
                       n.lida
                           ? Icons.notifications_none
                           : Icons.notifications_active,
-                      color: n.lida ? Colors.grey : Colors.deepPurple,
+                      color: n.lida ? AppColors.textoSecundario : AppColors.primariaTexto,
                     ),
                     title: Text(
                       n.titulo,

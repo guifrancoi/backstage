@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../providers/avaliacao_provider.dart';
 import '../../providers/interesse_provider.dart';
@@ -45,7 +46,7 @@ class OportunidadesParaVoce extends StatelessWidget {
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
                   'Nenhuma oportunidade compatível no momento.',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: AppColors.textoSecundario),
                 ),
               ),
             for (final sugestao in sugestoes)
@@ -67,7 +68,7 @@ class OportunidadesParaVoce extends StatelessWidget {
                         case final resumo when resumo.temAvaliacao)
                       Text(
                         resumo.rotuloCurto,
-                        style: const TextStyle(color: Colors.amber),
+                        style: const TextStyle(color: AppColors.estrela),
                       ),
                     Text(
                       '${sugestao.item.contratante} · '

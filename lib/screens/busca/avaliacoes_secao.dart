@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/denuncia.dart';
 import '../../providers/auth_provider.dart';
@@ -36,13 +37,13 @@ class AvaliacoesSecao extends StatelessWidget {
         if (!resumo.temAvaliacao)
           const Text(
             'Ainda sem avaliações.',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: AppColors.textoSecundario),
           )
         else ...[
           Text(
             resumo.rotulo,
             style: const TextStyle(
-              color: Colors.amber,
+              color: AppColors.estrela,
               fontWeight: FontWeight.bold,
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../core/utils/lembrete_show.dart';
 import '../../models/contratacao.dart';
@@ -172,7 +173,7 @@ class _ListaFiltravelState extends State<_ListaFiltravel> {
             children: [
               Text(
                 '${lista.length} de ${widget.contratacoes.length}',
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.textoSecundario),
               ),
               const Spacer(),
               DropdownButton<OrdemContratacao>(
@@ -233,12 +234,12 @@ class ContratacaoCard extends StatelessWidget {
   final bool souMusico;
 
   Color get _corStatus {
-    if (contratacao.realizada) return Colors.grey;
+    if (contratacao.realizada) return AppColors.textoSecundario;
     return switch (contratacao.status) {
-      StatusContratacao.proposta => Colors.orange,
-      StatusContratacao.contraproposta => Colors.blue,
-      StatusContratacao.confirmada => Colors.deepPurple,
-      StatusContratacao.recusada || StatusContratacao.cancelada => Colors.red,
+      StatusContratacao.proposta => AppColors.aviso,
+      StatusContratacao.contraproposta => AppColors.info,
+      StatusContratacao.confirmada => AppColors.primariaTexto,
+      StatusContratacao.recusada || StatusContratacao.cancelada => AppColors.erro,
     };
   }
 
@@ -426,21 +427,21 @@ class ContratacaoCard extends StatelessWidget {
                           'aguardando o contratante.'
                     : 'O músico pediu R\$ ${pedido.toStringAsFixed(2)}.',
                 style: const TextStyle(
-                  color: Colors.blue,
+                  color: AppColors.info,
                   fontWeight: FontWeight.bold,
                 ),
               )
             else if (proposta && c.houveContraproposta)
               const Text(
                 'Valor ajustado após contraproposta.',
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: AppColors.textoSecundario),
               ),
             Text(c.endereco),
             if (c.motivoCancelamento != null) ...[
               const SizedBox(height: 4),
               Text(
                 'Motivo: ${c.motivoCancelamento}',
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.textoSecundario),
               ),
             ],
             const SizedBox(height: 8),
@@ -522,7 +523,7 @@ class ContratacaoCard extends StatelessWidget {
                   ),
                 if (minha != null)
                   Chip(
-                    avatar: const Icon(Icons.star, color: Colors.amber, size: 18),
+                    avatar: const Icon(Icons.star, color: AppColors.estrela, size: 18),
                     label: Text('Você avaliou: ${minha.nota}'),
                     visualDensity: VisualDensity.compact,
                   ),

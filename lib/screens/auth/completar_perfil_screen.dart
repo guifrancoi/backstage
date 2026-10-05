@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../models/casa_show.dart';
 import '../../models/musico.dart';
 import '../../models/usuario.dart';
@@ -114,7 +115,7 @@ class _CompletarPerfilScreenState extends State<CompletarPerfilScreen> {
           const SizedBox(height: 8),
           const Text(
             'Essa escolha não pode ser alterada depois.',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: AppColors.textoSecundario),
           ),
           const SizedBox(height: 16),
           RadioGroup<TipoUsuario>(
@@ -184,7 +185,7 @@ class _CompletarPerfilScreenState extends State<CompletarPerfilScreen> {
           const SizedBox(height: 8),
           const Text(
             'Esses dados aparecem para os outros usuários na busca.',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: AppColors.textoSecundario),
           ),
           const SizedBox(height: 24),
           formulario,

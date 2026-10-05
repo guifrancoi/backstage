@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../models/denuncia.dart';
 
 import '../../providers/auth_provider.dart';
@@ -138,7 +139,7 @@ class _DetalheOportunidadeScreenState extends State<DetalheOportunidadeScreen> {
                             TextSpan(
                               text: oportunidade.contratante,
                               style: const TextStyle(
-                                color: Colors.deepPurple,
+                                color: AppColors.primariaTexto,
                                 decoration: TextDecoration.underline,
                               ),
                             ),

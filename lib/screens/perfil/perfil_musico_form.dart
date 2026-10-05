@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -183,10 +184,10 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
           Center(
             child: CircleAvatar(
               radius: 55,
-              backgroundColor: Colors.deepPurple.shade100,
+              backgroundColor: AppColors.primariaContainer,
               backgroundImage: imagem,
               child: imagem == null
-                  ? const Icon(Icons.person, size: 55, color: Colors.deepPurple)
+                  ? const Icon(Icons.person, size: 55, color: AppColors.primariaTexto)
                   : null,
             ),
           ),

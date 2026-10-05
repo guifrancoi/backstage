@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
 import '../core/utils/compatibilidade.dart';
 
 /// "Compatibilidade 85%" + os motivos ("Mesmo gênero · Livre no dia"),
@@ -17,13 +18,13 @@ class MotivosCompatibilidade extends StatelessWidget {
         Text(
           'Compatibilidade ${compatibilidade.nota}%',
           style: const TextStyle(
-            color: Colors.deepPurple,
+            color: AppColors.primariaTexto,
             fontWeight: FontWeight.bold,
           ),
         ),
         Text(
           compatibilidade.motivos.join(' · '),
-          style: const TextStyle(color: Colors.black54),
+          style: const TextStyle(color: AppColors.textoSecundario),
         ),
       ],
     );

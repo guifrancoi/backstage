@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
 import '../core/utils/foto_perfil.dart';
 import '../models/musico.dart';
 import 'botao_favorito.dart';
@@ -84,7 +85,7 @@ class MusicoCard extends StatelessWidget {
                 child: Text(
                   resumoShow,
                   style: const TextStyle(
-                    color: Colors.deepPurple,
+                    color: AppColors.primariaTexto,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -131,13 +132,13 @@ class SeloAssinante extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.amber.shade100,
+        color: AppColors.avisoFundo,
         borderRadius: BorderRadius.circular(8),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.star, size: 14, color: Colors.amber),
+          Icon(Icons.star, size: 14, color: AppColors.estrela),
           SizedBox(width: 2),
           Text('Assinante', style: TextStyle(fontSize: 12)),
         ],

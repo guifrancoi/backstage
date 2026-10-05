@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/app_colors.dart';
 import '../models/mensagem.dart';
 
 class MensagemBubble extends StatelessWidget {
@@ -22,7 +23,7 @@ class MensagemBubble extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.grey.shade200,
+            color: AppColors.superficieAlta,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
@@ -31,7 +32,7 @@ class MensagemBubble extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               fontStyle: FontStyle.italic,
-              color: Colors.black54,
+              color: AppColors.textoSecundario,
             ),
           ),
         ),
@@ -43,8 +44,8 @@ class MensagemBubble extends StatelessWidget {
         : CrossAxisAlignment.start;
 
     final color = enviadaPorMim
-        ? Colors.deepPurple.shade100
-        : Colors.grey.shade300;
+        ? AppColors.primariaContainer
+        : AppColors.superficieAlta;
 
     return Column(
       crossAxisAlignment: alignment,

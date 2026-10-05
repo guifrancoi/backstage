@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/filtro_oportunidades.dart';
 import '../../providers/auth_provider.dart';
@@ -127,7 +128,7 @@ class ListaOportunidadesScreen extends StatelessWidget {
                   oportunidades.length == 1
                       ? '1 oportunidade'
                       : '${oportunidades.length} oportunidades',
-                  style: const TextStyle(color: Colors.grey),
+                  style: const TextStyle(color: AppColors.textoSecundario),
                 ),
               ),
               Expanded(
