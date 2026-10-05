@@ -33,6 +33,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # Plano 8: logo do app (gerado de ../logo_backstage.jpeg).
+  assets:
+    - assets/images/
+
   # Plano 8: Inter (OFL, ver assets/fonts/OFL-Inter.txt), empacotada para
   # funcionar offline.
   fonts:

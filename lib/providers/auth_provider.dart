@@ -87,7 +87,7 @@ class AuthProvider extends ChangeNotifier {
     } on TimeoutException catch (error, stack) {
       AppLogger.falha(_origem, 'Falha no login', error, stack);
       _errorMessage =
-          'O Firebase demorou para responder. Verifique a conexao e tente novamente.';
+          'O Firebase demorou para responder. Verifique a conexão e tente novamente.';
       return false;
     } finally {
       _isLoading = false;
@@ -127,7 +127,7 @@ class AuthProvider extends ChangeNotifier {
     } on TimeoutException catch (error, stack) {
       AppLogger.falha(_origem, 'Falha no cadastro', error, stack);
       _errorMessage =
-          'O Firebase demorou para responder. Verifique a conexao e tente novamente.';
+          'O Firebase demorou para responder. Verifique a conexão e tente novamente.';
       return false;
     } finally {
       _isLoading = false;
@@ -221,22 +221,22 @@ const _origem = 'AuthProvider';
 
 String _mensagemFirebaseAuth(FirebaseAuthException error) {
   return switch (error.code) {
-    'invalid-email' => 'E-mail invalido.',
-    'user-disabled' => 'Usuario desativado.',
+    'invalid-email' => 'E-mail inválido.',
+    'user-disabled' => 'Usuário desativado.',
     'user-not-found' ||
     'wrong-password' ||
-    'invalid-credential' => 'E-mail ou senha invalidos.',
-    'email-already-in-use' => 'Este e-mail ja esta cadastrado.',
+    'invalid-credential' => 'E-mail ou senha inválidos.',
+    'email-already-in-use' => 'Este e-mail já está cadastrado.',
     'weak-password' => 'A senha deve ser mais forte.',
-    _ => 'Nao foi possivel concluir a autenticacao.',
+    _ => 'Não foi possível concluir a autenticação.',
   };
 }
 
 String _mensagemFirebase(FirebaseException error) {
   return switch (error.code) {
-    'permission-denied' => 'Sem permissao para salvar os dados do cadastro.',
+    'permission-denied' => 'Sem permissão para salvar os dados do cadastro.',
     'unavailable' || 'deadline-exceeded' =>
-      'O Firebase esta indisponivel. Tente novamente.',
-    _ => 'Nao foi possivel salvar os dados do cadastro.',
+      'O Firebase está indisponível. Tente novamente.',
+    _ => 'Não foi possível salvar os dados do cadastro.',
   };
 }

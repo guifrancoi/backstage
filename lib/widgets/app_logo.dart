@@ -3,58 +3,54 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 
-/// Marca do protótipo: ícone em quadrado roxo, "Back" + "stage" (em roxo) e
-/// o slogan. [compacto] omite o slogan.
+/// Logo oficial do Backstage (`assets/images/logo_backstage.png`, com o
+/// nome) e o slogan. [compacto]: menor e sem slogan (tela de erro, Sobre).
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.compacto = false});
 
   final bool compacto;
 
+  /// Logo com o nome escrito.
+  static const imagem = 'assets/images/logo_backstage.png';
+
+  /// Só o símbolo, para espaços pequenos.
+  static const simbolo = 'assets/images/logo_simbolo.png';
+
   @override
   Widget build(BuildContext context) {
-    final texto = Theme.of(context).textTheme;
+    final tamanho = compacto ? 96.0 : 152.0;
     return Semantics(
       label: 'Backstage',
+      image: true,
       excludeSemantics: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 72,
-            height: 72,
+          DecoratedBox(
+            // Brilho roxo suave em volta, como o destaque dos protótipos.
             decoration: BoxDecoration(
-              color: AppColors.primariaContainer,
-              borderRadius: AppRadius.circular(AppRadius.xl - 4),
-              border: Border.all(
-                color: AppColors.primaria.withValues(alpha: 0.35),
-              ),
-            ),
-            child: const Icon(
-              Icons.music_note_rounded,
-              size: 38,
-              color: AppColors.primariaTexto,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text.rich(
-            const TextSpan(
-              children: [
-                TextSpan(text: 'Back'),
-                TextSpan(
-                  text: 'stage',
-                  style: TextStyle(color: AppColors.primariaTexto),
+              borderRadius: AppRadius.circular(tamanho * 0.2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaria.withValues(alpha: 0.35),
+                  blurRadius: 32,
                 ),
               ],
             ),
-            style: texto.displaySmall?.copyWith(fontSize: 34),
+            child: Image.asset(
+              imagem,
+              width: tamanho,
+              height: tamanho,
+              filterQuality: FilterQuality.medium,
+            ),
           ),
           if (!compacto) ...[
-            const SizedBox(height: AppSpacing.xxs),
+            const SizedBox(height: AppSpacing.md),
             Text(
               'Conectando artistas ao palco',
-              style: texto.bodyMedium?.copyWith(
-                color: AppColors.textoSecundario,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textoSecundario),
             ),
           ],
         ],

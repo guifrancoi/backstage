@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Plano 8: fundo do app (AppColors.fundo), para o splash e a janela. -->
+    <color name="fundo_backstage">#0B0B10</color>
+    <!-- Azul-marinho do logo: fundo do ícone adaptativo. -->
+    <color name="fundo_icone">#080E30</color>
+</resources>

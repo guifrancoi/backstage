@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../models/casa_show.dart';
 import '../../models/musico.dart';
 import '../../models/usuario.dart';
@@ -68,13 +69,17 @@ class _CompletarPerfilScreenState extends State<CompletarPerfilScreen> {
     );
   }
 
-  Future<void> _salvarPerfil(Future<bool> Function(PerfilProvider) salvar) async {
+  Future<void> _salvarPerfil(
+    Future<bool> Function(PerfilProvider) salvar,
+  ) async {
     final provider = context.read<PerfilProvider>();
     final ok = await salvar(provider);
     if (!mounted) return;
 
     if (!ok) {
-      _mostrarErro(provider.errorMessage ?? 'Não foi possível salvar seu perfil.');
+      _mostrarErro(
+        provider.errorMessage ?? 'Não foi possível salvar seu perfil.',
+      );
       return;
     }
     Navigator.pushReplacementNamed(context, AppRoutes.home);
@@ -103,49 +108,61 @@ class _CompletarPerfilScreenState extends State<CompletarPerfilScreen> {
   }
 
   Widget _passoTipo(AuthProvider authProvider) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    final texto = Theme.of(context).textTheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          const _IndicadorPasso(passo: 1),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
             'Você é músico ou dono de um estabelecimento?',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: texto.headlineSmall,
           ),
-          const SizedBox(height: 8),
-          const Text(
+          const SizedBox(height: AppSpacing.xs),
+          Text(
             'Essa escolha não pode ser alterada depois.',
-            style: TextStyle(color: AppColors.textoSecundario),
+            style: texto.bodyMedium?.copyWith(color: AppColors.textoSecundario),
           ),
-          const SizedBox(height: 16),
-          RadioGroup<TipoUsuario>(
-            groupValue: _tipoSelecionado,
-            onChanged: (valor) => setState(() => _tipoSelecionado = valor),
-            child: const Column(
+          const SizedBox(height: AppSpacing.lg),
+          // Cartões de "Tipo de conta" do protótipo de cadastro; mesma
+          // altura (a área rola, então a altura vem do maior).
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                RadioListTile<TipoUsuario>(
-                  title: Text('Músico'),
-                  subtitle: Text(
-                    'Quero divulgar meu trabalho e buscar oportunidades.',
+                Expanded(
+                  child: _CartaoTipo(
+                    icone: Icons.mic_none_rounded,
+                    titulo: 'Músico',
+                    descricao:
+                        'Quero divulgar meu trabalho e buscar oportunidades.',
+                    selecionado: _tipoSelecionado == TipoUsuario.musico,
+                    onTap: () =>
+                        setState(() => _tipoSelecionado = TipoUsuario.musico),
                   ),
-                  value: TipoUsuario.musico,
                 ),
-                RadioListTile<TipoUsuario>(
-                  title: Text('Dono de estabelecimento'),
-                  subtitle: Text(
-                    'Quero contratar músicos para meu bar ou casa de show.',
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _CartaoTipo(
+                    icone: Icons.storefront_outlined,
+                    titulo: 'Dono de estabelecimento',
+                    descricao:
+                        'Quero contratar músicos para meu bar ou casa de show.',
+                    selecionado: _tipoSelecionado == TipoUsuario.casaShow,
+                    onTap: () =>
+                        setState(() => _tipoSelecionado = TipoUsuario.casaShow),
                   ),
-                  value: TipoUsuario.casaShow,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.lg),
           PrimaryButton(
-            text: authProvider.isLoading ? 'Salvando...' : 'Continuar',
-            onPressed: (_tipoSelecionado == null || authProvider.isLoading)
-                ? null
-                : _continuar,
+            text: 'Continuar',
+            carregando: authProvider.isLoading,
+            onPressed: _tipoSelecionado == null ? null : _continuar,
           ),
         ],
       ),
@@ -171,25 +188,130 @@ class _CompletarPerfilScreenState extends State<CompletarPerfilScreen> {
       ),
     };
 
+    final texto = Theme.of(context).textTheme;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const _IndicadorPasso(passo: 2),
+          const SizedBox(height: AppSpacing.lg),
           Text(
             tipo == TipoUsuario.musico
                 ? 'Conte sobre seu trabalho artístico.'
                 : 'Conte sobre seu estabelecimento.',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: texto.headlineSmall,
           ),
-          const SizedBox(height: 8),
-          const Text(
+          const SizedBox(height: AppSpacing.xs),
+          Text(
             'Esses dados aparecem para os outros usuários na busca.',
-            style: TextStyle(color: AppColors.textoSecundario),
+            style: texto.bodyMedium?.copyWith(color: AppColors.textoSecundario),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.lg),
           formulario,
         ],
+      ),
+    );
+  }
+}
+
+/// "Passo 1 de 2" com barra de progresso (Plano 8).
+class _IndicadorPasso extends StatelessWidget {
+  const _IndicadorPasso({required this.passo});
+
+  final int passo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Passo $passo de 2',
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppColors.primariaTexto),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        ClipRRect(
+          borderRadius: AppRadius.circular(AppRadius.pilula),
+          child: LinearProgressIndicator(value: passo / 2, minHeight: 6),
+        ),
+      ],
+    );
+  }
+}
+
+/// Cartão de tipo de conta (protótipo): ícone, título e descrição; borda e
+/// fundo roxos quando escolhido.
+class _CartaoTipo extends StatelessWidget {
+  const _CartaoTipo({
+    required this.icone,
+    required this.titulo,
+    required this.descricao,
+    required this.selecionado,
+    required this.onTap,
+  });
+
+  final IconData icone;
+  final String titulo;
+  final String descricao;
+  final bool selecionado;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final texto = Theme.of(context).textTheme;
+    final raio = AppRadius.circular(AppRadius.lg);
+    return Semantics(
+      selected: selecionado,
+      inMutuallyExclusiveGroup: true,
+      button: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: selecionado
+              ? AppColors.primariaContainer
+              : AppColors.superficie,
+          borderRadius: raio,
+          border: Border.all(
+            color: selecionado ? AppColors.primaria : AppColors.borda,
+            width: selecionado ? 1.5 : 1,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: raio,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                children: [
+                  Icon(
+                    icone,
+                    size: 36,
+                    color: selecionado
+                        ? AppColors.primariaTexto
+                        : AppColors.textoSecundario,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    titulo,
+                    textAlign: TextAlign.center,
+                    style: texto.titleSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    descricao,
+                    textAlign: TextAlign.center,
+                    style: texto.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

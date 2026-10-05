@@ -114,11 +114,11 @@ void main() {
     });
 
     final errosAuth = {
-      'wrong-password': 'E-mail ou senha invalidos.',
-      'invalid-credential': 'E-mail ou senha invalidos.',
-      'invalid-email': 'E-mail invalido.',
-      'user-disabled': 'Usuario desativado.',
-      'codigo-desconhecido': 'Nao foi possivel concluir a autenticacao.',
+      'wrong-password': 'E-mail ou senha inválidos.',
+      'invalid-credential': 'E-mail ou senha inválidos.',
+      'invalid-email': 'E-mail inválido.',
+      'user-disabled': 'Usuário desativado.',
+      'codigo-desconhecido': 'Não foi possível concluir a autenticação.',
     };
     for (final MapEntry(key: codigo, value: mensagem) in errosAuth.entries) {
       test('login mapeia FirebaseAuthException "$codigo" para PT-BR', () async {
@@ -142,7 +142,7 @@ void main() {
 
       await provider.login(email: 'a@b.com', senha: 'x');
 
-      expect(provider.errorMessage, 'Sem permissao para salvar os dados do cadastro.');
+      expect(provider.errorMessage, 'Sem permissão para salvar os dados do cadastro.');
     });
 
     test('sessão restaurada carrega nome e tipoUsuario do Firestore', () async {

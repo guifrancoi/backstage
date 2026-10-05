@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
+import 'layout_auth.dart';
 
+/// Cadastro (protótipo "Criar conta", Plano 8). O tipo de conta (músico ou
+/// dono) é escolhido logo depois, no passo 1 do Completar perfil.
 class CadastroScreen extends StatefulWidget {
   const CadastroScreen({super.key});
 
@@ -32,15 +37,16 @@ class _CadastroScreenState extends State<CadastroScreen> {
     super.dispose();
   }
 
+  /// Validação local (Plano 8): a diferença aparece no próprio campo.
+  String? _validarConfirmacao(String? valor) {
+    final erro = Validators.validarSenha(valor);
+    if (erro != null) return erro;
+    if (valor != _senhaController.text) return 'As senhas não coincidem.';
+    return null;
+  }
+
   Future<void> _cadastrar() async {
     if (!_formKey.currentState!.validate()) return;
-
-    if (_senhaController.text != _confirmarSenhaController.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('As senhas não coincidem.')));
-      return;
-    }
 
     final authProvider = context.read<AuthProvider>();
     final sucesso = await authProvider.cadastrar(
@@ -58,7 +64,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
         builder: (_) => AlertDialog(
           title: const Text('Erro'),
           content: Text(
-            authProvider.errorMessage ?? 'Nao foi possivel criar a conta.',
+            authProvider.errorMessage ?? 'Não foi possível criar a conta.',
           ),
           actions: [
             TextButton(
@@ -87,54 +93,99 @@ class _CadastroScreenState extends State<CadastroScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final texto = Theme.of(context).textTheme;
+    const espaco = SizedBox(height: AppSpacing.md);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cadastro')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+    return LayoutAuth(
+      appBar: AppBar(backgroundColor: Colors.transparent),
+      child: AutofillGroup(
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text('Criar conta', style: texto.displaySmall),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                'Bem-vindo ao Backstage',
+                style: texto.bodyMedium?.copyWith(
+                  color: AppColors.textoSecundario,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
               CustomTextField(
                 controller: _nomeController,
                 label: 'Nome',
+                icone: Icons.person_outline,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.name],
                 validator: (value) =>
                     Validators.validarCampoObrigatorio(value, 'o nome'),
               ),
-              const SizedBox(height: 16),
+              espaco,
               CustomTextField(
                 controller: _emailController,
                 label: 'E-mail',
+                icone: Icons.mail_outline,
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.email],
                 validator: Validators.validarEmail,
               ),
-              const SizedBox(height: 16),
+              espaco,
               CustomTextField(
                 controller: _telefoneController,
                 label: 'Telefone',
+                icone: Icons.phone_outlined,
+                dica: '(16) 99999-0000',
                 keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.telephoneNumber],
                 validator: (value) =>
                     Validators.validarCampoObrigatorio(value, 'o telefone'),
               ),
-              const SizedBox(height: 16),
+              espaco,
               CustomTextField(
                 controller: _senhaController,
                 label: 'Senha',
+                icone: Icons.lock_outline,
                 obscureText: true,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.newPassword],
                 validator: Validators.validarSenha,
               ),
-              const SizedBox(height: 16),
+              espaco,
               CustomTextField(
                 controller: _confirmarSenhaController,
                 label: 'Confirmar senha',
+                icone: Icons.lock_outline,
                 obscureText: true,
-                validator: Validators.validarSenha,
+                textInputAction: TextInputAction.done,
+                validator: _validarConfirmacao,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
-                text: authProvider.isLoading ? 'Cadastrando...' : 'Cadastrar',
-                onPressed: authProvider.isLoading ? null : _cadastrar,
+                text: 'Criar conta',
+                carregando: authProvider.isLoading,
+                onPressed: _cadastrar,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              // Wrap: em tela estreita (ou fonte grande) o link desce.
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Já tem conta?',
+                    style: texto.bodyMedium?.copyWith(
+                      color: AppColors.textoSecundario,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Entrar'),
+                  ),
+                ],
               ),
             ],
           ),

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
+import 'layout_auth.dart';
 
+/// Login (protótipo, Plano 8): marca, e-mail e senha (com mostrar/ocultar),
+/// "Esqueceu a senha?" sob o campo e "Novo por aqui? Criar conta".
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -43,7 +48,8 @@ class _LoginScreenState extends State<LoginScreen> {
         const SnackBar(content: Text('Login realizado com sucesso!')),
       );
 
-      final precisaCompletarPerfil = await authProvider.precisaCompletarPerfil();
+      final precisaCompletarPerfil = await authProvider
+          .precisaCompletarPerfil();
       if (!mounted) return;
 
       Navigator.pushReplacementNamed(
@@ -72,51 +78,73 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final texto = Theme.of(context).textTheme;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const AppLogo(),
-                const SizedBox(height: 32),
-                CustomTextField(
-                  controller: _emailController,
-                  label: 'E-mail',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: Validators.validarEmail,
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _senhaController,
-                  label: 'Senha',
-                  obscureText: true,
-                  validator: Validators.validarSenha,
-                ),
-                const SizedBox(height: 24),
-                PrimaryButton(
-                  text: authProvider.isLoading ? 'Entrando...' : 'Entrar',
-                  onPressed: authProvider.isLoading ? null : _entrar,
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, AppRoutes.cadastro);
-                  },
-                  child: const Text('Criar conta'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, AppRoutes.recuperarSenha);
-                  },
+    return LayoutAuth(
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AppLogo(),
+              const SizedBox(height: AppSpacing.xl),
+              CustomTextField(
+                controller: _emailController,
+                label: 'E-mail',
+                icone: Icons.mail_outline,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.email],
+                validator: Validators.validarEmail,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              CustomTextField(
+                controller: _senhaController,
+                label: 'Senha',
+                icone: Icons.lock_outline,
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.password],
+                validator: Validators.validarSenha,
+                onSubmitted: (_) {
+                  if (!authProvider.isLoading) _entrar();
+                },
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.recuperarSenha),
                   child: const Text('Esqueceu a senha?'),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              PrimaryButton(
+                text: 'Entrar',
+                carregando: authProvider.isLoading,
+                onPressed: _entrar,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              // Wrap: em tela estreita (ou fonte grande) o link desce.
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Novo por aqui?',
+                    style: texto.bodyMedium?.copyWith(
+                      color: AppColors.textoSecundario,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.cadastro),
+                    child: const Text('Criar conta'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

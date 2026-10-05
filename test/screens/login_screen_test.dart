@@ -71,20 +71,26 @@ void main() {
     expect(find.text('A senha deve ter ao menos 6 caracteres.'), findsOneWidget);
   });
 
-  testWidgets('mostra "Entrando..." e depois o diálogo de erro', (tester) async {
+  testWidgets('mostra o carregando no botão e depois o diálogo de erro', (tester) async {
     await tester.pumpWidget(_app(AuthProvider(service: _ServicoLoginFalho())));
 
     await _preencher(tester, email: 'a@b.com', senha: '123456');
     await tester.tap(find.text('Entrar'));
     await tester.pump();
 
-    expect(find.text('Entrando...'), findsOneWidget);
+    // Plano 8: indicador no botão, que fica desabilitado.
+    final botao = find.byType(ElevatedButton);
+    expect(
+      find.descendant(of: botao, matching: find.byType(CircularProgressIndicator)),
+      findsOneWidget,
+    );
+    expect(tester.widget<ElevatedButton>(botao).onPressed, isNull);
 
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
     expect(find.text('Erro'), findsOneWidget);
-    expect(find.text('E-mail ou senha invalidos.'), findsOneWidget);
+    expect(find.text('E-mail ou senha inválidos.'), findsOneWidget);
 
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
