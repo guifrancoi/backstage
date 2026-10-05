@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/agenda_publica.dart';
 import '../../providers/agenda_provider.dart';
+import '../../widgets/etiqueta.dart';
 
 /// Próximos dias em que o músico **não** está livre: com show (`ocupacoes`)
 /// ou bloqueados por ele (`bloqueios`). Os demais dias são livres.
@@ -35,30 +36,22 @@ class _AgendaPublicaSecaoState extends State<AgendaPublicaSecao> {
       ..sort();
   }
 
-  Widget _linha(String titulo, List<DateTime> dias, Color cor) {
+  Widget _linha(String titulo, List<DateTime> dias, TipoEtiqueta tipo) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(titulo),
-          const SizedBox(height: 4),
-          if (dias.isEmpty)
-            const Text('—', style: TextStyle(color: AppColors.textoSecundario))
-          else
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final dia in dias.take(12))
-                  Chip(
-                    label: Text(formatarData(dia)),
-                    backgroundColor: cor.withValues(alpha: 0.15),
-                    side: BorderSide(color: cor),
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
-            ),
+          Text(titulo, style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final dia in dias.take(12))
+                Etiqueta(formatarData(dia), tipo: tipo),
+            ],
+          ),
         ],
       ),
     );
@@ -82,16 +75,22 @@ class _AgendaPublicaSecaoState extends State<AgendaPublicaSecao> {
           agenda.bloqueados.where((d) => !agenda.ocupado(d)),
         );
 
+        // Plano 8: só as linhas com dias; sem nenhum, uma frase só.
+        final semNada = ocupados.isEmpty && bloqueados.isEmpty;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Livre nos demais dias.',
-              style: TextStyle(color: AppColors.sucesso),
+            Text(
+              semNada
+                  ? 'Livre em todos os próximos dias.'
+                  : 'Livre nos demais dias.',
+              style: const TextStyle(color: AppColors.sucesso),
             ),
-            const SizedBox(height: 8),
-            _linha('Com show', ocupados, AppColors.primariaTexto),
-            _linha('Bloqueado', bloqueados, AppColors.textoSecundario),
+            if (!semNada) const SizedBox(height: 8),
+            if (ocupados.isNotEmpty)
+              _linha('Com show', ocupados, TipoEtiqueta.destaque),
+            if (bloqueados.isNotEmpty)
+              _linha('Bloqueado', bloqueados, TipoEtiqueta.neutra),
           ],
         );
       },

@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../core/utils/foto_perfil.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../models/contratacao.dart';
 import '../../models/oportunidade.dart';
 import '../../providers/avaliacao_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../widgets/avatar_iniciais.dart';
+import '../../widgets/etiqueta.dart';
 import '../../widgets/motivos_compatibilidade.dart';
 import '../../widgets/musico_card.dart' show SeloAssinante;
+import '../../widgets/texto_valor.dart';
+import '../../widgets/titulo_secao.dart';
 import 'acoes_interesse.dart';
 
 /// "Músicos sugeridos" (Plano 15) no detalhe da oportunidade do próprio
@@ -67,104 +71,109 @@ class _MusicosSugeridosSecaoState extends State<MusicosSugeridosSecao> {
           ),
         );
 
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Músicos sugeridos',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const TituloSecao('Músicos sugeridos', padding: EdgeInsets.zero),
+            Text(
+              'Pelo gênero, cidade, cachê e agenda do dia.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (sugestoes.isEmpty)
+              const Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: AppSpacing.card,
+                  child: Text('Nenhum músico compatível sem convite ainda.'),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Pelo gênero, cidade, cachê e agenda do dia.',
-                  style: TextStyle(color: AppColors.textoSecundario),
-                ),
-                if (sugestoes.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Text(
-                      'Nenhum músico compatível sem convite ainda.',
-                    ),
-                  ),
-                for (final sugestao in sugestoes) ...[
-                  const Divider(height: 24),
-                  Row(
+              ),
+            for (final sugestao in sugestoes)
+              Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Padding(
+                  padding: AppSpacing.card,
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        backgroundImage: imagemDaFoto(sugestao.item.foto),
-                        child: sugestao.item.foto == null
-                            ? const Icon(Icons.music_note)
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AvatarIniciais(
+                            nome: sugestao.item.nomeArtistico,
+                            foto: sugestao.item.foto,
+                            tamanho: 48,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Flexible(
-                                  child: Text(
-                                    sugestao.item.nomeArtistico,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                Text(
+                                  sugestao.item.nomeArtistico,
+                                  style: Theme.of(context).textTheme.titleSmall,
                                 ),
-                                if (sugestao.assinante) ...[
-                                  const SizedBox(width: 6),
-                                  const SeloAssinante(),
-                                ],
+                                const SizedBox(height: AppSpacing.xxs),
+                                Wrap(
+                                  spacing: AppSpacing.xs,
+                                  runSpacing: AppSpacing.xxs,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Etiqueta(sugestao.item.generoMusical),
+                                    if (sugestao.assinante)
+                                      const SeloAssinante(),
+                                    if (avaliacoes.resumoDe(sugestao.item.id)
+                                        case final resumo
+                                        when resumo.temAvaliacao)
+                                      Text(
+                                        resumo.rotuloCurto,
+                                        style: const TextStyle(
+                                          color: AppColors.estrela,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
-                            if (avaliacoes.resumoDe(sugestao.item.id)
-                                case final resumo when resumo.temAvaliacao)
-                              Text(
-                                resumo.rotuloCurto,
-                                style: const TextStyle(color: AppColors.estrela),
+                          ),
+                          TextoValor(sugestao.item.cacheMedio),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      MotivosCompatibilidade(
+                        compatibilidade: sugestao.compatibilidade,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.detalheMusico,
+                                arguments: sugestao.item.id,
                               ),
-                            MotivosCompatibilidade(
-                              compatibilidade: sugestao.compatibilidade,
+                              child: const Text('Ver perfil'),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => confirmarConvite(
+                                context,
+                                sugestao.item,
+                                oportunidade: widget.oportunidade,
+                              ),
+                              child: const Text('Convidar'),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pushNamed(
-                            context,
-                            AppRoutes.detalheMusico,
-                            arguments: sugestao.item.id,
-                          ),
-                          child: const Text('Ver perfil'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => confirmarConvite(
-                            context,
-                            sugestao.item,
-                            oportunidade: widget.oportunidade,
-                          ),
-                          child: const Text('Convidar'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
+                ),
+              ),
+          ],
         );
       },
     );

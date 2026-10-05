@@ -1,6 +1,9 @@
 import 'package:backstage/core/theme/app_colors.dart';
 import 'package:backstage/core/theme/app_theme.dart';
 import 'package:backstage/widgets/avatar_iniciais.dart';
+import 'package:backstage/widgets/bloco_info.dart';
+import 'package:backstage/widgets/cabecalho_perfil.dart';
+import 'package:backstage/widgets/link_portfolio.dart';
 import 'package:backstage/widgets/campo_pesquisa.dart';
 import 'package:backstage/widgets/estados.dart';
 import 'package:backstage/widgets/etiqueta.dart';
@@ -170,5 +173,74 @@ void main() {
       await _montar(tester, campo(''));
       expect(find.text('rock '), findsNothing);
     });
+  });
+
+  group('LinkPortfolio', () {
+    test('completa o https e recusa link sem endereço', () {
+      expect(
+        LinkPortfolio.uriDe('instagram.com/banda').toString(),
+        'https://instagram.com/banda',
+      );
+      expect(
+        LinkPortfolio.uriDe('http://site.com').toString(),
+        'http://site.com',
+      );
+      expect(LinkPortfolio.uriDe('   '), isNull);
+    });
+
+    test('ícone pelo site', () {
+      expect(
+        LinkPortfolio.iconeDe('instagram.com/x'),
+        Icons.camera_alt_outlined,
+      );
+      expect(
+        LinkPortfolio.iconeDe('https://youtu.be/x'),
+        Icons.smart_display_outlined,
+      );
+      expect(
+        LinkPortfolio.iconeDe('open.spotify.com/x'),
+        Icons.headphones_outlined,
+      );
+      expect(LinkPortfolio.iconeDe('meusite.com.br'), Icons.link);
+    });
+  });
+
+  testWidgets('BlocoInfo em grade e CabecalhoPerfil com iniciais', (
+    tester,
+  ) async {
+    await _montar(
+      tester,
+      // Esticado, como nas telas de detalhe.
+      const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          CabecalhoPerfil(nome: 'Ana Vieira'),
+          GradeBlocos(
+            blocos: [
+              BlocoInfo(rotulo: 'Cachê médio', valor: r'R$ 1.200'),
+              BlocoInfo(rotulo: 'Avaliação', valor: '4,9'),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('AV'), findsOneWidget);
+    expect(find.text('Ana Vieira'), findsOneWidget);
+    // Avatar e nome centralizados no cabeçalho (largura toda da tela).
+    final larguraTela = tester.view.physicalSize.width /
+        tester.view.devicePixelRatio;
+    expect(tester.getCenter(find.text('AV')).dx, closeTo(larguraTela / 2, 1));
+    expect(
+      tester.getCenter(find.text('Ana Vieira')).dx,
+      closeTo(larguraTela / 2, 1),
+    );
+    expect(find.text('CACHÊ MÉDIO'), findsOneWidget);
+    expect(find.text(r'R$ 1.200'), findsOneWidget);
+    // Lado a lado: mesma altura na grade de 2 colunas.
+    expect(
+      tester.getTopLeft(find.text('CACHÊ MÉDIO')).dy,
+      tester.getTopLeft(find.text('AVALIAÇÃO')).dy,
+    );
   });
 }

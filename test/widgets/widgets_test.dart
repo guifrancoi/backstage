@@ -135,7 +135,7 @@ void main() {
         ),
       )));
 
-      expect(find.text('Sobre o show'), findsOneWidget);
+      expect(find.text('SOBRE O SHOW'), findsOneWidget);
       expect(find.text('Formação: Banda (4 integrantes)'), findsOneWidget);
       expect(find.text('Duração do show: 1h30'), findsOneWidget);
       expect(find.textContaining('Repertório'), findsNothing);
@@ -145,7 +145,7 @@ void main() {
     testWidgets('nada preenchido: a seção não aparece', (tester) async {
       await tester.pumpWidget(_app(DadosShowMusico(musico: _musico())));
 
-      expect(find.text('Sobre o show'), findsNothing);
+      expect(find.text('SOBRE O SHOW'), findsNothing);
     });
   });
 

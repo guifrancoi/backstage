@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../models/musico.dart';
+import 'titulo_secao.dart';
 
 /// Seção "Sobre o show" (Plano 14): formação, equipamento, duração e
 /// repertório — só o que estiver preenchido. Nada preenchido = nada aparece.
+/// Plano 8: é um `CardSecao` próprio.
 class DadosShowMusico extends StatelessWidget {
-  const DadosShowMusico({super.key, required this.musico});
+  const DadosShowMusico({
+    super.key,
+    required this.musico,
+    this.padding = EdgeInsets.zero,
+  });
 
   final Musico musico;
+
+  /// Espaço em volta do card (só existe quando há algo a mostrar).
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     final linhas = [
-      if (musico.formacaoDescrita case final formacao?)
-        'Formação: $formacao',
+      if (musico.formacaoDescrita case final formacao?) 'Formação: $formacao',
       if (musico.equipamentoProprio) 'Tem equipamento próprio (som/luz)',
       if (musico.duracaoShowMin case final minutos?)
         'Duração do show: ${_duracao(minutos)}',
@@ -22,19 +30,18 @@ class DadosShowMusico extends StatelessWidget {
     if (linhas.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Sobre o show',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          for (final linha in linhas) ...[
-            const SizedBox(height: 8),
-            Text(linha),
+      padding: padding,
+      child: CardSecao(
+        titulo: 'Sobre o show',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (i, linha) in linhas.indexed) ...[
+              if (i > 0) const SizedBox(height: 6),
+              Text(linha),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

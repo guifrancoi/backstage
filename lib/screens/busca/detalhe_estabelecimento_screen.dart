@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../models/casa_show.dart';
 import '../../models/denuncia.dart';
 import '../../providers/auth_provider.dart';
@@ -9,17 +10,23 @@ import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../providers/perfil_provider.dart';
 import '../../routes/app_routes.dart';
-import '../../widgets/musico_card.dart' show SeloAssinante;
+import '../../widgets/bloco_info.dart';
+import '../../widgets/cabecalho_perfil.dart';
+import '../../widgets/estados.dart';
+import '../../widgets/etiqueta.dart';
+import '../../widgets/musico_card.dart' show InfoComIcone, SeloAssinante;
 import '../../widgets/oportunidade_card.dart';
+import '../../widgets/titulo_secao.dart';
 import '../moderacao/acoes_moderacao.dart';
-import 'abrir_mapa.dart';
 import 'acoes_interesse.dart';
 import 'avaliacoes_secao.dart';
+import 'card_local.dart';
 
-/// Perfil público do estabelecimento (Plano 16): endereço com mapa,
-/// capacidade, estilos, descrição e as oportunidades abertas do dono.
-/// Contato e CNPJ só aparecem para o dono e para quem já conversa com ele
-/// (as regras não deixam os outros lerem `privado/dados`).
+/// Perfil público do estabelecimento (Plano 16; visual do Plano 8):
+/// cabeçalho em gradiente, capacidade, local com mapa, estilos, sobre,
+/// avaliações, contato e as oportunidades abertas do dono. Contato e CNPJ
+/// só aparecem para o dono e para quem já conversa com ele (as regras não
+/// deixam os outros lerem `privado/dados`).
 class DetalheEstabelecimentoScreen extends StatefulWidget {
   const DetalheEstabelecimentoScreen({super.key, required this.donoId});
 
@@ -35,100 +42,24 @@ class _DetalheEstabelecimentoScreenState
   late final Future<CasaShow?> _estabelecimento = context
       .read<PerfilProvider>()
       .estabelecimentoPublico(widget.donoId);
-  bool _carregandoMapa = false;
-
-  Future<void> _verNoMapa(CasaShow casa) async {
-    setState(() => _carregandoMapa = true);
-    try {
-      await abrirMapa(
-        context,
-        logradouro: casa.logradouro,
-        numero: casa.numero,
-        cidade: casa.cidade,
-        estado: casa.estado,
-        cep: casa.cep,
-      );
-    } finally {
-      if (mounted) setState(() => _carregandoMapa = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Estabelecimento')),
-      body: FutureBuilder<CasaShow?>(
-        future: _estabelecimento,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return const _Mensagem(
-              'Não foi possível carregar o estabelecimento. '
-              'Verifique sua conexão.',
-            );
-          }
-          final auth = context.watch<AuthProvider>();
-          final casa = snapshot.data;
-          // Perfil oculto (conta admin) só aparece para o admin.
-          if (casa != null && casa.oculto && !auth.isAdmin) {
-            return const _Mensagem('Estabelecimento não encontrado.');
-          }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (casa == null)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
-                      'Este estabelecimento ainda não completou o perfil.',
-                    ),
-                  ),
-                )
-              else
-                _dados(context, casa, ehDono: auth.userId == widget.donoId),
-              const SizedBox(height: 24),
-              _OportunidadesAbertas(donoId: widget.donoId),
-            ],
-          );
-        },
-      ),
-    );
-  }
+    return FutureBuilder<CasaShow?>(
+      future: _estabelecimento,
+      builder: (context, snapshot) {
+        final carregou = snapshot.connectionState == ConnectionState.done;
+        final auth = context.watch<AuthProvider>();
+        var casa = snapshot.data;
+        // Perfil oculto (conta admin) só aparece para o admin.
+        final oculto = casa != null && casa.oculto && !auth.isAdmin;
+        if (oculto) casa = null;
 
-  Widget _dados(BuildContext context, CasaShow casa, {required bool ehDono}) {
-    final assinante = context.watch<OportunidadeProvider>().ehAssinante(
-      widget.donoId,
-    );
-    final temEndereco =
-        casa.logradouro.isNotEmpty &&
-        casa.numero.isNotEmpty &&
-        casa.estado.isNotEmpty;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    casa.nome,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (assinante) ...[
-                  const SizedBox(width: 8),
-                  const SeloAssinante(),
-                ],
-                const Spacer(),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Estabelecimento'),
+            actions: [
+              if (casa != null)
                 MenuModeracao(
                   alvoUid: widget.donoId,
                   nome: casa.nome,
@@ -137,94 +68,155 @@ class _DetalheEstabelecimentoScreenState
                   descricao: casa.nome,
                   rotuloDenuncia: 'Denunciar estabelecimento',
                 ),
-              ],
-            ),
-            if (context.watch<OportunidadeProvider>().ehBloqueado(widget.donoId))
-              AvisoBloqueado(uid: widget.donoId, nome: casa.nome),
-            const SizedBox(height: 16),
-            const Text(
-              'Localização',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            if (temEndereco) ...[
-              Text('${casa.logradouro}, ${casa.numero}'),
-              Text(
-                '${casa.cidade} — ${casa.estado}'
-                '${casa.cep != null ? '  CEP: ${casa.cep}' : ''}',
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _carregandoMapa ? null : () => _verNoMapa(casa),
-                  icon: _carregandoMapa
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+            ],
+          ),
+          body: !carregou
+              ? const EstadoCarregando()
+              : snapshot.hasError
+              ? const EstadoErro(
+                  mensagem:
+                      'Não foi possível carregar o estabelecimento. '
+                      'Verifique sua conexão.',
+                )
+              : oculto
+              ? const EstadoVazio(
+                  icone: Icons.storefront_outlined,
+                  titulo: 'Estabelecimento não encontrado.',
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.xs,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (casa == null)
+                        const Card(
+                          margin: EdgeInsets.zero,
+                          child: Padding(
+                            padding: AppSpacing.card,
+                            child: Text(
+                              'Este estabelecimento ainda não completou o perfil.',
+                            ),
+                          ),
                         )
-                      : const Icon(Icons.map_outlined),
-                  label: const Text('Ver no mapa'),
+                      else
+                        ..._dados(
+                          context,
+                          casa,
+                          ehDono: auth.userId == widget.donoId,
+                        ),
+                      const SizedBox(height: AppSpacing.lg),
+                      _OportunidadesAbertas(donoId: widget.donoId),
+                    ],
+                  ),
                 ),
-              ),
-            ] else
-              Text(casa.cidade),
-            if (casa.capacidade > 0) ...[
-              const SizedBox(height: 12),
-              Text('Capacidade: ${casa.capacidade} pessoas'),
-            ],
-            if (casa.estilosDesejados.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Estilos que procura',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  for (final estilo in casa.estilosDesejados)
-                    Chip(
-                      label: Text(estilo),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                ],
-              ),
-            ],
-            if (casa.descricao.trim().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Descrição',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(casa.descricao),
-            ],
-            const SizedBox(height: 16),
-            AvaliacoesSecao(uid: widget.donoId),
-            const SizedBox(height: 16),
-            const Text(
-              'Contato',
-              style: TextStyle(fontWeight: FontWeight.bold),
+        );
+      },
+    );
+  }
+
+  List<Widget> _dados(
+    BuildContext context,
+    CasaShow casa, {
+    required bool ehDono,
+  }) {
+    final provider = context.watch<OportunidadeProvider>();
+    final cidade = casa.estado.isEmpty
+        ? casa.cidade
+        : '${casa.cidade}, ${casa.estado}';
+    const espaco = SizedBox(height: AppSpacing.sm);
+
+    return [
+      if (provider.ehBloqueado(widget.donoId))
+        AvisoBloqueado(uid: widget.donoId, nome: casa.nome),
+      CabecalhoPerfil(
+        nome: casa.nome,
+        etiquetas: [
+          InfoComIcone(Icons.place_outlined, cidade),
+          if (provider.ehAssinante(widget.donoId)) const SeloAssinante(),
+        ],
+      ),
+      if (casa.capacidade > 0) ...[
+        espaco,
+        GradeBlocos(
+          blocos: [
+            BlocoInfo(
+              rotulo: 'Capacidade',
+              valor: '${casa.capacidade} pessoas',
+              icone: Icons.groups_outlined,
             ),
-            const SizedBox(height: 4),
-            if (casa.contato.isNotEmpty) ...[
-              Text(casa.contato),
-              if (casa.cnpj.isNotEmpty) Text('CNPJ: ${casa.cnpj}'),
-            ] else
-              Text(
-                ehDono
-                    ? 'Você ainda não informou o contato.'
-                    : 'Contato e CNPJ são liberados depois de um interesse '
-                          'aceito entre vocês.',
-                style: const TextStyle(color: AppColors.textoSecundario),
-              ),
           ],
         ),
+      ],
+      espaco,
+      CardLocal(
+        logradouro: casa.logradouro,
+        numero: casa.numero,
+        cidade: casa.cidade,
+        estado: casa.estado,
+        cep: casa.cep,
+        titulo: 'Localização',
       ),
-    );
+      if (casa.estilosDesejados.isNotEmpty) ...[
+        espaco,
+        CardSecao(
+          titulo: 'Estilos que procura',
+          child: Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final estilo in casa.estilosDesejados) Etiqueta(estilo),
+            ],
+          ),
+        ),
+      ],
+      if (casa.descricao.trim().isNotEmpty) ...[
+        espaco,
+        CardSecao(titulo: 'Sobre', child: Text(casa.descricao)),
+      ],
+      espaco,
+      CardSecao(
+        titulo: 'Contato',
+        child: casa.contato.isNotEmpty
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(casa.contato),
+                  if (casa.cnpj.isNotEmpty)
+                    Text(
+                      'CNPJ: ${casa.cnpj}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 18,
+                    color: AppColors.textoSecundario,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      ehDono
+                          ? 'Você ainda não informou o contato.'
+                          : 'Contato e CNPJ são liberados depois de um '
+                                'interesse aceito entre vocês.',
+                      style: const TextStyle(color: AppColors.textoSecundario),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+      espaco,
+      AvaliacoesSecao(uid: widget.donoId),
+    ];
   }
 }
 
@@ -247,13 +239,11 @@ class _OportunidadesAbertas extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
+        TituloSecao(
           abertas.isEmpty
               ? 'Nenhuma oportunidade aberta'
               : 'Oportunidades abertas (${abertas.length})',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
         for (final oportunidade in abertas)
           OportunidadeCard(
             oportunidade: oportunidade,
@@ -266,7 +256,8 @@ class _OportunidadesAbertas extends StatelessWidget {
                   )
                 : null,
             onCandidatar:
-                podeCandidatar(auth, oportunidade) && !provider.ehBloqueado(donoId)
+                podeCandidatar(auth, oportunidade) &&
+                    !provider.ehBloqueado(donoId)
                 ? () => confirmarCandidatura(context, oportunidade)
                 : null,
             statusCandidatura: podeCandidatar(auth, oportunidade)
@@ -279,22 +270,6 @@ class _OportunidadesAbertas extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _Mensagem extends StatelessWidget {
-  const _Mensagem(this.texto);
-
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(texto, textAlign: TextAlign.center),
-      ),
     );
   }
 }

@@ -75,7 +75,8 @@ void main() {
     expect(find.text('Bar Central'), findsWidgets);
     expect(find.text('Rua A, 10'), findsOneWidget);
     expect(find.text('Ver no mapa'), findsOneWidget);
-    expect(find.text('Capacidade: 150 pessoas'), findsOneWidget);
+    expect(find.text('CAPACIDADE'), findsOneWidget);
+    expect(find.text('150 pessoas'), findsOneWidget);
     expect(find.text('Blues'), findsOneWidget);
     expect(find.text('Ainda sem avaliações.'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Sexta do Rock'), 300);

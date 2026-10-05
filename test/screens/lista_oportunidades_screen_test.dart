@@ -258,7 +258,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.textContaining('Contratante:'));
+    // Plano 8: card do contratante ("Ver perfil").
+    await tester.tap(find.text('Ver perfil'));
     await tester.pumpAndSettle();
 
     expect(find.text('${AppRoutes.detalheEstabelecimento} e1'), findsOneWidget);
