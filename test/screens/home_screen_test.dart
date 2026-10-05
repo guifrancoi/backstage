@@ -9,6 +9,7 @@ import 'package:backstage/providers/notificacao_provider.dart';
 import 'package:backstage/providers/oportunidade_provider.dart';
 import 'package:backstage/providers/perfil_provider.dart';
 import 'package:backstage/routes/app_routes.dart';
+import 'package:backstage/screens/busca/busca_screen.dart';
 import 'package:backstage/screens/home/home_screen.dart';
 import 'package:backstage/screens/home/shell_screen.dart';
 import 'package:backstage/screens/perfil/perfil_screen.dart';
@@ -145,9 +146,18 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Buscar músicos e oportunidades'));
     await tester.pumpAndSettle();
-    // Dono começa em Músicos.
+    // Dono começa em Músicos (procurado dentro da aba Buscar: a Home
+    // continua montada por trás e também mostra o músico).
     expect(find.widgetWithText(AppBar, 'Buscar'), findsOneWidget);
-    expect(find.text('Ana Vieira'), findsOneWidget);
+    final busca = find.byType(BuscaScreen);
+    expect(
+      DefaultTabController.of(tester.element(find.byType(TabBar))).index,
+      1,
+    );
+    expect(
+      find.descendant(of: busca, matching: find.text('Ana Vieira')),
+      findsOneWidget,
+    );
 
     // Voltar do sistema fora do Início leva ao Início (não sai do app).
     await tester.binding.handlePopRoute();

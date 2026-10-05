@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_strings.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/filtro_oportunidades.dart';
+import '../../widgets/titulo_secao.dart';
 
 /// Abre o painel de filtro e devolve o filtro escolhido (`null` = fechou sem
 /// aplicar). [mostrarAgenda]: opções que dependem da agenda do músico.
+/// Pesquisa e gênero ficam no topo da lista (Plano 8) e passam intactos.
 Future<FiltroOportunidades?> abrirPainelFiltroOportunidades(
   BuildContext context, {
   required FiltroOportunidades atual,
@@ -14,9 +16,7 @@ Future<FiltroOportunidades?> abrirPainelFiltroOportunidades(
   return showModalBottomSheet<FiltroOportunidades>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
-    builder: (_) =>
-        _PainelFiltro(atual: atual, mostrarAgenda: mostrarAgenda),
+    builder: (_) => _PainelFiltro(atual: atual, mostrarAgenda: mostrarAgenda),
   );
 }
 
@@ -91,42 +91,29 @@ class _PainelFiltroState extends State<_PainelFiltro> {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        24,
+        AppSpacing.lg,
         0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
+        AppSpacing.lg,
+        AppSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Filtrar oportunidades',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _filtro.genero,
-              decoration: const InputDecoration(labelText: 'Gênero musical'),
-              items: [
-                const DropdownMenuItem<String>(child: Text('Todos')),
-                for (final genero in AppStrings.generosMusicais)
-                  DropdownMenuItem(value: genero, child: Text(genero)),
-              ],
-              onChanged: (genero) => setState(() {
-                _filtro = _filtro.copyWith(
-                  genero: genero,
-                  limparGenero: genero == null,
-                );
-              }),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: _cidadeController,
-              decoration: const InputDecoration(labelText: 'Cidade'),
+              decoration: const InputDecoration(
+                labelText: 'Cidade',
+                prefixIcon: Icon(Icons.place_outlined),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: _cacheController,
               keyboardType: const TextInputType.numberWithOptions(
@@ -134,9 +121,12 @@ class _PainelFiltroState extends State<_PainelFiltro> {
               ),
               decoration: const InputDecoration(
                 labelText: 'Cachê mínimo (R\$)',
+                prefixIcon: Icon(Icons.payments_outlined),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
+            const RotuloSecao('Período do evento'),
+            const SizedBox(height: AppSpacing.xs),
             Row(
               children: [
                 Expanded(
@@ -177,13 +167,19 @@ class _PainelFiltroState extends State<_PainelFiltro> {
                 }),
               ),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        Navigator.pop(context, const FiltroOportunidades()),
+                    // Zera o painel, mantendo pesquisa e gênero (no topo).
+                    onPressed: () => Navigator.pop(
+                      context,
+                      FiltroOportunidades(
+                        termo: widget.atual.termo,
+                        genero: widget.atual.genero,
+                      ),
+                    ),
                     child: const Text('Limpar'),
                   ),
                 ),

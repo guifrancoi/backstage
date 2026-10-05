@@ -16,7 +16,7 @@ import '../../routes/app_routes.dart';
 import '../../widgets/card_destaque.dart';
 import '../../widgets/etiqueta.dart';
 import '../../widgets/motivos_compatibilidade.dart';
-import '../../widgets/musico_card.dart' show SeloAssinante;
+import '../../widgets/musico_card.dart' show InfoComIcone, SeloAssinante;
 import '../../widgets/texto_valor.dart';
 import '../../widgets/titulo_secao.dart';
 import 'abas.dart';
@@ -181,8 +181,8 @@ class _Compacta extends StatelessWidget {
                 children: [
                   Etiqueta(o.generoMusical),
                   if (sugestao.assinante) const SeloAssinante(),
-                  _Detalhe(Icons.place_outlined, o.cidade),
-                  _Detalhe(
+                  InfoComIcone(Icons.place_outlined, o.cidade),
+                  InfoComIcone(
                     Icons.calendar_today_outlined,
                     formatarDataCurta(o.dataEvento, hoje: DateTime.now()),
                   ),
@@ -201,27 +201,6 @@ class _Compacta extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Ícone pequeno + texto de apoio ("📍 Franca").
-class _Detalhe extends StatelessWidget {
-  const _Detalhe(this.icone, this.texto);
-
-  final IconData icone;
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    final estilo = Theme.of(context).textTheme.bodySmall;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icone, size: 14, color: estilo?.color),
-        const SizedBox(width: 3),
-        Text(texto, style: estilo),
-      ],
     );
   }
 }

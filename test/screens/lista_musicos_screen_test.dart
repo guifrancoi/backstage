@@ -8,6 +8,7 @@ import 'package:backstage/providers/perfil_provider.dart';
 import 'package:backstage/routes/app_routes.dart';
 import 'package:backstage/screens/busca/lista_musicos_screen.dart';
 import 'package:backstage/services/firebase_data_service.dart';
+import 'package:backstage/widgets/faixa_generos.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,8 +76,17 @@ Future<FirebaseDataService> _logado({
 Future<FirebaseDataService> _donoLogado() =>
     _logado(uid: 'e1', nome: 'Bar Central', tipoUsuario: 'casaShow');
 
+/// Tela alta: os cards do Plano 8 são mais altos e o `ListView.builder` só
+/// monta o que cabe.
+void _telaAlta(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 3000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   testWidgets('lista os músicos do provider', (tester) async {
+    _telaAlta(tester);
     await tester.pumpWidget(_app(service: await _logado()));
     await tester.pumpAndSettle();
 
@@ -321,7 +331,7 @@ void main() {
     expect(find.text('3 músicos'), findsOneWidget);
   });
 
-  testWidgets('Limpar tira todos os critérios', (tester) async {
+  testWidgets('Limpar tira os critérios do painel e mantém o gênero', (tester) async {
     await tester.pumpWidget(
       _app(
         service: await _logado(),
@@ -329,13 +339,61 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Filtrar (2)'), findsOneWidget);
+    // Plano 8: o gênero fica na faixa do topo, fora do "Filtrar (n)".
+    expect(find.text('Filtrar (1)'), findsOneWidget);
 
     await tester.tap(find.text('Limpar'));
     await tester.pumpAndSettle();
 
     expect(find.text('Filtrar'), findsOneWidget);
     expect(find.byType(InputChip), findsNothing);
+    expect(
+      tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'MPB')).selected,
+      isTrue,
+    );
+  });
+
+  testWidgets('Plano 8: pesquisa sem acento e faixa de gêneros', (tester) async {
+    await tester.pumpWidget(_app(service: await _logado()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'acustico');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('1 músico'), findsOneWidget);
+    expect(find.text('Duo Acústico Sol'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Limpar pesquisa'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 músicos'), findsOneWidget);
+
+    // A faixa é horizontal e só monta o que aparece: rola até o gênero.
+    final eletronica = find.widgetWithText(ChoiceChip, 'Eletrônica');
+    await tester.scrollUntilVisible(
+      eletronica,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(FaixaGeneros),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(eletronica);
+    await tester.pumpAndSettle();
+    expect(find.text('1 músico'), findsOneWidget);
+    expect(find.text('DJ Pulse'), findsOneWidget);
+
+    final todos = find.widgetWithText(ChoiceChip, 'Todos');
+    await tester.scrollUntilVisible(
+      todos,
+      -200,
+      scrollable: find.descendant(
+        of: find.byType(FaixaGeneros),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(todos);
+    await tester.pumpAndSettle();
+    expect(find.text('3 músicos'), findsOneWidget);
   });
 
   group('Plano 13: livres em uma data', () {
@@ -421,6 +479,7 @@ void main() {
   });
 
   testWidgets('Plano 18: dono favorita no card e filtra só favoritos', (tester) async {
+    _telaAlta(tester);
     final service = await _donoLogado();
     await tester.pumpWidget(_app(service: service));
     await tester.pumpAndSettle();

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/logging/app_logger.dart';
 import '../core/utils/compatibilidade.dart';
+import '../core/utils/texto.dart';
 import '../models/agenda_publica.dart';
 import '../models/contratacao.dart';
 import '../models/denuncia.dart';
@@ -511,10 +512,12 @@ class OportunidadeProvider extends ChangeNotifier {
           cidade.isEmpty ||
           m.cidade.toLowerCase().contains(cidade.toLowerCase());
 
-      final pesquisaValida =
-          _termoPesquisa.isEmpty ||
-          m.nomeArtistico.toLowerCase().contains(_termoPesquisa.toLowerCase()) ||
-          m.descricao.toLowerCase().contains(_termoPesquisa.toLowerCase());
+      final pesquisaValida = contemTermo(_termoPesquisa, [
+        m.nomeArtistico,
+        m.descricao,
+        m.generoMusical,
+        m.cidade,
+      ]);
 
       return generoValido && cidadeValida && pesquisaValida;
     }).toList();

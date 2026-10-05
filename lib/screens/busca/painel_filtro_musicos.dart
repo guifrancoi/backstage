@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_strings.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/filtro_musicos.dart';
 import '../../models/musico.dart';
+import '../../widgets/titulo_secao.dart';
 
 /// Abre o painel de filtro da lista de músicos e devolve o filtro escolhido
-/// (`null` = fechou sem aplicar).
+/// (`null` = fechou sem aplicar). Pesquisa e gênero ficam no topo da lista
+/// (Plano 8) e passam intactos pelo painel.
 Future<FiltroMusicos?> abrirPainelFiltroMusicos(
   BuildContext context, {
   required FiltroMusicos atual,
@@ -15,7 +17,6 @@ Future<FiltroMusicos?> abrirPainelFiltroMusicos(
   return showModalBottomSheet<FiltroMusicos>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
     builder: (_) =>
         _PainelFiltroMusicos(atual: atual, mostrarFavoritos: mostrarFavoritos),
   );
@@ -38,14 +39,12 @@ class _PainelFiltroMusicos extends StatefulWidget {
 
 class _PainelFiltroMusicosState extends State<_PainelFiltroMusicos> {
   late FiltroMusicos _filtro = widget.atual;
-  late final _termoController = TextEditingController(text: widget.atual.termo);
   late final _cidadeController = TextEditingController(
     text: widget.atual.cidade ?? '',
   );
 
   @override
   void dispose() {
-    _termoController.dispose();
     _cidadeController.dispose();
     super.dispose();
   }
@@ -70,11 +69,15 @@ class _PainelFiltroMusicosState extends State<_PainelFiltroMusicos> {
     final cidade = _cidadeController.text.trim();
     Navigator.pop(
       context,
-      _filtro.copyWith(
-        termo: _termoController.text.trim(),
-        cidade: cidade,
-        limparCidade: cidade.isEmpty,
-      ),
+      _filtro.copyWith(cidade: cidade, limparCidade: cidade.isEmpty),
+    );
+  }
+
+  /// Zera o painel, mantendo pesquisa e gênero (que ficam no topo).
+  void _limpar() {
+    Navigator.pop(
+      context,
+      FiltroMusicos(termo: widget.atual.termo, genero: widget.atual.genero),
     );
   }
 
@@ -82,68 +85,54 @@ class _PainelFiltroMusicosState extends State<_PainelFiltroMusicos> {
   Widget build(BuildContext context) {
     final livresEm = _filtro.livresEm;
 
+    Widget formacao(String rotulo, Formacao? valor) => ChoiceChip(
+      label: Text(rotulo),
+      selected: _filtro.formacao == valor,
+      showCheckmark: false,
+      onSelected: (_) => setState(() {
+        _filtro = _filtro.copyWith(
+          formacao: valor,
+          limparFormacao: valor == null,
+        );
+      }),
+    );
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        24,
+        AppSpacing.lg,
         0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
+        AppSpacing.lg,
+        AppSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Filtrar músicos',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _termoController,
-              decoration: const InputDecoration(
-                labelText: 'Pesquisar artista',
-                hintText: 'Nome ou descrição',
-                prefixIcon: Icon(Icons.search),
-              ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _filtro.genero,
-              decoration: const InputDecoration(labelText: 'Gênero musical'),
-              items: [
-                const DropdownMenuItem<String>(child: Text('Todos')),
-                for (final genero in AppStrings.generosMusicais)
-                  DropdownMenuItem(value: genero, child: Text(genero)),
-              ],
-              onChanged: (genero) => setState(() {
-                _filtro = _filtro.copyWith(
-                  genero: genero,
-                  limparGenero: genero == null,
-                );
-              }),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: _cidadeController,
-              decoration: const InputDecoration(labelText: 'Cidade'),
+              decoration: const InputDecoration(
+                labelText: 'Cidade',
+                prefixIcon: Icon(Icons.place_outlined),
+              ),
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<Formacao?>(
-              initialValue: _filtro.formacao,
-              decoration: const InputDecoration(labelText: 'Formação'),
-              items: [
-                const DropdownMenuItem<Formacao?>(child: Text('Qualquer')),
-                for (final f in Formacao.values)
-                  DropdownMenuItem<Formacao?>(value: f, child: Text(f.rotulo)),
+            const SizedBox(height: AppSpacing.md),
+            const RotuloSecao('Formação'),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                formacao('Qualquer', null),
+                for (final f in Formacao.values) formacao(f.rotulo, f),
               ],
-              onChanged: (formacao) => setState(() {
-                _filtro = _filtro.copyWith(
-                  formacao: formacao,
-                  limparFormacao: formacao == null,
-                );
-              }),
             ),
+            const SizedBox(height: AppSpacing.xs),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Só com equipamento próprio'),
@@ -161,6 +150,9 @@ class _PainelFiltroMusicosState extends State<_PainelFiltroMusicos> {
                   _filtro = _filtro.copyWith(soFavoritos: valor);
                 }),
               ),
+            const SizedBox(height: AppSpacing.xs),
+            const RotuloSecao('Agenda'),
+            const SizedBox(height: AppSpacing.xs),
             Row(
               children: [
                 Expanded(
@@ -184,7 +176,7 @@ class _PainelFiltroMusicosState extends State<_PainelFiltroMusicos> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String>(
               initialValue: _filtro.ordenacao,
               decoration: const InputDecoration(labelText: 'Ordenar por'),
@@ -204,17 +196,16 @@ class _PainelFiltroMusicosState extends State<_PainelFiltroMusicos> {
                 _filtro = _filtro.copyWith(ordenacao: ordem);
               }),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        Navigator.pop(context, const FiltroMusicos()),
+                    onPressed: _limpar,
                     child: const Text('Limpar'),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _aplicar,

@@ -23,8 +23,12 @@ void main() {
         ordenacao: 'cache_maior',
       );
 
-      expect(filtro.ativos, 6);
+      // Plano 8: termo e gênero ficam no topo e não contam no "Filtrar (n)".
+      expect(filtro.ativos, 4);
       expect(const FiltroMusicos(ordenacao: 'cache_maior').vazio, isTrue);
+      expect(const FiltroMusicos(termo: 'x', genero: 'Rock').vazio, isTrue);
+      expect(const FiltroMusicos(termo: 'x').semCriterios, isFalse);
+      expect(const FiltroMusicos().semCriterios, isTrue);
     });
 
     test('textos em branco e gênero vazio não contam', () {

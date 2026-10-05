@@ -3,6 +3,9 @@ import 'musico.dart';
 /// Critérios da lista de músicos (não persistido), editados no painel
 /// "Filtrar" da própria lista. A aplicação fica no `OportunidadeProvider`
 /// (o "livres em" depende de uma consulta ao Firestore).
+///
+/// Plano 8: [termo] (campo de pesquisa) e [genero] (faixa de gêneros) ficam
+/// no topo da lista; [ativos]/[vazio] contam só os critérios do painel.
 class FiltroMusicos {
   const FiltroMusicos({
     this.termo = '',
@@ -17,7 +20,8 @@ class FiltroMusicos {
 
   static const ordenacaoPadrao = 'nome_asc';
 
-  /// Pesquisa por nome artístico ou descrição.
+  /// Pesquisa em nome artístico, descrição, gênero e cidade (sem acento
+  /// nem maiúsculas).
   final String termo;
   final String? genero;
   final String? cidade;
@@ -32,10 +36,8 @@ class FiltroMusicos {
   /// critério: só muda a ordem).
   final String ordenacao;
 
-  /// Quantos critérios estão ligados (o número do botão "Filtrar (n)").
+  /// Quantos critérios do painel estão ligados (o "Filtrar (n)").
   int get ativos => [
-    termo.trim().isNotEmpty,
-    genero != null && genero!.isNotEmpty,
     cidade != null && cidade!.trim().isNotEmpty,
     formacao != null,
     soEquipamentoProprio,
@@ -44,6 +46,10 @@ class FiltroMusicos {
   ].where((ligado) => ligado).length;
 
   bool get vazio => ativos == 0;
+
+  /// Nenhum critério, nem pesquisa nem gênero (mensagem de lista vazia).
+  bool get semCriterios =>
+      vazio && termo.trim().isEmpty && (genero == null || genero!.isEmpty);
 
   FiltroMusicos copyWith({
     String? termo,

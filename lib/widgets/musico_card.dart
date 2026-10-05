@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
-import '../core/utils/foto_perfil.dart';
+import '../core/theme/app_spacing.dart';
 import '../models/musico.dart';
+import 'avatar_iniciais.dart';
 import 'botao_favorito.dart';
+import 'etiqueta.dart';
+import 'texto_valor.dart';
 
+/// Card de músico das listas (layout do protótipo, Plano 8): avatar, nome,
+/// cachê em verde, gênero e cidade, dados do show, descrição e ações.
 class MusicoCard extends StatelessWidget {
   final Musico musico;
   final VoidCallback onVerDetalhes;
@@ -40,85 +45,144 @@ class MusicoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mostrarAcao = onConvidar != null;
-    final foto = imagemDaFoto(musico.foto);
+    final texto = Theme.of(context).textTheme;
     final resumoShow = musico.resumoShow;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundImage: foto,
-                child: foto == null ? const Icon(Icons.music_note) : null,
-              ),
-              title: Row(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: InkWell(
+        borderRadius: AppRadius.circular(AppRadius.lg),
+        onTap: onVerDetalhes,
+        child: Padding(
+          padding: AppSpacing.card,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(child: Text(musico.nomeArtistico)),
-                  if (assinante) ...[
-                    const SizedBox(width: 6),
-                    const SeloAssinante(),
-                  ],
-                ],
-              ),
-              subtitle: Text(
-                '${musico.generoMusical} • ${musico.cidade}'
-                '${avaliacao == null ? '' : ' • $avaliacao'}',
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('R\$ ${musico.cacheMedio.toStringAsFixed(0)}'),
+                  AvatarIniciais(
+                    nome: musico.nomeArtistico,
+                    foto: musico.foto,
+                    tamanho: 56,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                musico.nomeArtistico,
+                                style: texto.titleMedium,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            TextoValor(musico.cacheMedio),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xxs + 2),
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xxs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Etiqueta(musico.generoMusical),
+                            InfoComIcone(Icons.place_outlined, musico.cidade),
+                            if (avaliacao != null)
+                              Text(
+                                avaliacao!,
+                                style: texto.bodySmall?.copyWith(
+                                  color: AppColors.estrela,
+                                ),
+                              ),
+                            if (assinante) const SeloAssinante(),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   if (onFavoritar != null)
                     BotaoFavorito(favorito: favorito, onPressed: onFavoritar!),
                 ],
               ),
-            ),
-            if (resumoShow != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
+              if (resumoShow != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
                   resumoShow,
-                  style: const TextStyle(
+                  style: texto.labelMedium?.copyWith(
                     color: AppColors.primariaTexto,
-                    fontWeight: FontWeight.w500,
                   ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                musico.descricao,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: texto.bodyMedium?.copyWith(
+                  color: context.cores.textoSecundario,
                 ),
               ),
-            const SizedBox(height: 8),
-            Text(
-              musico.descricao,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onVerDetalhes,
-                    child: const Text('Ver detalhes'),
-                  ),
-                ),
-                if (mostrarAcao) ...[
-                  const SizedBox(width: 12),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: onConvidar,
-                      child: Text(rotuloConvidar),
+                    child: OutlinedButton(
+                      onPressed: onVerDetalhes,
+                      child: const Text('Ver detalhes'),
                     ),
                   ),
+                  if (onConvidar != null) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: onConvidar,
+                        child: Text(
+                          rotuloConvidar,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Ícone pequeno + texto de apoio ("📍 Franca", "📅 28 jun").
+class InfoComIcone extends StatelessWidget {
+  const InfoComIcone(this.icone, this.texto, {super.key});
+
+  final IconData icone;
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    final estilo = Theme.of(context).textTheme.bodySmall;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icone, size: 14, color: estilo?.color),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            texto,
+            style: estilo,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -129,20 +193,10 @@ class SeloAssinante extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.avisoFundo,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.star, size: 14, color: AppColors.estrela),
-          SizedBox(width: 2),
-          Text('Assinante', style: TextStyle(fontSize: 12)),
-        ],
-      ),
+    return const Etiqueta(
+      'Assinante',
+      tipo: TipoEtiqueta.aviso,
+      icone: Icons.star_rounded,
     );
   }
 }

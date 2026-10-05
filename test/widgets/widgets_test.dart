@@ -1,6 +1,7 @@
 import 'package:backstage/models/mensagem.dart';
 import 'package:backstage/models/musico.dart';
 import 'package:backstage/models/oportunidade.dart';
+import 'package:backstage/widgets/avatar_iniciais.dart';
 import 'package:backstage/widgets/custom_text_field.dart';
 import 'package:backstage/widgets/dados_show_musico.dart';
 import 'package:backstage/widgets/mensagem_bubble.dart';
@@ -56,8 +57,9 @@ void main() {
       )));
 
       expect(find.text('Banda Eclipse'), findsOneWidget);
-      expect(find.text('Rock • Franca'), findsOneWidget);
-      expect(find.text('R\$ 1200'), findsOneWidget);
+      expect(find.text('Rock'), findsOneWidget);
+      expect(find.text('Franca'), findsOneWidget);
+      expect(find.text('R\$ 1.200'), findsOneWidget);
 
       await tester.tap(find.text('Convidar'));
       await tester.tap(find.text('Ver detalhes'));
@@ -101,9 +103,15 @@ void main() {
       )));
 
       expect(find.text('Trio · Equipamento próprio'), findsOneWidget);
-      final avatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar));
-      expect(avatar.backgroundImage, isA<MemoryImage>());
-      expect(find.byIcon(Icons.music_note), findsNothing);
+      // Com foto, o avatar mostra a imagem no lugar das iniciais.
+      final caixa = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(AvatarIniciais),
+          matching: find.byType(Container),
+        ),
+      );
+      expect((caixa.decoration! as ShapeDecoration).image, isNotNull);
+      expect(find.text('BE'), findsNothing);
     });
 
     testWidgets('sem dados do show nem foto: card como antes', (tester) async {
@@ -113,7 +121,7 @@ void main() {
       )));
 
       expect(find.textContaining('Equipamento'), findsNothing);
-      expect(find.byIcon(Icons.music_note), findsOneWidget);
+      expect(find.text('BE'), findsOneWidget);
     });
   });
 
@@ -142,16 +150,18 @@ void main() {
   });
 
   group('OportunidadeCard', () {
-    testWidgets('formata data dd/MM/yyyy e cachê com centavos', (tester) async {
+    testWidgets('mostra data curta, cachê em reais e contratante', (tester) async {
       await tester.pumpWidget(_app(OportunidadeCard(
         oportunidade: _oportunidade(),
         onCandidatar: () {},
         onVerDetalhes: () {},
       )));
 
-      expect(find.text('Data: 07/03/2026'), findsOneWidget);
-      expect(find.text('Cachê: R\$ 900.00'), findsOneWidget);
-      expect(find.text('Contratante: Bar Central'), findsOneWidget);
+      // Sem o ano quando é o ano corrente: só "7 mar" é estável no teste.
+      expect(find.textContaining('7 mar'), findsOneWidget);
+      expect(find.text('R\$ 900'), findsOneWidget);
+      expect(find.text('Bar Central'), findsOneWidget);
+      expect(find.text('MPB'), findsOneWidget);
       expect(find.text('Candidatar-se'), findsOneWidget);
     });
 

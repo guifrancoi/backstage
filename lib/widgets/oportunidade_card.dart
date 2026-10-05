@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/utils/data_hora.dart';
 import '../models/oportunidade.dart';
 import 'botao_favorito.dart';
-import 'musico_card.dart' show SeloAssinante;
+import 'etiqueta.dart';
+import 'musico_card.dart' show InfoComIcone, SeloAssinante;
+import 'texto_valor.dart';
 
+/// Card de oportunidade das listas (layout do protótipo, Plano 8): título,
+/// cachê em verde, contratante, gênero/cidade/data, descrição e ações.
 class OportunidadeCard extends StatelessWidget {
   final Oportunidade oportunidade;
   final VoidCallback onVerDetalhes;
@@ -34,83 +41,96 @@ class OportunidadeCard extends StatelessWidget {
     this.favorita = false,
   });
 
-  String get dataFormatada {
-    final data = oportunidade.dataEvento;
-    final dia =
-        '${data.day.toString().padLeft(2, '0')}/'
-        '${data.month.toString().padLeft(2, '0')}/'
-        '${data.year}';
+  /// "28 jun · 21:00 às 23:30" (sem o ano se for o ano corrente).
+  String dataFormatada({DateTime? hoje}) {
+    final dia = formatarDataCurta(
+      oportunidade.dataEvento,
+      hoje: hoje ?? DateTime.now(),
+    );
     final horario = oportunidade.horario;
-    return horario.isEmpty ? dia : '$dia, $horario';
+    return horario.isEmpty ? dia : '$dia · $horario';
   }
 
   @override
   Widget build(BuildContext context) {
+    final texto = Theme.of(context).textTheme;
     final mostrarAcao = onCandidatar != null || statusCandidatura != null;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    oportunidade.titulo,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (assinante) ...[
-                  const SizedBox(width: 6),
-                  const SeloAssinante(),
-                ],
-                if (onFavoritar != null) ...[
-                  const Spacer(),
-                  BotaoFavorito(favorito: favorita, onPressed: onFavoritar!),
-                ],
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text('Contratante: ${oportunidade.contratante}'),
-            Text('Cidade: ${oportunidade.cidade}'),
-            Text('Gênero: ${oportunidade.generoMusical}'),
-            Text('Data: $dataFormatada'),
-            Text(
-              'Cachê: R\$ ${oportunidade.cacheOferecido.toStringAsFixed(2)}',
-            ),
-            const SizedBox(height: 8),
-            Text(
-              oportunidade.descricao,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onVerDetalhes,
-                    child: const Text('Ver detalhes'),
-                  ),
-                ),
-                if (mostrarAcao) ...[
-                  const SizedBox(width: 12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: InkWell(
+        borderRadius: AppRadius.circular(AppRadius.lg),
+        onTap: onVerDetalhes,
+        child: Padding(
+          padding: AppSpacing.card,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: statusCandidatura == null ? onCandidatar : null,
-                      child: Text(statusCandidatura ?? 'Candidatar-se'),
+                    child: Text(oportunidade.titulo, style: texto.titleMedium),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  TextoValor(oportunidade.cacheOferecido),
+                  if (onFavoritar != null)
+                    BotaoFavorito(favorito: favorita, onPressed: onFavoritar!),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(oportunidade.contratante, style: texto.bodySmall),
+              const SizedBox(height: AppSpacing.xs),
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xxs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Etiqueta(oportunidade.generoMusical),
+                  if (assinante) const SeloAssinante(),
+                  InfoComIcone(Icons.place_outlined, oportunidade.cidade),
+                  InfoComIcone(Icons.calendar_today_outlined, dataFormatada()),
+                ],
+              ),
+              if (oportunidade.descricao.trim().isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  oportunidade.descricao,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: texto.bodyMedium?.copyWith(
+                    color: context.cores.textoSecundario,
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: onVerDetalhes,
+                      child: const Text('Ver detalhes'),
                     ),
                   ),
+                  if (mostrarAcao) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: statusCandidatura == null
+                            ? onCandidatar
+                            : null,
+                        child: Text(
+                          statusCandidatura ?? 'Candidatar-se',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

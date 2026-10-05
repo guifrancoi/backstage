@@ -1,11 +1,17 @@
+import '../core/utils/texto.dart';
 import 'contratacao.dart';
 import 'oportunidade.dart';
 
 /// Critérios da lista de oportunidades (Plano 12). Imutável: a tela monta um
 /// novo com `copyWith` e o `OportunidadeProvider` o aplica com [aplicar].
 /// Não é persistido.
+///
+/// Plano 8: [termo] (campo de pesquisa) e [genero] (faixa de gêneros) ficam
+/// no topo da lista; [ativos]/[vazio] contam só os critérios do painel
+/// "Filtrar".
 class FiltroOportunidades {
   const FiltroOportunidades({
+    this.termo = '',
     this.genero,
     this.cidade,
     this.cacheMinimo,
@@ -15,6 +21,9 @@ class FiltroOportunidades {
     this.soFavoritas = false,
   });
 
+  /// Pesquisa em título, contratante, cidade, gênero e descrição (sem
+  /// acento nem maiúsculas).
+  final String termo;
   final String? genero;
   final String? cidade;
   final double? cacheMinimo;
@@ -30,9 +39,8 @@ class FiltroOportunidades {
   /// Só do músico (Plano 18): só as oportunidades que ele favoritou.
   final bool soFavoritas;
 
-  /// Quantos critérios estão ligados (contador do botão "Filtrar").
+  /// Quantos critérios do painel estão ligados (contador do "Filtrar").
   int get ativos => [
-    genero != null && genero!.isNotEmpty,
     cidade != null && cidade!.trim().isNotEmpty,
     cacheMinimo != null,
     de != null,
@@ -43,8 +51,13 @@ class FiltroOportunidades {
 
   bool get vazio => ativos == 0;
 
+  /// Nenhum critério, nem pesquisa nem gênero (mensagem de lista vazia).
+  bool get semCriterios =>
+      vazio && termo.trim().isEmpty && (genero == null || genero!.isEmpty);
+
   /// `copyWith` com `limpar*` para desligar um critério opcional (null).
   FiltroOportunidades copyWith({
+    String? termo,
     String? genero,
     String? cidade,
     double? cacheMinimo,
@@ -59,6 +72,7 @@ class FiltroOportunidades {
     bool limparAte = false,
   }) {
     return FiltroOportunidades(
+      termo: termo ?? this.termo,
       genero: limparGenero ? null : (genero ?? this.genero),
       cidade: limparCidade ? null : (cidade ?? this.cidade),
       cacheMinimo: limparCacheMinimo ? null : (cacheMinimo ?? this.cacheMinimo),
@@ -96,6 +110,15 @@ class FiltroOportunidades {
         return false;
       }
       if (cacheMinimo != null && o.cacheOferecido < cacheMinimo!) return false;
+      if (!contemTermo(termo, [
+        o.titulo,
+        o.contratante,
+        o.cidade,
+        o.generoMusical,
+        o.descricao,
+      ])) {
+        return false;
+      }
       if (inicio != null && diaEvento.isBefore(inicio)) return false;
       if (fim != null && diaEvento.isAfter(fim)) return false;
       final chave = Contratacao.diaDe(o.dataEvento);

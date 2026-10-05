@@ -1,6 +1,7 @@
 import 'package:backstage/core/theme/app_colors.dart';
 import 'package:backstage/core/theme/app_theme.dart';
 import 'package:backstage/widgets/avatar_iniciais.dart';
+import 'package:backstage/widgets/campo_pesquisa.dart';
 import 'package:backstage/widgets/estados.dart';
 import 'package:backstage/widgets/etiqueta.dart';
 import 'package:backstage/widgets/primary_button.dart';
@@ -130,6 +131,44 @@ void main() {
       await tester.tap(find.widgetWithText(ElevatedButton, 'Salvar'));
       expect(tocou, isTrue);
       expect(find.byIcon(Icons.check), findsOneWidget);
+    });
+  });
+
+  group('CampoPesquisa', () {
+    testWidgets('espera um pouco antes de avisar e o "x" limpa', (tester) async {
+      final avisos = <String>[];
+      await _montar(
+        tester,
+        CampoPesquisa(valor: '', onChanged: avisos.add, dica: 'Buscar'),
+      );
+
+      await tester.enterText(find.byType(TextField), 'ro');
+      await tester.enterText(find.byType(TextField), 'rock');
+      expect(avisos, isEmpty);
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(avisos, ['rock']);
+
+      await tester.tap(find.byTooltip('Limpar pesquisa'));
+      await tester.pump();
+      expect(avisos.last, '');
+      expect(find.byTooltip('Limpar pesquisa'), findsNothing);
+    });
+
+    testWidgets('acompanha mudança de fora sem apagar espaço digitado', (
+      tester,
+    ) async {
+      Widget campo(String valor) =>
+          CampoPesquisa(valor: valor, onChanged: (_) {}, dica: 'Buscar');
+
+      await _montar(tester, campo(''));
+      await tester.enterText(find.byType(TextField), 'rock ');
+      // Quem guarda o termo tira o espaço: o campo não pode perdê-lo.
+      await _montar(tester, campo('rock'));
+      expect(find.text('rock '), findsOneWidget);
+
+      // "Limpar filtros" (vindo de fora) zera o campo.
+      await _montar(tester, campo(''));
+      expect(find.text('rock '), findsNothing);
     });
   });
 }

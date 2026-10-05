@@ -1,5 +1,6 @@
 import '../../models/musico.dart';
 import '../../models/oportunidade.dart';
+import 'texto.dart';
 
 /// Sugestões de compatibilidade (Plano 15) e prioridade de assinantes
 /// (Plano 7). Tudo aqui é função pura: as telas e o provider só juntam os
@@ -142,13 +143,4 @@ List<T> assinantesPrimeiro<T>(
   return [...assinantes, ...demais];
 }
 
-String _normalizar(String texto) {
-  const comAcento = 'áàâãäéèêëíìîïóòôõöúùûüç';
-  const semAcento = 'aaaaaeeeeiiiiooooouuuuc';
-  final buffer = StringBuffer();
-  for (final char in texto.trim().toLowerCase().split('')) {
-    final i = comAcento.indexOf(char);
-    buffer.write(i < 0 ? char : semAcento[i]);
-  }
-  return buffer.toString();
-}
+String _normalizar(String texto) => normalizarTexto(texto);

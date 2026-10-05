@@ -98,7 +98,8 @@ void main() {
       soDiasLivres: true,
     );
 
-    expect(filtro.ativos, 5);
+    // Plano 8: gênero fica na faixa do topo e não conta no "Filtrar (n)".
+    expect(filtro.ativos, 4);
     expect(const FiltroOportunidades().vazio, isTrue);
     expect(const FiltroOportunidades(genero: '', cidade: '  ').vazio, isTrue);
 
@@ -106,7 +107,29 @@ void main() {
     expect(semGenero.genero, isNull);
     expect(semGenero.cidade, 'Franca');
     expect(semGenero.ativos, 4);
-    expect(filtro.copyWith(limparDe: true, limparCacheMinimo: true).ativos, 3);
+    expect(filtro.copyWith(limparDe: true, limparCacheMinimo: true).ativos, 2);
+  });
+
+  test('Plano 8: termo pesquisa sem acento em título, contratante e cidade', () {
+    final lista = [
+      oportunidadeTeste(id: 'a', titulo: 'Festival de Inverno'),
+      oportunidadeTeste(id: 'b', contratante: 'Choperia Estação'),
+      oportunidadeTeste(id: 'c', cidade: 'São Carlos'),
+    ];
+    List<String> ids(String termo) => FiltroOportunidades(termo: termo)
+        .aplicar(lista, hoje: hoje)
+        .map((o) => o.id)
+        .toList();
+
+    expect(ids('FESTIVAL'), ['a']);
+    expect(ids('estacao'), ['b']);
+    expect(ids('sao carlos'), ['c']);
+    expect(ids('  '), hasLength(3));
+    // Pesquisa e gênero não contam no painel, mas contam como critério.
+    expect(const FiltroOportunidades(termo: 'rock').vazio, isTrue);
+    expect(const FiltroOportunidades(termo: 'rock').semCriterios, isFalse);
+    expect(const FiltroOportunidades(genero: 'Rock').semCriterios, isFalse);
+    expect(const FiltroOportunidades().semCriterios, isTrue);
   });
 
   test('Oportunidade.vencidaEm compara só o dia', () {

@@ -69,14 +69,7 @@ void main() {
     );
   });
 
-  Future<void> escolherGenero(WidgetTester tester, String genero) async {
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(genero).last);
-    await tester.pumpAndSettle();
-  }
-
-  testWidgets('lista só as futuras; filtrar por gênero vira chip removível', (tester) async {
+  testWidgets('lista só as futuras; gênero pela faixa do topo, cidade pelo painel', (tester) async {
     await tester.pumpWidget(
       _app(servicoFake(firestore: firestore, uid: 'm1'), const ListaOportunidadesScreen()),
     );
@@ -85,21 +78,30 @@ void main() {
     expect(find.text('2 oportunidades'), findsOneWidget);
     expect(find.text('Show de ontem'), findsNothing);
 
+    // Plano 8: gênero na faixa do topo (não conta no "Filtrar").
+    await tester.tap(find.widgetWithText(ChoiceChip, 'MPB'));
+    await tester.pumpAndSettle();
+    expect(find.text('Filtrar'), findsOneWidget);
+    expect(find.text('1 oportunidade'), findsOneWidget);
+    expect(find.text('Sarau MPB'), findsOneWidget);
+    expect(find.text('Noite do rock'), findsNothing);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Todos'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 oportunidades'), findsOneWidget);
+
     await tester.tap(find.text('Filtrar'));
     await tester.pumpAndSettle();
     // Músico vê as opções que dependem da agenda dele.
     expect(find.text('Só dias em que estou livre'), findsOneWidget);
-    await escolherGenero(tester, 'MPB');
+    await tester.enterText(find.widgetWithText(TextField, 'Cidade'), 'Marília');
     await tester.tap(find.text('Aplicar'));
     await tester.pumpAndSettle();
 
     expect(find.text('Filtrar (1)'), findsOneWidget);
-    expect(find.text('1 oportunidade'), findsOneWidget);
-    expect(find.text('Sarau MPB'), findsOneWidget);
-    expect(find.text('Noite do rock'), findsNothing);
+    expect(find.text('0 oportunidades'), findsOneWidget);
 
     // Remover o chip desliga o critério.
-    final chip = tester.widget<InputChip>(find.widgetWithText(InputChip, 'MPB'));
+    final chip = tester.widget<InputChip>(find.widgetWithText(InputChip, 'Marília'));
     chip.onDeleted!();
     await tester.pumpAndSettle();
     expect(find.text('2 oportunidades'), findsOneWidget);

@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/filtro_oportunidades.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../widgets/estados.dart';
 import '../../widgets/oportunidade_card.dart';
 import 'acoes_interesse.dart';
+import 'cabecalho_busca.dart';
 import 'painel_filtro_oportunidades.dart';
 
 /// Oportunidades que ainda vão acontecer, da mais próxima para a mais
-/// distante, com filtro (painel "Filtrar" + chips removíveis).
+/// distante (Plano 8): pesquisa e gêneros no topo, demais critérios no
+/// painel "Filtrar" (viram chips removíveis).
 class ListaOportunidadesScreen extends StatelessWidget {
   const ListaOportunidadesScreen({super.key, this.embutida = false});
 
-  /// Dentro da aba Buscar (Plano 8): sem AppBar próprio; o "Filtrar" vai
-  /// para o topo do conteúdo.
+  /// Dentro da aba Buscar (Plano 8): sem AppBar próprio.
   final bool embutida;
 
   Future<void> _abrirFiltro(BuildContext context) async {
@@ -31,26 +33,21 @@ class ListaOportunidadesScreen extends StatelessWidget {
     if (escolhido != null) provider.filtrarOportunidades(escolhido);
   }
 
-  /// Um chip por critério ligado; o "x" desliga só aquele critério.
+  /// Um chip por critério do painel; o "x" desliga só aquele critério.
   List<Widget> _chips(OportunidadeProvider provider) {
     final f = provider.filtroOportunidades;
-    void trocar(FiltroOportunidades novo) =>
-        provider.filtrarOportunidades(novo);
 
     Widget chip(String rotulo, FiltroOportunidades semEle) => InputChip(
       label: Text(rotulo),
-      onDeleted: () => trocar(semEle),
+      onDeleted: () => provider.filtrarOportunidades(semEle),
       visualDensity: VisualDensity.compact,
     );
 
-    final genero = f.genero;
     final cidade = f.cidade;
     final cache = f.cacheMinimo;
     final de = f.de;
     final ate = f.ate;
     return [
-      if (genero != null && genero.isNotEmpty)
-        chip(genero, f.copyWith(limparGenero: true)),
       if (cidade != null && cidade.trim().isNotEmpty)
         chip(cidade, f.copyWith(limparCidade: true)),
       if (cache != null)
@@ -74,151 +71,112 @@ class ListaOportunidadesScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final interesses = context.watch<InteresseProvider>();
     final filtro = provider.filtroOportunidades;
-
-    final botaoFiltro = TextButton.icon(
-      onPressed: () => _abrirFiltro(context),
-      icon: const Icon(Icons.filter_list),
-      label: Text(filtro.vazio ? 'Filtrar' : 'Filtrar (${filtro.ativos})'),
-    );
+    final carregando =
+        provider.carregandoOportunidades && provider.oportunidades.isEmpty;
+    final total = provider.oportunidades.length;
 
     return Scaffold(
-      appBar: embutida
-          ? null
-          : AppBar(
-              title: const Text('Lista de oportunidades'),
-              actions: [botaoFiltro],
-            ),
+      appBar: embutida ? null : AppBar(title: const Text('Oportunidades')),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (embutida)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: botaoFiltro,
-              ),
+          CabecalhoBusca(
+            termo: filtro.termo,
+            onTermo: (termo) =>
+                provider.filtrarOportunidades(filtro.copyWith(termo: termo)),
+            dica: 'Festival, casa de show, cidade...',
+            genero: filtro.genero,
+            onGenero: (genero) => provider.filtrarOportunidades(
+              genero == null
+                  ? filtro.copyWith(limparGenero: true)
+                  : filtro.copyWith(genero: genero),
             ),
+            contagem: carregando || provider.erroOportunidades
+                ? null
+                : (total == 1 ? '1 oportunidade' : '$total oportunidades'),
+            ativosNoPainel: filtro.ativos,
+            onFiltrar: () => _abrirFiltro(context),
+            chips: _chips(provider),
+            // Limpa só o painel; pesquisa e gênero ficam no topo.
+            onLimpar: () => provider.filtrarOportunidades(
+              FiltroOportunidades(termo: filtro.termo, genero: filtro.genero),
+            ),
+          ),
           Expanded(
-            child: Builder(
-              builder: (context) {
-                if (provider.carregandoOportunidades &&
-                    provider.oportunidades.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (provider.erroOportunidades) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'Erro ao carregar oportunidades. Verifique sua conexão.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  );
-                }
-                final oportunidades = provider.oportunidades;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (!filtro.vazio)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            ..._chips(provider),
-                            TextButton(
-                              onPressed: provider.resetarFiltroOportunidades,
-                              child: const Text('Limpar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: Text(
-                        oportunidades.length == 1
-                            ? '1 oportunidade'
-                            : '${oportunidades.length} oportunidades',
-                        style: const TextStyle(
-                          color: AppColors.textoSecundario,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: oportunidades.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Text(
-                                  filtro.vazio
-                                      ? 'Nenhuma oportunidade encontrada.'
-                                      : 'Nenhuma oportunidade com esses filtros.',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: oportunidades.length,
-                              itemBuilder: (context, index) {
-                                final oportunidade = oportunidades[index];
-                                final pode = podeCandidatar(auth, oportunidade);
-                                return OportunidadeCard(
-                                  oportunidade: oportunidade,
-                                  assinante: provider.ehAssinante(
-                                    oportunidade.donoId,
-                                  ),
-                                  favorita: provider.ehOportunidadeFavorita(
-                                    oportunidade.id,
-                                  ),
-                                  onFavoritar:
-                                      podeFavoritarOportunidade(
-                                        auth,
-                                        oportunidade,
-                                      )
-                                      ? () => alternarFavorito(
-                                          context,
-                                          (p) => p.alternarOportunidadeFavorita(
-                                            oportunidade.id,
-                                          ),
-                                        )
-                                      : null,
-                                  onCandidatar: pode
-                                      ? () => confirmarCandidatura(
-                                          context,
-                                          oportunidade,
-                                        )
-                                      : null,
-                                  statusCandidatura: pode
-                                      ? interesses
-                                            .candidaturaPara(oportunidade.id)
-                                            ?.rotuloStatus
-                                      : null,
-                                  onVerDetalhes: () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.detalheOportunidade,
-                                      arguments: oportunidade.id,
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                );
-              },
+            child: _lista(
+              context,
+              provider,
+              auth,
+              interesses,
+              filtro,
+              carregando,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _lista(
+    BuildContext context,
+    OportunidadeProvider provider,
+    AuthProvider auth,
+    InteresseProvider interesses,
+    FiltroOportunidades filtro,
+    bool carregando,
+  ) {
+    if (carregando) return const EstadoCarregando();
+    if (provider.erroOportunidades) {
+      return const EstadoErro(
+        mensagem: 'Erro ao carregar oportunidades. Verifique sua conexão.',
+      );
+    }
+    final oportunidades = provider.oportunidades;
+    if (oportunidades.isEmpty) {
+      return EstadoVazio(
+        icone: Icons.event_busy_outlined,
+        titulo: 'Nada por aqui',
+        mensagem: filtro.semCriterios
+            ? 'Nenhuma oportunidade encontrada.'
+            : 'Nenhuma oportunidade com esses filtros.',
+        rotuloAcao: filtro.semCriterios ? null : 'Limpar filtros',
+        onAcao: provider.resetarFiltroOportunidades,
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      itemCount: oportunidades.length,
+      itemBuilder: (context, index) {
+        final oportunidade = oportunidades[index];
+        final pode = podeCandidatar(auth, oportunidade);
+        return OportunidadeCard(
+          oportunidade: oportunidade,
+          assinante: provider.ehAssinante(oportunidade.donoId),
+          favorita: provider.ehOportunidadeFavorita(oportunidade.id),
+          onFavoritar: podeFavoritarOportunidade(auth, oportunidade)
+              ? () => alternarFavorito(
+                  context,
+                  (p) => p.alternarOportunidadeFavorita(oportunidade.id),
+                )
+              : null,
+          onCandidatar: pode
+              ? () => confirmarCandidatura(context, oportunidade)
+              : null,
+          statusCandidatura: pode
+              ? interesses.candidaturaPara(oportunidade.id)?.rotuloStatus
+              : null,
+          onVerDetalhes: () => Navigator.pushNamed(
+            context,
+            AppRoutes.detalheOportunidade,
+            arguments: oportunidade.id,
+          ),
+        );
+      },
     );
   }
 }

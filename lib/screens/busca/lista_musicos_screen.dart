@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/data_hora.dart';
 import '../../models/filtro_musicos.dart';
 import '../../providers/auth_provider.dart';
@@ -9,17 +9,19 @@ import '../../providers/avaliacao_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../widgets/estados.dart';
 import '../../widgets/musico_card.dart';
 import 'acoes_interesse.dart';
+import 'cabecalho_busca.dart';
 import 'painel_filtro_musicos.dart';
 
-/// Músicos do catálogo com filtro (painel "Filtrar" + chips removíveis),
-/// no mesmo padrão da lista de oportunidades.
+/// Músicos do catálogo (Plano 8): pesquisa e gêneros no topo, demais
+/// critérios no painel "Filtrar" (viram chips removíveis), no mesmo padrão
+/// da lista de oportunidades.
 class ListaMusicosScreen extends StatelessWidget {
   const ListaMusicosScreen({super.key, this.embutida = false});
 
-  /// Dentro da aba Buscar (Plano 8): sem AppBar próprio; o "Filtrar" vai
-  /// para o topo do conteúdo.
+  /// Dentro da aba Buscar (Plano 8): sem AppBar próprio.
   final bool embutida;
 
   Future<void> _abrirFiltro(BuildContext context) async {
@@ -32,7 +34,7 @@ class ListaMusicosScreen extends StatelessWidget {
     if (escolhido != null) provider.aplicarFiltroMusicos(escolhido);
   }
 
-  /// Um chip por critério ligado; o "x" desliga só aquele critério.
+  /// Um chip por critério do painel; o "x" desliga só aquele critério.
   List<Widget> _chips(OportunidadeProvider provider) {
     final f = provider.filtroMusicos;
 
@@ -44,15 +46,10 @@ class ListaMusicosScreen extends StatelessWidget {
           visualDensity: VisualDensity.compact,
         );
 
-    final genero = f.genero;
     final cidade = f.cidade;
     final formacao = f.formacao;
     final livresEm = f.livresEm;
     return [
-      if (f.termo.trim().isNotEmpty)
-        chip('"${f.termo}"', f.copyWith(termo: '')),
-      if (genero != null && genero.isNotEmpty)
-        chip(genero, f.copyWith(limparGenero: true)),
       if (cidade != null && cidade.trim().isNotEmpty)
         chip(cidade, f.copyWith(limparCidade: true)),
       if (formacao != null)
@@ -80,48 +77,52 @@ class ListaMusicosScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final interesses = context.watch<InteresseProvider>();
     final filtro = provider.filtroMusicos;
-
-    final botaoFiltro = TextButton.icon(
-      onPressed: () => _abrirFiltro(context),
-      icon: const Icon(Icons.filter_list),
-      label: Text(filtro.vazio ? 'Filtrar' : 'Filtrar (${filtro.ativos})'),
-    );
+    final carregando =
+        (provider.carregandoMusicos && provider.musicos.isEmpty) ||
+        provider.carregandoLivres;
+    final total = provider.musicos.length;
 
     return Scaffold(
-      appBar: embutida
-          ? null
-          : AppBar(
-              title: const Text('Lista de músicos'),
-              actions: [botaoFiltro],
-            ),
+      appBar: embutida ? null : AppBar(title: const Text('Músicos')),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (embutida)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: botaoFiltro,
+          CabecalhoBusca(
+            termo: filtro.termo,
+            onTermo: (termo) =>
+                provider.aplicarFiltroMusicos(filtro.copyWith(termo: termo)),
+            dica: 'Nome, gênero, cidade...',
+            genero: filtro.genero,
+            onGenero: (genero) => provider.aplicarFiltroMusicos(
+              genero == null
+                  ? filtro.copyWith(limparGenero: true)
+                  : filtro.copyWith(genero: genero),
+            ),
+            contagem: carregando || provider.erroMusicos
+                ? null
+                : (total == 1 ? '1 músico' : '$total músicos'),
+            ativosNoPainel: filtro.ativos,
+            onFiltrar: () => _abrirFiltro(context),
+            chips: _chips(provider),
+            // Limpa só o painel; pesquisa e gênero ficam no topo.
+            onLimpar: () => provider.aplicarFiltroMusicos(
+              FiltroMusicos(
+                termo: filtro.termo,
+                genero: filtro.genero,
+                ordenacao: filtro.ordenacao,
               ),
             ),
-          if (!filtro.vazio)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  ..._chips(provider),
-                  TextButton(
-                    onPressed: provider.resetarFiltroMusicos,
-                    child: const Text('Limpar'),
-                  ),
-                ],
-              ),
+          ),
+          Expanded(
+            child: _lista(
+              context,
+              provider,
+              auth,
+              interesses,
+              filtro,
+              carregando,
             ),
-          Expanded(child: _lista(context, provider, auth, interesses, filtro)),
+          ),
         ],
       ),
     );
@@ -133,70 +134,59 @@ class ListaMusicosScreen extends StatelessWidget {
     AuthProvider auth,
     InteresseProvider interesses,
     FiltroMusicos filtro,
+    bool carregando,
   ) {
-    if ((provider.carregandoMusicos && provider.musicos.isEmpty) ||
-        provider.carregandoLivres) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (carregando) return const EstadoCarregando();
     if (provider.erroMusicos) {
-      return const _Mensagem(
-        'Erro ao carregar músicos. Verifique sua conexão.',
+      return const EstadoErro(
+        mensagem: 'Erro ao carregar músicos. Verifique sua conexão.',
       );
     }
     final musicos = provider.musicos;
     final livresEm = filtro.livresEm;
     if (musicos.isEmpty) {
-      return _Mensagem(
-        livresEm == null
+      return EstadoVazio(
+        icone: Icons.mic_off_outlined,
+        titulo: 'Nenhum músico encontrado',
+        mensagem: livresEm == null
             ? 'Nenhum músico encontrado com os filtros informados.'
             : 'Nenhum músico livre em ${formatarData(livresEm)} com os '
                   'filtros informados.',
+        rotuloAcao: filtro.semCriterios ? null : 'Limpar filtros',
+        onAcao: provider.resetarFiltroMusicos,
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Text(
-            musicos.length == 1 ? '1 músico' : '${musicos.length} músicos',
-            style: const TextStyle(color: AppColors.textoSecundario),
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      itemCount: musicos.length,
+      itemBuilder: (context, index) {
+        final musico = musicos[index];
+        final pode = podeConvidar(auth, musico);
+        return MusicoCard(
+          musico: musico,
+          onConvidar: pode ? () => confirmarConvite(context, musico) : null,
+          rotuloConvidar: rotuloConvidar(interesses, musico.id),
+          assinante: provider.ehAssinante(musico.id),
+          avaliacao: _avaliacao(context, musico.id),
+          favorito: provider.ehMusicoFavorito(musico.id),
+          onFavoritar: podeFavoritarMusico(auth, musico)
+              ? () => alternarFavorito(
+                  context,
+                  (p) => p.alternarMusicoFavorito(musico.id),
+                )
+              : null,
+          onVerDetalhes: () => Navigator.pushNamed(
+            context,
+            AppRoutes.detalheMusico,
+            arguments: musico.id,
           ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: musicos.length,
-            itemBuilder: (context, index) {
-              final musico = musicos[index];
-              final pode = podeConvidar(auth, musico);
-              return MusicoCard(
-                musico: musico,
-                onConvidar: pode
-                    ? () => confirmarConvite(context, musico)
-                    : null,
-                rotuloConvidar: rotuloConvidar(interesses, musico.id),
-                assinante: provider.ehAssinante(musico.id),
-                avaliacao: _avaliacao(context, musico.id),
-                favorito: provider.ehMusicoFavorito(musico.id),
-                onFavoritar: podeFavoritarMusico(auth, musico)
-                    ? () => alternarFavorito(
-                        context,
-                        (p) => p.alternarMusicoFavorito(musico.id),
-                      )
-                    : null,
-                onVerDetalhes: () {
-                  Navigator.pushNamed(
-                    context,
-                    AppRoutes.detalheMusico,
-                    arguments: musico.id,
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -205,24 +195,4 @@ class ListaMusicosScreen extends StatelessWidget {
 String? _avaliacao(BuildContext context, String uid) {
   final resumo = context.watch<AvaliacaoProvider>().resumoDe(uid);
   return resumo.temAvaliacao ? resumo.rotuloCurto : null;
-}
-
-class _Mensagem extends StatelessWidget {
-  const _Mensagem(this.texto);
-
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          texto,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16),
-        ),
-      ),
-    );
-  }
 }
