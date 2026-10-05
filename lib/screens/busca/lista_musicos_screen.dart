@@ -16,7 +16,11 @@ import 'painel_filtro_musicos.dart';
 /// Músicos do catálogo com filtro (painel "Filtrar" + chips removíveis),
 /// no mesmo padrão da lista de oportunidades.
 class ListaMusicosScreen extends StatelessWidget {
-  const ListaMusicosScreen({super.key});
+  const ListaMusicosScreen({super.key, this.embutida = false});
+
+  /// Dentro da aba Buscar (Plano 8): sem AppBar próprio; o "Filtrar" vai
+  /// para o topo do conteúdo.
+  final bool embutida;
 
   Future<void> _abrirFiltro(BuildContext context) async {
     final provider = context.read<OportunidadeProvider>();
@@ -45,7 +49,8 @@ class ListaMusicosScreen extends StatelessWidget {
     final formacao = f.formacao;
     final livresEm = f.livresEm;
     return [
-      if (f.termo.trim().isNotEmpty) chip('"${f.termo}"', f.copyWith(termo: '')),
+      if (f.termo.trim().isNotEmpty)
+        chip('"${f.termo}"', f.copyWith(termo: '')),
       if (genero != null && genero.isNotEmpty)
         chip(genero, f.copyWith(limparGenero: true)),
       if (cidade != null && cidade.trim().isNotEmpty)
@@ -53,12 +58,13 @@ class ListaMusicosScreen extends StatelessWidget {
       if (formacao != null)
         chip(formacao.rotulo, f.copyWith(limparFormacao: true)),
       if (f.soEquipamentoProprio)
-        chip(
-          'Equipamento próprio',
-          f.copyWith(soEquipamentoProprio: false),
-        ),
+        chip('Equipamento próprio', f.copyWith(soEquipamentoProprio: false)),
       if (f.soFavoritos)
-        chip('Favoritos', f.copyWith(soFavoritos: false), icone: Icons.favorite),
+        chip(
+          'Favoritos',
+          f.copyWith(soFavoritos: false),
+          icone: Icons.favorite,
+        ),
       if (livresEm != null)
         chip(
           'Livres em ${formatarData(livresEm)}',
@@ -75,22 +81,30 @@ class ListaMusicosScreen extends StatelessWidget {
     final interesses = context.watch<InteresseProvider>();
     final filtro = provider.filtroMusicos;
 
+    final botaoFiltro = TextButton.icon(
+      onPressed: () => _abrirFiltro(context),
+      icon: const Icon(Icons.filter_list),
+      label: Text(filtro.vazio ? 'Filtrar' : 'Filtrar (${filtro.ativos})'),
+    );
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lista de músicos'),
-        actions: [
-          TextButton.icon(
-            onPressed: () => _abrirFiltro(context),
-            icon: const Icon(Icons.filter_list),
-            label: Text(
-              filtro.vazio ? 'Filtrar' : 'Filtrar (${filtro.ativos})',
+      appBar: embutida
+          ? null
+          : AppBar(
+              title: const Text('Lista de músicos'),
+              actions: [botaoFiltro],
             ),
-          ),
-        ],
-      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (embutida)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: botaoFiltro,
+              ),
+            ),
           if (!filtro.vazio)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -125,7 +139,9 @@ class ListaMusicosScreen extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (provider.erroMusicos) {
-      return const _Mensagem('Erro ao carregar músicos. Verifique sua conexão.');
+      return const _Mensagem(
+        'Erro ao carregar músicos. Verifique sua conexão.',
+      );
     }
     final musicos = provider.musicos;
     final livresEm = filtro.livresEm;

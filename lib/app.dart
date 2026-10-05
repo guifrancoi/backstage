@@ -14,7 +14,7 @@ import 'screens/chat/chat_screen.dart';
 import 'screens/chat/conversas_screen.dart';
 import 'screens/contratacoes/contratacoes_screen.dart';
 import 'screens/contratacoes/propor_contratacao_screen.dart';
-import 'screens/home/home_screen.dart';
+import 'screens/home/shell_screen.dart';
 import 'screens/interesses/interesses_screen.dart';
 import 'screens/notificacoes/notificacoes_screen.dart';
 import 'screens/oportunidades/minhas_oportunidades_screen.dart';
@@ -45,7 +45,7 @@ class MyApp extends StatelessWidget {
         AppRoutes.cadastro: (_) => const CadastroScreen(),
         AppRoutes.completarPerfil: (_) => const CompletarPerfilScreen(),
         AppRoutes.recuperarSenha: (_) => const RecuperarSenhaScreen(),
-        AppRoutes.home: (_) => const HomeScreen(),
+        AppRoutes.home: (_) => const ShellScreen(),
         AppRoutes.perfil: (_) => const PerfilScreen(),
         AppRoutes.listaMusicos: (_) => const ListaMusicosScreen(),
         AppRoutes.listaOportunidades: (_) => const ListaOportunidadesScreen(),

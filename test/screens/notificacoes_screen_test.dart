@@ -13,6 +13,7 @@ import 'package:backstage/routes/app_routes.dart';
 import 'package:backstage/screens/chat/chat_screen.dart';
 import 'package:backstage/screens/chat/conversas_screen.dart';
 import 'package:backstage/screens/home/home_screen.dart';
+import 'package:backstage/screens/home/shell_screen.dart';
 import 'package:backstage/screens/notificacoes/notificacoes_screen.dart';
 import 'package:backstage/services/firebase_data_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -114,7 +115,7 @@ void main() {
     expect(find.text('Nenhuma notificação por aqui.'), findsOneWidget);
   });
 
-  testWidgets('Home: sino com não lidas e selo de mensagens em Conversas', (tester) async {
+  testWidgets('Home: sino com não lidas e selo de mensagens na aba Conversas', (tester) async {
     await gravarNotificacao('n1', TipoNotificacao.interesseAceito);
     await gravarNotificacao('n2', TipoNotificacao.interesseAceito);
     await gravarNotificacao('n3', TipoNotificacao.interesseAceito, lida: true);
@@ -131,7 +132,7 @@ void main() {
       ],
     });
     await tester.pumpWidget(
-      _app(servicoFake(firestore: firestore, uid: 'm1'), const HomeScreen()),
+      _app(servicoFake(firestore: firestore, uid: 'm1'), const ShellScreen()),
     );
     await tester.pumpAndSettle();
 
@@ -142,7 +143,7 @@ void main() {
     );
     expect(
       find.descendant(
-        of: find.widgetWithText(Card, 'Conversas'),
+        of: find.widgetWithText(NavigationDestination, 'Conversas'),
         matching: find.text('1'),
       ),
       findsOneWidget,

@@ -28,7 +28,7 @@ class PerfilScreen extends StatelessWidget {
         child: Scaffold(
           appBar: AppBar(
             title: const Text('Meu perfil'),
-            actions: const [_AtalhoBloqueados()],
+            actions: const [_AtalhoBloqueados(), _MenuConta()],
             bottom: const TabBar(
               tabs: [
                 Tab(text: 'Artista'),
@@ -63,9 +63,54 @@ class PerfilScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Meu perfil'),
-        actions: const [_AtalhoBloqueados()],
+        actions: const [_AtalhoBloqueados(), _MenuConta()],
       ),
       body: corpo,
+    );
+  }
+}
+
+enum _OpcaoConta { sobre, sair }
+
+/// Plano 8: "Sobre" e "Sair" (antes no AppBar da Home), agora que o Perfil é
+/// uma aba da barra inferior.
+class _MenuConta extends StatelessWidget {
+  const _MenuConta();
+
+  Future<void> _escolher(BuildContext context, _OpcaoConta opcao) async {
+    switch (opcao) {
+      case _OpcaoConta.sobre:
+        Navigator.pushNamed(context, AppRoutes.sobre);
+      case _OpcaoConta.sair:
+        final navigator = Navigator.of(context, rootNavigator: true);
+        await context.read<AuthProvider>().logout();
+        navigator.pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_OpcaoConta>(
+      tooltip: 'Mais opções',
+      onSelected: (opcao) => _escolher(context, opcao),
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: _OpcaoConta.sobre,
+          child: ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text('Sobre'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: _OpcaoConta.sair,
+          child: ListTile(
+            leading: Icon(Icons.logout),
+            title: Text('Sair'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -85,9 +130,7 @@ class _AtalhoBloqueados extends StatelessWidget {
 }
 
 void _avisar(BuildContext context, String mensagem) {
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(mensagem)));
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensagem)));
 }
 
 /// Grava pelo provider e avisa o resultado; devolve se deu certo.
@@ -178,7 +221,11 @@ class _PerfilMusicoAbaState extends State<_PerfilMusicoAba> {
             backgroundColor: AppColors.primariaContainer,
             backgroundImage: imagem,
             child: imagem == null
-                ? const Icon(Icons.person, size: 55, color: AppColors.primariaTexto)
+                ? const Icon(
+                    Icons.person,
+                    size: 55,
+                    color: AppColors.primariaTexto,
+                  )
                 : null,
           ),
         ),
