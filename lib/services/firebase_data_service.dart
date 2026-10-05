@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/agenda_publica.dart';
 import '../models/avaliacao.dart';
 import '../models/casa_show.dart';
@@ -724,12 +725,14 @@ class FirebaseDataService {
   }
 
   /// Como [notificar], mas nunca falha: a notificação é secundária à ação
-  /// que a gerou, que já foi gravada. (Registro da falha: Plano 6.)
+  /// que a gerou, que já foi gravada; a falha só fica no log.
   Future<void> tentarNotificar(List<Notificacao> notificacoes) async {
     if (notificacoes.isEmpty) return;
     try {
       await notificar(notificacoes);
-    } catch (_) {}
+    } catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao notificar', erro, stack);
+    }
   }
 
   /// Sem `orderBy` (evita índice composto): quem usa ordena.
@@ -908,3 +911,5 @@ DateTime _dateTimeFromValue(dynamic value) {
     return DateTime.now();
   }
 }
+
+const _origem = 'FirebaseDataService';

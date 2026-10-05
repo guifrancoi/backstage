@@ -2,6 +2,7 @@ import 'package:backstage/models/casa_show.dart';
 import 'package:backstage/models/conversa.dart';
 import 'package:backstage/models/interesse.dart';
 import 'package:backstage/models/mensagem.dart';
+import 'package:backstage/models/notificacao.dart';
 import 'package:backstage/models/usuario.dart';
 import 'package:backstage/services/firebase_data_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/captura_log.dart';
 import '../helpers/firebase_fake.dart';
 
 /// Auth fake que simula um cadastro já existente (retomada de cadastro).
@@ -23,6 +25,17 @@ class _AuthComEmailEmUso extends MockFirebaseAuth {
   }) {
     throw FirebaseAuthException(code: 'email-already-in-use');
   }
+}
+
+/// Gravação de notificações sempre recusada pelas regras.
+class _ServicoSemNotificar extends FirebaseDataService {
+  _ServicoSemNotificar()
+    : super(auth: MockFirebaseAuth(), firestore: FakeFirebaseFirestore());
+
+  @override
+  Future<void> notificar(List<Notificacao> notificacoes) => Future.error(
+    FirebaseException(plugin: 'cloud_firestore', code: 'permission-denied'),
+  );
 }
 
 void main() {
@@ -532,5 +545,26 @@ void main() {
     final interesses = await service.streamInteressesEnviados('m1').first;
 
     expect(interesses.single.criadoEm, DateTime(2026, 1, 2, 3, 4));
+  });
+
+  test('tentarNotificar não falha, mas registra a falha no log', () async {
+    final captura = capturarLogs();
+
+    await _ServicoSemNotificar().tentarNotificar([
+      Notificacao(
+        destinatarioId: 'e1',
+        autorId: 'm1',
+        autorNome: 'Banda',
+        tipo: TipoNotificacao.values.first,
+        titulo: 't',
+        texto: 'x',
+        interesseId: 'i1',
+      ),
+    ]);
+
+    expect(
+      captura.de('FirebaseDataService').single.mensagem,
+      'Falha ao notificar (cloud_firestore/permission-denied)',
+    );
   });
 }

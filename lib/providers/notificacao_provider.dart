@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/notificacao.dart';
 import '../services/firebase_data_service.dart';
 
@@ -38,7 +39,7 @@ class NotificacaoProvider extends ChangeNotifier {
       _notificacoes = [...lista]
         ..sort((a, b) => b.criadaEm.compareTo(a.criadaEm));
       notifyListeners();
-    });
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nas notificações'));
   }
 
   Future<bool> marcarComoLida(Notificacao notificacao) {
@@ -64,7 +65,8 @@ class NotificacaoProvider extends ChangeNotifier {
     try {
       await acao();
       return true;
-    } on FirebaseException {
+    } on FirebaseException catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao atualizar notificação', erro, stack);
       _errorMessage = 'Não foi possível atualizar as notificações.';
       notifyListeners();
       return false;
@@ -78,3 +80,5 @@ class NotificacaoProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _origem = 'NotificacaoProvider';

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/usuario.dart';
 import '../services/firebase_data_service.dart';
 
@@ -57,8 +58,9 @@ class AuthProvider extends ChangeNotifier {
       _usuario = await _service.carregarUsuario(uid);
       _isAdmin = await _service.ehAdmin();
       notifyListeners();
-    } catch (_) {
+    } catch (erro, stack) {
       // Sem o documento, o app só esconde as ações que dependem do papel.
+      AppLogger.falha(_origem, 'Falha ao carregar o usuário', erro, stack);
     }
   }
 
@@ -72,14 +74,18 @@ class AuthProvider extends ChangeNotifier {
       _userId = credential.user?.uid;
       _userEmail = credential.user?.email;
       _isLoggedIn = true;
+      AppLogger.info(_origem, 'Login');
       return true;
-    } on FirebaseAuthException catch (error) {
+    } on FirebaseAuthException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no login', error, stack);
       _errorMessage = _mensagemFirebaseAuth(error);
       return false;
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no login', error, stack);
       _errorMessage = _mensagemFirebase(error);
       return false;
-    } on TimeoutException {
+    } on TimeoutException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no login', error, stack);
       _errorMessage =
           'O Firebase demorou para responder. Verifique a conexao e tente novamente.';
       return false;
@@ -110,13 +116,16 @@ class AuthProvider extends ChangeNotifier {
       _userId = credential.user?.uid;
       _userEmail = credential.user?.email;
       return true;
-    } on FirebaseAuthException catch (error) {
+    } on FirebaseAuthException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no cadastro', error, stack);
       _errorMessage = _mensagemFirebaseAuth(error);
       return false;
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no cadastro', error, stack);
       _errorMessage = _mensagemFirebase(error);
       return false;
-    } on TimeoutException {
+    } on TimeoutException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no cadastro', error, stack);
       _errorMessage =
           'O Firebase demorou para responder. Verifique a conexao e tente novamente.';
       return false;
@@ -134,7 +143,8 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _service.recuperarSenha(email);
       return true;
-    } on FirebaseAuthException catch (error) {
+    } on FirebaseAuthException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha ao recuperar a senha', error, stack);
       _errorMessage = _mensagemFirebaseAuth(error);
       return false;
     } finally {
@@ -163,7 +173,8 @@ class AuthProvider extends ChangeNotifier {
         TipoUsuario.casaShow =>
           !((await _service.carregarEstabelecimento(uid))?.completo ?? false),
       };
-    } catch (_) {
+    } catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao conferir o onboarding', erro, stack);
       return false;
     }
   }
@@ -177,7 +188,13 @@ class AuthProvider extends ChangeNotifier {
       await _service.definirTipoUsuario(_userId!, tipoUsuario);
       _usuario = await _service.carregarUsuario(_userId!);
       return true;
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(
+        _origem,
+        'Falha ao definir o tipo de usuário',
+        error,
+        stack,
+      );
       _errorMessage = _mensagemFirebase(error);
       return false;
     } finally {
@@ -188,6 +205,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await _service.logout();
+    AppLogger.info(_origem, 'Logout');
 
     _isLoggedIn = false;
     _userId = null;
@@ -198,6 +216,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+const _origem = 'AuthProvider';
 
 String _mensagemFirebaseAuth(FirebaseAuthException error) {
   return switch (error.code) {

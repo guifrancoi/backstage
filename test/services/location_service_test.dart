@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:backstage/core/logging/app_logger.dart';
 import 'package:backstage/services/location_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import '../helpers/captura_log.dart';
 
 Future<(double, double)?> _geocode(LocationService service, {String? cep}) {
   return service.geocodeEndereco(
@@ -119,6 +122,27 @@ void main() {
       );
 
       expect(await _geocode(service), isNull);
+    });
+
+    test('registra a falha sem o endereço consultado', () async {
+      final captura = capturarLogs();
+      final service = LocationService(
+        client: MockClient((_) async => throw TimeoutException('lento')),
+      );
+
+      await _geocode(service);
+      final servidorFora = LocationService(
+        client: MockClient((_) async => http.Response('erro', 503)),
+      );
+      await _geocode(servidorFora);
+
+      expect(captura.registros.map((r) => (r.nivel, r.mensagem)), [
+        (NivelLog.aviso, 'Falha na geocodificação (TimeoutException)'),
+        (NivelLog.aviso, 'Geocodificação HTTP 503'),
+      ]);
+      for (final r in captura.registros) {
+        expect(r.mensagem, isNot(contains('Amazonas')));
+      }
     });
 
     test('retorna null em timeout', () async {

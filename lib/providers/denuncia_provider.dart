@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/denuncia.dart';
 import '../services/firebase_data_service.dart';
 
@@ -40,8 +41,8 @@ class DenunciaProvider extends ChangeNotifier {
         _denuncias = [...lista]
           ..sort((a, b) => b.criadaEm.compareTo(a.criadaEm));
         notifyListeners();
-      }, onError: (_) {});
-    }, onError: (_) {});
+      }, onError: AppLogger.aoFalhar(_origem, 'Falha nas denúncias'));
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha ao conferir admin'));
   }
 
   /// Envia a denúncia do usuário logado. Devolve se gravou.
@@ -87,7 +88,8 @@ class DenunciaProvider extends ChangeNotifier {
     try {
       await acao();
       return true;
-    } on FirebaseException {
+    } on FirebaseException catch (falha, stack) {
+      AppLogger.falha(_origem, 'Falha ao gravar denúncia', falha, stack);
       _errorMessage = erro;
       notifyListeners();
       return false;
@@ -101,3 +103,5 @@ class DenunciaProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _origem = 'DenunciaProvider';

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/casa_show.dart';
 import '../models/musico.dart';
 import '../models/usuario.dart';
@@ -64,7 +65,8 @@ class PerfilProvider extends ChangeNotifier {
       _perfilEstabelecimento = (_isAdmin || tipo == TipoUsuario.casaShow)
           ? await _service.carregarEstabelecimento(uid)
           : null;
-    } catch (_) {
+    } catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao carregar perfil', erro, stack);
       // Falha de rede/permissão: a tela mostra o perfil como ausente.
     } finally {
       _isLoading = false;
@@ -107,7 +109,8 @@ class PerfilProvider extends ChangeNotifier {
     try {
       await gravar();
       return true;
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha ao salvar perfil', error, stack);
       _errorMessage = error.code == 'permission-denied'
           ? 'Sem permissão para salvar o perfil.'
           : 'Não foi possível salvar o perfil. Tente novamente.';
@@ -123,3 +126,5 @@ class PerfilProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _origem = 'PerfilProvider';

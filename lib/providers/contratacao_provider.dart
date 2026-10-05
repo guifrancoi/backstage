@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/contratacao.dart';
 import '../models/notificacao.dart';
 import '../services/firebase_data_service.dart';
@@ -68,7 +69,7 @@ class ContratacaoProvider extends ChangeNotifier {
     ) {
       _contratacoes = lista;
       notifyListeners();
-    });
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nas contratações'));
   }
 
   /// Aplica situação, busca (título, nomes, cidade; sem diferenciar
@@ -237,7 +238,8 @@ class ContratacaoProvider extends ChangeNotifier {
     try {
       await acao();
       return true;
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha ao gravar contratação', error, stack);
       _errorMessage = _mensagemErro(error, confirmando: confirmando);
       notifyListeners();
       return false;
@@ -264,3 +266,5 @@ String _mensagemErro(FirebaseException error, {required bool confirmando}) {
     _ => 'Não foi possível concluir a ação.',
   };
 }
+
+const _origem = 'ContratacaoProvider';

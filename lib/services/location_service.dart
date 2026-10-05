@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../core/logging/app_logger.dart';
+
 class LocationService {
   LocationService({http.Client? client}) : _client = client ?? http.Client();
 
@@ -42,7 +44,10 @@ class LocationService {
           .get(uri, headers: {'User-Agent': _userAgent})
           .timeout(const Duration(seconds: 8));
 
-      if (response.statusCode != 200) return null;
+      if (response.statusCode != 200) {
+        AppLogger.aviso(_origem, 'Geocodificação HTTP ${response.statusCode}');
+        return null;
+      }
 
       final results = jsonDecode(response.body) as List<dynamic>;
       if (results.isEmpty) return null;
@@ -53,8 +58,12 @@ class LocationService {
 
       if (lat == null || lon == null) return null;
       return (lat, lon);
-    } catch (_) {
+    } catch (erro, stack) {
+      // Sem coordenadas a tela avisa; o endereço não vai para o log.
+      AppLogger.falha(_origem, 'Falha na geocodificação', erro, stack);
       return null;
     }
   }
 }
+
+const _origem = 'LocationService';

@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/agenda_publica.dart';
 import '../services/firebase_data_service.dart';
 
@@ -32,7 +34,11 @@ class AgendaProvider extends ChangeNotifier {
     final usuarioId = _service.currentUserId;
     _diasBloqueados.clear();
     if (usuarioId != null) {
-      _diasBloqueados.addAll(await _service.listarDiasBloqueados(usuarioId));
+      try {
+        _diasBloqueados.addAll(await _service.listarDiasBloqueados(usuarioId));
+      } catch (erro, stack) {
+        AppLogger.falha(_origem, 'Falha ao carregar bloqueios', erro, stack);
+      }
     }
     notifyListeners();
   }
@@ -49,7 +55,7 @@ class AgendaProvider extends ChangeNotifier {
       notifyListeners();
     }
 
-    await _service.bloquearDia(usuarioId, dia);
+    await _gravar(() => _service.bloquearDia(usuarioId, dia));
   }
 
   Future<void> desbloquearDia(DateTime data) async {
@@ -59,7 +65,18 @@ class AgendaProvider extends ChangeNotifier {
     _diasBloqueados.removeWhere((d) => _mesmoDia(d, data));
     notifyListeners();
 
-    await _service.desbloquearDia(usuarioId, data);
+    await _gravar(() => _service.desbloquearDia(usuarioId, data));
+  }
+
+  /// A tela já mostrou a mudança; se a gravação falhar, recarrega do banco
+  /// para desfazê-la.
+  Future<void> _gravar(Future<void> Function() gravacao) async {
+    try {
+      await gravacao();
+    } on FirebaseException catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao gravar bloqueio', erro, stack);
+      await carregarBloqueios();
+    }
   }
 
   static bool _mesmoDia(DateTime a, DateTime b) =>
@@ -71,3 +88,5 @@ class AgendaProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _origem = 'AgendaProvider';

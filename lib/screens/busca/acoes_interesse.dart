@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/logging/app_logger.dart';
 import '../../models/agenda_publica.dart';
 import '../../models/contratacao.dart';
 import '../../models/interesse.dart';
@@ -37,7 +38,8 @@ Future<AgendaPublica?> carregarAgendaPublica(
   final agenda = context.read<AgendaProvider>().agendaPublica(musicoId);
   try {
     return await agenda.first.timeout(const Duration(seconds: 5));
-  } catch (_) {
+  } catch (erro, stack) {
+    AppLogger.falha(_origem, 'Falha ao ler agenda pública', erro, stack);
     return null;
   }
 }
@@ -275,3 +277,5 @@ Future<void> confirmarConvite(
 void _avisar(BuildContext context, String mensagem) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensagem)));
 }
+
+const _origem = 'acoes_interesse';

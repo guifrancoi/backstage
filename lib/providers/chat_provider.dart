@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/conversa.dart';
 import '../models/mensagem.dart';
 import '../services/firebase_data_service.dart';
@@ -45,7 +46,7 @@ class ChatProvider extends ChangeNotifier {
     _conversasSubscription = _service.streamConversas(uid).listen((lista) {
       _conversas = lista;
       notifyListeners();
-    });
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nas conversas'));
   }
 
   /// Mensagens do outro participante que eu ainda não vi nesta conversa.
@@ -71,7 +72,8 @@ class ChatProvider extends ChangeNotifier {
     }
     try {
       await _service.marcarConversaLida(conversaId, uid);
-    } catch (_) {
+    } catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao marcar conversa lida', erro, stack);
       // Sem registro, o selo só continua aceso; não atrapalha a conversa.
     } finally {
       _marcando.remove(conversaId);
@@ -107,7 +109,8 @@ class ChatProvider extends ChangeNotifier {
     try {
       await _service.enviarMensagem(conversaId, mensagem);
       return true;
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha ao enviar mensagem', error, stack);
       _errorMessage = error.code == 'permission-denied'
           ? 'Não é possível enviar mensagens nesta conversa.'
           : 'Não foi possível enviar a mensagem.';
@@ -123,3 +126,5 @@ class ChatProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _origem = 'ChatProvider';

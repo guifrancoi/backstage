@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/interesse.dart';
 import '../models/musico.dart';
 import '../models/notificacao.dart';
@@ -45,13 +46,13 @@ class InteresseProvider extends ChangeNotifier {
     ) {
       _enviados = lista;
       notifyListeners();
-    });
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nos enviados'));
     _recebidosSubscription = _service.streamInteressesRecebidos(uid).listen((
       lista,
     ) {
       _recebidos = lista;
       notifyListeners();
-    });
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nos recebidos'));
   }
 
   /// Interesse enviado ou recebido pelo usuário logado.
@@ -310,7 +311,8 @@ class InteresseProvider extends ChangeNotifier {
     _errorMessage = null;
     try {
       return await acao();
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha ao gravar interesse', error, stack);
       _errorMessage = _mensagemErro(error);
       notifyListeners();
       return null;
@@ -347,3 +349,5 @@ String _mensagemErro(FirebaseException error) {
     _ => 'Não foi possível concluir a ação.',
   };
 }
+
+const _origem = 'InteresseProvider';

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../models/avaliacao.dart';
 import '../models/contratacao.dart';
 import '../models/notificacao.dart';
@@ -39,7 +40,7 @@ class AvaliacaoProvider extends ChangeNotifier {
     _avaliacoesSubscription = _service.streamAvaliacoes().listen((lista) {
       _todas = lista;
       notifyListeners();
-    }, onError: (_) {});
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nas avaliações'));
   }
 
   /// Média e quantidade das avaliações recebidas por [uid].
@@ -97,7 +98,8 @@ class AvaliacaoProvider extends ChangeNotifier {
     _errorMessage = null;
     try {
       await _service.avaliar(avaliacao);
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha ao avaliar', error, stack);
       _errorMessage = error.code == 'permission-denied'
           ? 'Não foi possível avaliar: o prazo terminou ou o show já foi '
                 'avaliado.'
@@ -128,3 +130,5 @@ class AvaliacaoProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _origem = 'AvaliacaoProvider';

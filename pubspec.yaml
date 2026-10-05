@@ -14,9 +14,10 @@ dependencies:
   url_launcher: ^6.3.0
   device_preview_plus: ^2.6.1
   http: ^1.2.2
-  firebase_core: ^4.10.0
-  firebase_auth: ^6.5.2
-  cloud_firestore: ^6.5.0
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
+  firebase_crashlytics: ^5.4.0
   cupertino_icons: ^1.0.9
   table_calendar: ^3.2.1
   intl: ^0.20.2
@@ -26,7 +27,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  fake_cloud_firestore: 4.1.1
+  fake_cloud_firestore: 4.3.0
   firebase_auth_mocks: ^0.15.2
 
 flutter:

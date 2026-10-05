@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import '../logging/app_logger.dart';
 import 'firebase_options.dart';
 
 /// Inicializa o Firebase. Não existe mais modo offline/mock (Plano 5): se
@@ -22,11 +23,13 @@ class FirebaseBootstrap {
         await Firebase.initializeApp();
         return true;
       }
-    } catch (_) {
+    } catch (erro, stack) {
+      AppLogger.erro('FirebaseBootstrap', 'Falha ao inicializar', erro, stack);
       return false;
     }
 
     // Web e desktop só têm configuração via --dart-define.
+    AppLogger.aviso('FirebaseBootstrap', 'Sem configuração do Firebase');
     return false;
   }
 

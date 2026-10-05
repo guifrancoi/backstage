@@ -6,6 +6,8 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'app.dart';
 import 'core/firebase/firebase_bootstrap.dart';
+import 'core/logging/app_logger.dart';
+import 'core/logging/observabilidade.dart';
 import 'providers/agenda_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/avaliacao_provider.dart';
@@ -32,6 +34,13 @@ Future<void> _iniciar() async {
   if (!await FirebaseBootstrap.initialize()) {
     runApp(ErroInicializacaoApp(onTentarNovamente: _iniciar));
     return;
+  }
+
+  try {
+    await configurarObservabilidade();
+  } catch (erro, stack) {
+    // Sem Crashlytics o app segue, só com o log do console.
+    AppLogger.erro('main', 'Crashlytics não configurado', erro, stack);
   }
 
   runApp(

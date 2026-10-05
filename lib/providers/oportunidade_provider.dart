@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/logging/app_logger.dart';
 import '../core/utils/compatibilidade.dart';
 import '../models/agenda_publica.dart';
 import '../models/contratacao.dart';
@@ -118,7 +119,7 @@ class OportunidadeProvider extends ChangeNotifier {
       _isAdmin = true;
       _aplicarFiltrosAtuais();
       notifyListeners();
-    }, onError: (_) {});
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha ao conferir admin'));
 
     _musicosSubscription = _service.streamMusicos().listen(
       (lista) {
@@ -127,7 +128,8 @@ class OportunidadeProvider extends ChangeNotifier {
         _aplicarFiltrosAtuais();
         notifyListeners();
       },
-      onError: (_) {
+      onError: (Object e, StackTrace s) {
+        AppLogger.falha(_origem, 'Falha no stream de músicos', e, s);
         _carregandoMusicos = false;
         _erroMusicos = true;
         notifyListeners();
@@ -139,25 +141,25 @@ class OportunidadeProvider extends ChangeNotifier {
       _minhaAgenda = agenda;
       _aplicarFiltrosAtuais();
       notifyListeners();
-    }, onError: (_) {});
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha na minha agenda'));
     _bloqueadosSubscription = _service.streamBloqueados(uid).listen((lista) {
       _bloqueados = [...lista]
         ..sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
       _uidsBloqueados = {for (final b in lista) b.uid};
       _aplicarFiltrosAtuais();
       notifyListeners();
-    }, onError: (_) {});
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nos bloqueados'));
     _favoritosSubscription = _service.streamFavoritos(uid).listen((favoritos) {
       _musicosFavoritos = favoritos.musicos;
       _oportunidadesFavoritas = favoritos.oportunidades;
       _aplicarFiltrosAtuais();
       notifyListeners();
-    }, onError: (_) {});
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nos favoritos'));
     _assinantesSubscription = _service.streamAssinantes().listen((uids) {
       _assinantes = uids;
       _aplicarFiltrosAtuais();
       notifyListeners();
-    }, onError: (_) {});
+    }, onError: AppLogger.aoFalhar(_origem, 'Falha nos assinantes'));
     _oportunidadesSubscription = _service.streamOportunidades().listen(
       (lista) {
         _todasOportunidades = lista;
@@ -165,7 +167,8 @@ class OportunidadeProvider extends ChangeNotifier {
         _aplicarFiltrosAtuais();
         notifyListeners();
       },
-      onError: (_) {
+      onError: (Object e, StackTrace s) {
+        AppLogger.falha(_origem, 'Falha no stream de oportunidades', e, s);
         _carregandoOportunidades = false;
         _erroOportunidades = true;
         notifyListeners();
@@ -347,7 +350,8 @@ class OportunidadeProvider extends ChangeNotifier {
     try {
       final lista = await _service.interessesDaOportunidade(uid, oportunidadeId);
       return lista.where(_ativo).toList();
-    } catch (_) {
+    } catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao ler interessados', erro, stack);
       return [];
     }
   }
@@ -361,7 +365,8 @@ class OportunidadeProvider extends ChangeNotifier {
     try {
       await gravacao();
       return true;
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha ao gravar oportunidade', error, stack);
       _errorMessage = error.code == 'permission-denied'
           ? 'Sem permissão para $acao esta oportunidade.'
           : 'Não foi possível $acao a oportunidade.';
@@ -416,7 +421,8 @@ class OportunidadeProvider extends ChangeNotifier {
             _aplicarFiltrosAtuais();
             notifyListeners();
           },
-          onError: (_) {
+          onError: (Object e, StackTrace s) {
+            AppLogger.falha(_origem, 'Falha nos livres do dia', e, s);
             // Sem a consulta não dá para saber quem está livre: tira o
             // filtro em vez de mostrar todos como livres.
             _pararLivresEm();
@@ -553,14 +559,16 @@ class OportunidadeProvider extends ChangeNotifier {
         meuUid,
         UsuarioBloqueado(uid: uid, nome: nome, criadoEm: DateTime.now()),
       );
-    } on FirebaseException {
+    } on FirebaseException catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao bloquear', erro, stack);
       _errorMessage = 'Não foi possível bloquear.';
       notifyListeners();
       return false;
     }
     try {
       await _service.encerrarPendentesCom(meuUid, uid);
-    } on FirebaseException {
+    } on FirebaseException catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao encerrar pendentes', erro, stack);
       _errorMessage =
           'Bloqueado, mas algum pendente não pôde ser encerrado. '
           'Confira Interesses e Contratações.';
@@ -576,7 +584,8 @@ class OportunidadeProvider extends ChangeNotifier {
     try {
       await _service.desbloquearUsuario(meuUid, uid);
       return true;
-    } on FirebaseException {
+    } on FirebaseException catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao desbloquear', erro, stack);
       _errorMessage = 'Não foi possível desbloquear.';
       notifyListeners();
       return false;
@@ -619,7 +628,8 @@ class OportunidadeProvider extends ChangeNotifier {
         await _service.favoritar(uid, tipo, alvoId);
       }
       return true;
-    } on FirebaseException {
+    } on FirebaseException catch (erro, stack) {
+      AppLogger.falha(_origem, 'Falha ao alternar favorito', erro, stack);
       _errorMessage = 'Não foi possível atualizar os favoritos.';
       notifyListeners();
       return false;
@@ -739,3 +749,5 @@ class OportunidadeProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+
+const _origem = 'OportunidadeProvider';
