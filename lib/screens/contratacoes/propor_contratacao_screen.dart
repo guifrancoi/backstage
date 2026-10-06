@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/data_hora.dart';
 import '../../core/utils/validators.dart';
 import '../../models/agenda_publica.dart';
@@ -13,9 +14,12 @@ import '../../providers/contratacao_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
 import '../../providers/perfil_provider.dart';
+import '../../widgets/avatar_iniciais.dart';
 import '../../widgets/campo_horario.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/estados.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/titulo_secao.dart';
 import '../busca/acoes_interesse.dart';
 
 /// O dono propõe a contratação a partir de um interesse aceito. Data,
@@ -44,6 +48,7 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
   String? _horaInicio;
   String? _horaFim;
   AgendaPublica? _agenda;
+
   /// Enviando ou já enviada por esta tela. Nesse estado a proposta que o
   /// stream traz de volta é a nossa — não pode virar "já existe" (o Firestore
   /// atualiza o stream local antes de o servidor confirmar o `add`).
@@ -143,8 +148,7 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
       donoId: auth.userId!,
       donoNome: nomeDono,
       oportunidadeId: interesse.oportunidadeId,
-      titulo:
-          interesse.oportunidadeTitulo ?? 'Show de ${interesse.musicoNome}',
+      titulo: interesse.oportunidadeTitulo ?? 'Show de ${interesse.musicoNome}',
       dia: Contratacao.diaDe(data!),
       horaInicio: _horaInicio!,
       horaFim: _horaFim!,
@@ -219,11 +223,10 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
     if (motivoIndisponivel != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Propor contratação')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(motivoIndisponivel, textAlign: TextAlign.center),
-          ),
+        body: EstadoVazio(
+          icone: Icons.handshake_outlined,
+          titulo: 'Não dá para propor agora',
+          mensagem: motivoIndisponivel,
         ),
       );
     }
@@ -231,30 +234,49 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
     final data = _data;
     final aviso = data == null ? null : avisoAgenda(_agenda, data);
 
+    final texto = Theme.of(context).textTheme;
+    const espaco = SizedBox(height: AppSpacing.sm);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Propor contratação')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+          AppSpacing.lg,
+        ),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Show com ${interesse!.musicoNome}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs,
+                  ),
+                  leading: AvatarIniciais(
+                    nome: interesse!.musicoNome,
+                    tamanho: 48,
+                  ),
+                  title: Text(
+                    'Show com ${interesse.musicoNome}',
+                    style: texto.titleMedium,
+                  ),
+                  subtitle: interesse.oportunidadeTitulo == null
+                      ? null
+                      : Text('Oportunidade: ${interesse.oportunidadeTitulo}'),
                 ),
               ),
-              if (interesse.oportunidadeTitulo != null) ...[
-                const SizedBox(height: 4),
-                Text('Oportunidade: ${interesse.oportunidadeTitulo}'),
-              ],
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
+              const RotuloSecao('Quando', destaque: true),
+              const SizedBox(height: AppSpacing.xs),
               OutlinedButton.icon(
                 onPressed: _escolherData,
-                icon: const Icon(Icons.calendar_today),
+                icon: const Icon(Icons.calendar_today_outlined),
                 label: Text(
                   data == null
                       ? 'Escolher data do show'
@@ -262,10 +284,35 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
                 ),
               ),
               if (aviso != null) ...[
-                const SizedBox(height: 8),
-                Text(aviso, style: const TextStyle(color: AppColors.aviso)),
+                const SizedBox(height: AppSpacing.xs),
+                // Avisa sem bloquear (show confirmado ou dia bloqueado).
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.avisoFundo,
+                    borderRadius: AppRadius.circular(AppRadius.md),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 20,
+                        color: AppColors.aviso,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          aviso,
+                          style: texto.bodyMedium?.copyWith(
+                            color: AppColors.aviso,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
-              const SizedBox(height: 8),
+              espaco,
               Row(
                 children: [
                   Expanded(
@@ -275,7 +322,7 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
                       onChanged: (v) => setState(() => _horaInicio = v),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: CampoHorario(
                       rotulo: 'Fim',
@@ -285,46 +332,72 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
+              const RotuloSecao('Cachê', destaque: true),
+              const SizedBox(height: AppSpacing.xs),
               CustomTextField(
                 controller: _cacheController,
                 label: 'Cachê acordado (R\$)',
+                icone: Icons.payments_outlined,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 validator: _validarCache,
               ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _logradouroController,
-                label: 'Logradouro',
-                validator: (v) =>
-                    Validators.validarCampoObrigatorio(v, 'o logradouro'),
+              const SizedBox(height: AppSpacing.lg),
+              const RotuloSecao('Local', destaque: true),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: CustomTextField(
+                      controller: _logradouroController,
+                      label: 'Logradouro',
+                      validator: (v) =>
+                          Validators.validarCampoObrigatorio(v, 'o logradouro'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: CustomTextField(
+                      controller: _numeroController,
+                      label: 'Número',
+                      validator: (v) =>
+                          Validators.validarCampoObrigatorio(v, 'o número'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _numeroController,
-                label: 'Número',
-                validator: (v) =>
-                    Validators.validarCampoObrigatorio(v, 'o número'),
+              espaco,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: CustomTextField(
+                      controller: _cidadeController,
+                      label: 'Cidade',
+                      validator: (v) =>
+                          Validators.validarCampoObrigatorio(v, 'a cidade'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: CustomTextField(
+                      controller: _estadoController,
+                      label: 'Estado (UF)',
+                      validator: (v) =>
+                          Validators.validarCampoObrigatorio(v, 'o estado'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _cidadeController,
-                label: 'Cidade',
-                validator: (v) =>
-                    Validators.validarCampoObrigatorio(v, 'a cidade'),
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _estadoController,
-                label: 'Estado (UF)',
-                validator: (v) =>
-                    Validators.validarCampoObrigatorio(v, 'o estado'),
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
                 text: _salvando ? 'Enviando...' : 'Enviar proposta',
+                icone: _salvando ? null : Icons.send_outlined,
                 onPressed: _salvando ? null : () => _propor(interesse),
               ),
             ],

@@ -539,7 +539,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Contraproposta enviada.'), findsOneWidget);
-    expect(find.text('Você pediu R\$ 1800.00 — aguardando o contratante.'), findsOneWidget);
+    expect(find.text('Você pediu R\$ 1.800 — aguardando o contratante.'), findsOneWidget);
     expect(find.text('Contrapropor'), findsNothing);
     expect(find.text('Confirmar'), findsNothing);
 
@@ -549,8 +549,8 @@ void main() {
       _app(servicoFake(firestore: firestore, uid: 'e1'), const ContratacoesScreen()),
     );
     await tester.pumpAndSettle();
-    expect(find.text('O músico pediu R\$ 1800.00.'), findsOneWidget);
-    await tester.tap(find.text('Aceitar R\$ 1800.00'));
+    expect(find.text('O músico pediu R\$ 1.800.'), findsOneWidget);
+    await tester.tap(find.text('Aceitar R\$ 1.800'));
     await tester.pumpAndSettle();
 
     final doc = await firestore.collection('contratacoes').doc('c5').get();

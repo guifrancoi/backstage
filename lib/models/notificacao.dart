@@ -1,3 +1,4 @@
+import '../core/utils/painel_numeros.dart';
 import 'contratacao.dart';
 import 'interesse.dart';
 import 'oportunidade.dart';
@@ -119,7 +120,7 @@ class Notificacao {
         '${d.month.toString().padLeft(2, '0')}/${d.year}';
     String endereco(Oportunidade o) =>
         '${o.logradouro}, ${o.numero} — ${o.cidade}/${o.estado}';
-    String cache(double v) => 'R\$ ${v.toStringAsFixed(2)}';
+    String cache(double v) => formatarReais(v, centavos: true);
 
     return [
       if (data(antes.dataEvento) != data(depois.dataEvento))
@@ -195,7 +196,7 @@ class Notificacao {
       TipoNotificacao.contratacaoProposta => (
         'Proposta de show',
         '$autorNome propôs "${c.titulo}" em $data, ${c.horaInicio} às '
-            '${c.horaFim}, por R\$ ${c.cacheAcordado.toStringAsFixed(2)}.',
+            '${c.horaFim}, por ${formatarReais(c.cacheAcordado, centavos: true)}.',
       ),
       TipoNotificacao.contratacaoConfirmada => (
         'Show confirmado',
@@ -207,13 +208,13 @@ class Notificacao {
       ),
       TipoNotificacao.contrapropostaEnviada => (
         'Contraproposta de cachê',
-        '$autorNome pediu R\$ ${(c.cacheContraproposto ?? 0).toStringAsFixed(2)} '
+        '$autorNome pediu ${formatarReais(c.cacheContraproposto ?? 0, centavos: true)} '
             'para "${c.titulo}" em $data (proposta: '
-            'R\$ ${c.cacheAcordado.toStringAsFixed(2)}).',
+            '${formatarReais(c.cacheAcordado, centavos: true)}).',
       ),
       TipoNotificacao.contrapropostaAceita => (
         'Contraproposta aceita',
-        '$autorNome aceitou R\$ ${c.cacheAcordado.toStringAsFixed(2)} para '
+        '$autorNome aceitou ${formatarReais(c.cacheAcordado, centavos: true)} para '
             '"${c.titulo}" em $data. Agora é só confirmar.',
       ),
       TipoNotificacao.contrapropostaRecusada => (

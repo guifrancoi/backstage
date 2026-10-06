@@ -97,9 +97,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Marcar todas como lidas'));
+    await tester.tap(find.byTooltip('Marcar todas como lidas'));
     await tester.pumpAndSettle();
-    expect(find.text('Marcar todas como lidas'), findsNothing);
+    expect(find.byTooltip('Marcar todas como lidas'), findsNothing);
 
     await tester.tap(find.text('Título n1'));
     await tester.pumpAndSettle();

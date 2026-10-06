@@ -3,14 +3,21 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/data_hora.dart';
 import '../../core/utils/lembrete_show.dart';
+import '../../core/utils/painel_numeros.dart';
 import '../../models/contratacao.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/avaliacao_provider.dart';
 import '../../providers/contratacao_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../widgets/estados.dart';
+import '../../widgets/etiqueta.dart';
+import '../../widgets/musico_card.dart' show InfoComIcone;
+import '../../widgets/texto_valor.dart';
 import 'avaliar_show.dart';
+import 'status_contratacao.dart';
 
 /// Contratações do usuário, conforme o papel: o músico vê as propostas que
 /// recebeu (confirmar/recusar); o dono, as que enviou (retirar). Só a conta
@@ -113,11 +120,10 @@ class _ListaFiltravelState extends State<_ListaFiltravel> {
   @override
   Widget build(BuildContext context) {
     if (widget.contratacoes.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(widget.vazio, textAlign: TextAlign.center),
-        ),
+      return EstadoVazio(
+        icone: Icons.handshake_outlined,
+        titulo: 'Nenhuma contratação',
+        mensagem: widget.vazio,
       );
     }
 
@@ -173,7 +179,7 @@ class _ListaFiltravelState extends State<_ListaFiltravel> {
             children: [
               Text(
                 '${lista.length} de ${widget.contratacoes.length}',
-                style: const TextStyle(color: AppColors.textoSecundario),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               const Spacer(),
               DropdownButton<OrdemContratacao>(
@@ -198,17 +204,18 @@ class _ListaFiltravelState extends State<_ListaFiltravel> {
         ),
         Expanded(
           child: lista.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'Nenhuma contratação com esses filtros.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+              ? const EstadoVazio(
+                  icone: Icons.search_off,
+                  titulo: 'Nada encontrado',
+                  mensagem: 'Nenhuma contratação com esses filtros.',
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.xxs,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                  ),
                   itemCount: lista.length,
                   itemBuilder: (context, index) => ContratacaoCard(
                     contratacao: lista[index],
@@ -232,16 +239,6 @@ class ContratacaoCard extends StatelessWidget {
 
   final Contratacao contratacao;
   final bool souMusico;
-
-  Color get _corStatus {
-    if (contratacao.realizada) return AppColors.textoSecundario;
-    return switch (contratacao.status) {
-      StatusContratacao.proposta => AppColors.aviso,
-      StatusContratacao.contraproposta => AppColors.info,
-      StatusContratacao.confirmada => AppColors.primariaTexto,
-      StatusContratacao.recusada || StatusContratacao.cancelada => AppColors.erro,
-    };
-  }
 
   Future<void> _executar(
     BuildContext context,
@@ -387,67 +384,101 @@ class ContratacaoCard extends StatelessWidget {
     // Plano 17: avaliação do show realizado (uma por parte, até 30 dias).
     final avaliacoes = context.watch<AvaliacaoProvider>();
     final minha = avaliacoes.minhaAvaliacao(c.id);
-    final podeAvaliar =
-        minha == null && c.podeAvaliarEm(DateTime.now());
+    final podeAvaliar = minha == null && c.podeAvaliarEm(DateTime.now());
+
+    final texto = Theme.of(context).textTheme;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: AppSpacing.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    c.titulo,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(c.titulo, style: texto.titleMedium),
+                      const SizedBox(height: 2),
+                      Text(
+                        souMusico
+                            ? 'Contratante: $outraParte'
+                            : 'Artista: $outraParte',
+                        style: texto.bodySmall,
+                      ),
+                    ],
                   ),
                 ),
-                Chip(
-                  label: Text(c.rotuloStatus),
-                  backgroundColor: _corStatus.withValues(alpha: 0.15),
-                  side: BorderSide(color: _corStatus),
-                  visualDensity: VisualDensity.compact,
-                ),
+                const SizedBox(width: AppSpacing.xs),
+                Etiqueta(c.rotuloStatus, tipo: tipoEtiquetaContratacao(c)),
               ],
             ),
-            Text(souMusico ? 'Contratante: $outraParte' : 'Artista: $outraParte'),
-            const SizedBox(height: 4),
-            Text(
-              '${formatarData(c.data)}, ${c.horaInicio} às ${c.horaFim}',
+            const SizedBox(height: AppSpacing.sm),
+            InfoComIcone(
+              Icons.calendar_today_outlined,
+              '${formatarData(c.data)} · ${c.horaInicio} às ${c.horaFim}',
             ),
-            Text('Cachê: R\$ ${c.cacheAcordado.toStringAsFixed(2)}'),
+            const SizedBox(height: AppSpacing.xxs),
+            InfoComIcone(Icons.place_outlined, c.endereco),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Text('Cachê ', style: texto.bodySmall),
+                TextoValor(c.cacheAcordado, centavos: true),
+              ],
+            ),
             // Plano 21: o valor pedido pelo músico, enquanto o dono decide.
             if (contraproposta && pedido != null)
-              Text(
-                souMusico
-                    ? 'Você pediu R\$ ${pedido.toStringAsFixed(2)} — '
-                          'aguardando o contratante.'
-                    : 'O músico pediu R\$ ${pedido.toStringAsFixed(2)}.',
-                style: const TextStyle(
-                  color: AppColors.info,
-                  fontWeight: FontWeight.bold,
+              Container(
+                margin: const EdgeInsets.only(top: AppSpacing.xs),
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.primariaContainer,
+                  borderRadius: AppRadius.circular(AppRadius.md),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.swap_horiz,
+                      size: 18,
+                      color: AppColors.primariaTexto,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        souMusico
+                            ? 'Você pediu ${formatarReais(pedido, centavos: true)} — '
+                                  'aguardando o contratante.'
+                            : 'O músico pediu ${formatarReais(pedido, centavos: true)}.',
+                        style: texto.bodyMedium?.copyWith(
+                          color: AppColors.primariaTexto,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               )
             else if (proposta && c.houveContraproposta)
-              const Text(
-                'Valor ajustado após contraproposta.',
-                style: TextStyle(color: AppColors.textoSecundario),
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                child: Text(
+                  'Valor ajustado após contraproposta.',
+                  style: texto.bodySmall,
+                ),
               ),
-            Text(c.endereco),
             if (c.motivoCancelamento != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Motivo: ${c.motivoCancelamento}',
-                style: const TextStyle(color: AppColors.textoSecundario),
-              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text('Motivo: ${c.motivoCancelamento}', style: texto.bodySmall),
             ],
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Wrap(
-              spacing: 8,
-              runSpacing: 4,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xxs,
               children: [
                 // Plano 16: perfil público de quem contrata.
                 if (souMusico)
@@ -494,7 +525,7 @@ class ContratacaoCard extends StatelessWidget {
                       'Contraproposta aceita. Agora o músico confirma.',
                     ),
                     child: Text(
-                      'Aceitar R\$ ${(pedido ?? 0).toStringAsFixed(2)}',
+                      'Aceitar ${formatarReais(pedido ?? 0, centavos: true)}',
                     ),
                   ),
                 ],
@@ -522,10 +553,10 @@ class ContratacaoCard extends StatelessWidget {
                     label: const Text('Avaliar'),
                   ),
                 if (minha != null)
-                  Chip(
-                    avatar: const Icon(Icons.star, color: AppColors.estrela, size: 18),
-                    label: Text('Você avaliou: ${minha.nota}'),
-                    visualDensity: VisualDensity.compact,
+                  Etiqueta(
+                    'Você avaliou: ${minha.nota}',
+                    tipo: TipoEtiqueta.aviso,
+                    icone: Icons.star_rounded,
                   ),
               ],
             ),
@@ -576,15 +607,19 @@ class _DialogoContrapropostaState extends State<_DialogoContraproposta> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Proposta atual: R\$ ${widget.atual.toStringAsFixed(2)}. '
+              'Proposta atual: ${formatarReais(widget.atual, centavos: true)}. '
               'Você só pode contrapropor uma vez.',
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _valor,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Cachê pedido (R\$)'),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Cachê pedido (R\$)',
+              ),
               validator: _validar,
             ),
           ],

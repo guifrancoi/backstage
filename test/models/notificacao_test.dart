@@ -115,7 +115,7 @@ void main() {
       expect(mudancas, [
         'data 20/11/2099 → 21/11/2099',
         'horário 21:00 às 23:00 → 22:00 às 23:00',
-        'cachê R\$ 1200.00 → R\$ 1500.00',
+        'cachê R\$ 1.200 → R\$ 1.500',
         'local Rua A, 10 — Franca/SP → Rua A, 20 — Franca/SP',
       ]);
     });
@@ -147,7 +147,7 @@ void main() {
       expect(n.autorId, 'e1');
       expect(n.oportunidadeId, 'o1');
       expect(n.destino, DestinoNotificacao.oportunidade);
-      expect(n.texto, contains('cachê R\$ 1200.00 → R\$ 1500.00'));
+      expect(n.texto, contains('cachê R\$ 1.200 → R\$ 1.500'));
     });
 
     test('removida avisa que o pendente foi encerrado', () {

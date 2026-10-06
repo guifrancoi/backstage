@@ -1,4 +1,5 @@
 import 'package:backstage/providers/avaliacao_provider.dart';
+import 'package:backstage/core/utils/data_hora.dart';
 import 'package:backstage/models/contratacao.dart';
 import 'package:backstage/providers/agenda_provider.dart';
 import 'package:backstage/providers/auth_provider.dart';
@@ -93,5 +94,52 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Nenhum show neste dia.'), findsOneWidget);
+  });
+
+  testWidgets('próximos eventos: sem repetir o dia escolhido; tocar vai ao dia', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final daqui10 = DateTime.now().add(const Duration(days: 10));
+    await firestore.collection('contratacoes').doc('c2').set(
+      Contratacao(
+        id: 'c2',
+        interesseId: 'i2',
+        musicoId: 'm1',
+        musicoNome: 'Banda',
+        donoId: 'e1',
+        donoNome: 'Bar Central',
+        titulo: 'Festival de inverno',
+        dia: Contratacao.diaDe(daqui10),
+        horaInicio: '20:00',
+        horaFim: '22:00',
+        cacheAcordado: 900,
+        logradouro: 'Rua B',
+        numero: '2',
+        cidade: 'Franca',
+        estado: 'SP',
+        criadoEm: DateTime(2026, 9, 29),
+        status: StatusContratacao.proposta,
+      ).toMap(),
+    );
+    await tester.pumpWidget(_app(servicoFake(firestore: firestore, uid: 'm1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Próximos eventos'), findsOneWidget);
+    // O show de hoje está no dia escolhido; não repete nos próximos.
+    expect(find.text('Show de sexta'), findsOneWidget);
+    expect(find.text('Festival de inverno'), findsOneWidget);
+    expect(find.text('Proposta'), findsOneWidget);
+
+    await tester.tap(find.text('Festival de inverno'));
+    await tester.pumpAndSettle();
+
+    // O dia escolhido virou o do festival: o card dele aparece no dia, e o
+    // show de hoje passa para os próximos.
+    expect(find.text(formatarData(daqui10)), findsOneWidget);
+    expect(find.text('Contratante: Bar Central'), findsOneWidget);
+    expect(find.text('Show de sexta'), findsOneWidget);
   });
 }

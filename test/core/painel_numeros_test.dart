@@ -114,6 +114,13 @@ void main() {
     expect(formatarReais(18500), 'R\$ 18.500');
     expect(formatarReais(1234567.6), 'R\$ 1.234.568');
   });
+
+  test('formatarReais com centavos: só quando o valor tem', () {
+    expect(formatarReais(1800, centavos: true), 'R\$ 1.800');
+    expect(formatarReais(1275.5, centavos: true), 'R\$ 1.275,50');
+    expect(formatarReais(0.05, centavos: true), 'R\$ 0,05');
+    expect(formatarReais(1234567.89, centavos: true), 'R\$ 1.234.567,89');
+  });
 }
 
 List<Contratacao> _lista2025() => [

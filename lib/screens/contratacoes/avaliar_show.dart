@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../models/avaliacao.dart';
 import '../../models/contratacao.dart';
 import '../../providers/auth_provider.dart';
@@ -17,8 +18,8 @@ Future<void> avaliarShow(BuildContext context, Contratacao contratacao) async {
   final enviado = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
-    builder: (_) => _FolhaAvaliacao(contratacao: contratacao, avaliado: avaliado),
+    builder: (_) =>
+        _FolhaAvaliacao(contratacao: contratacao, avaliado: avaliado),
   );
   if (enviado == null || !context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
@@ -64,29 +65,34 @@ class _FolhaAvaliacaoState extends State<_FolhaAvaliacao> {
     if (mounted) Navigator.pop(context, ok);
   }
 
+  /// O que cada nota quer dizer (Plano 8).
+  static const _significados = [
+    'Toque nas estrelas',
+    'Ruim',
+    'Regular',
+    'Bom',
+    'Muito bom',
+    'Excelente',
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final texto = Theme.of(context).textTheme;
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        24,
+        AppSpacing.lg,
         0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
+        AppSpacing.lg,
+        AppSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Avaliar ${widget.avaliado}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              widget.contratacao.titulo,
-              style: const TextStyle(color: AppColors.textoSecundario),
-            ),
-            const SizedBox(height: 12),
+            Text('Avaliar ${widget.avaliado}', style: texto.titleLarge),
+            Text(widget.contratacao.titulo, style: texto.bodySmall),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -95,22 +101,34 @@ class _FolhaAvaliacaoState extends State<_FolhaAvaliacao> {
                     tooltip: '$i estrela${i == 1 ? '' : 's'}',
                     iconSize: 36,
                     color: AppColors.estrela,
-                    icon: Icon(i <= _nota ? Icons.star : Icons.star_border),
+                    icon: Icon(
+                      i <= _nota
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                    ),
                     onPressed: () => setState(() => _nota = i),
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            Text(
+              _significados[_nota],
+              textAlign: TextAlign.center,
+              style: texto.labelLarge?.copyWith(
+                color: _nota == 0
+                    ? AppColors.textoSecundario
+                    : AppColors.estrela,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: _comentario,
               maxLines: 3,
               maxLength: Avaliacao.tamanhoMaximoComentario,
               decoration: const InputDecoration(
                 labelText: 'Comentário (opcional)',
-                border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             ElevatedButton(
               onPressed: _nota == 0 || _enviando ? null : _enviar,
               child: Text(_enviando ? 'Enviando...' : 'Enviar avaliação'),

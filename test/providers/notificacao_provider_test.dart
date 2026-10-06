@@ -113,7 +113,7 @@ void main() {
 
     final aviso = avisosMusico.notificacoes.single;
     expect(aviso.tipo, TipoNotificacao.oportunidadeAlterada);
-    expect(aviso.texto, contains('cachê R\$ 1200.00 → R\$ 1500.00'));
+    expect(aviso.texto, contains('cachê R\$ 1.200 → R\$ 1.500'));
     expect(aviso.oportunidadeId, 'o1');
   });
 

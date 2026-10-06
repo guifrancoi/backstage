@@ -1,4 +1,5 @@
 import '../../models/contratacao.dart';
+import 'painel_numeros.dart';
 
 /// Lembrete de show e "Adicionar à agenda" (Plano 19). Funções puras: nada
 /// é gravado — o lembrete sai das contratações confirmadas que o
@@ -65,8 +66,8 @@ Uri linkGoogleAgenda(Contratacao c, {required bool souMusico}) {
       ? 'Show: ${c.titulo} (${c.donoNome})'
       : 'Show: ${c.titulo} (${c.musicoNome})';
   final detalhes = souMusico
-      ? 'Contratante: ${c.donoNome}. Cachê: R\$ ${c.cacheAcordado.toStringAsFixed(2)}.'
-      : 'Artista: ${c.musicoNome}. Cachê: R\$ ${c.cacheAcordado.toStringAsFixed(2)}.';
+      ? 'Contratante: ${c.donoNome}. Cachê: ${formatarReais(c.cacheAcordado, centavos: true)}.'
+      : 'Artista: ${c.musicoNome}. Cachê: ${formatarReais(c.cacheAcordado, centavos: true)}.';
 
   final parametros = {
     'action': 'TEMPLATE',

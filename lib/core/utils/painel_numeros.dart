@@ -108,13 +108,20 @@ double? taxaDeAceite(Iterable<Interesse> enviados) {
   return respondidas == 0 ? null : aceitas / respondidas;
 }
 
-/// "R$ 18.500" — sem centavos, com ponto de milhar (PT-BR).
-String formatarReais(double valor) {
-  final inteiro = valor.round().toString();
+/// "R$ 18.500" — ponto de milhar (PT-BR), arredondado ao real. Com
+/// [centavos] (valores de contratação, Plano 8), mostra ",50" quando o valor
+/// tem centavos: "R$ 1.275,50" (inteiro continua "R$ 1.800").
+String formatarReais(double valor, {bool centavos = false}) {
+  final emCentavos = (valor * 100).round();
+  final comCentavos = centavos && emCentavos % 100 != 0;
+  final inteiro = (comCentavos ? emCentavos ~/ 100 : valor.round()).toString();
   final buffer = StringBuffer();
   for (var i = 0; i < inteiro.length; i++) {
     if (i > 0 && (inteiro.length - i) % 3 == 0) buffer.write('.');
     buffer.write(inteiro[i]);
+  }
+  if (comCentavos) {
+    buffer.write(',${(emCentavos % 100).toString().padLeft(2, '0')}');
   }
   return 'R\$ $buffer';
 }

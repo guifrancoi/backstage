@@ -93,7 +93,7 @@ void main() {
       expect(uri.queryParameters['ctz'], 'America/Sao_Paulo');
       expect(uri.queryParameters['text'], 'Show: Sexta do Rock (Bar Central)');
       expect(uri.queryParameters['location'], 'Rua A, 10 — Franca/SP');
-      expect(uri.queryParameters['details'], contains('Cachê: R\$ 1500.00'));
+      expect(uri.queryParameters['details'], contains('Cachê: R\$ 1.500'));
       // Espaços codificados (Uri.encodeComponent), não "+".
       expect(uri.toString(), contains('Sexta%20do%20Rock'));
     });
