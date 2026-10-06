@@ -41,10 +41,7 @@ void main() {
   });
 
   testWidgets('Etiqueta usa a cor do tipo', (tester) async {
-    await _montar(
-      tester,
-      const Etiqueta('Recusado', tipo: TipoEtiqueta.erro),
-    );
+    await _montar(tester, const Etiqueta('Recusado', tipo: TipoEtiqueta.erro));
 
     final texto = tester.widget<Text>(find.text('Recusado'));
     expect(texto.style?.color, AppColors.erro);
@@ -138,7 +135,9 @@ void main() {
   });
 
   group('CampoPesquisa', () {
-    testWidgets('espera um pouco antes de avisar e o "x" limpa', (tester) async {
+    testWidgets('espera um pouco antes de avisar e o "x" limpa', (
+      tester,
+    ) async {
       final avisos = <String>[];
       await _montar(
         tester,
@@ -228,8 +227,8 @@ void main() {
     expect(find.text('AV'), findsOneWidget);
     expect(find.text('Ana Vieira'), findsOneWidget);
     // Avatar e nome centralizados no cabeçalho (largura toda da tela).
-    final larguraTela = tester.view.physicalSize.width /
-        tester.view.devicePixelRatio;
+    final larguraTela =
+        tester.view.physicalSize.width / tester.view.devicePixelRatio;
     expect(tester.getCenter(find.text('AV')).dx, closeTo(larguraTela / 2, 1));
     expect(
       tester.getCenter(find.text('Ana Vieira')).dx,
@@ -243,4 +242,41 @@ void main() {
       tester.getTopLeft(find.text('AVALIAÇÃO')).dy,
     );
   });
+
+  testWidgets(
+    'GradeBlocos iguala a altura da linha; ímpar fica com meia largura',
+    (tester) async {
+      await _montar(
+        tester,
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GradeBlocos(
+              blocos: [
+                BlocoInfo(
+                  rotulo: 'Aceite das candidaturas (nenhuma respondida)',
+                  valor: '—',
+                ),
+                BlocoInfo(rotulo: 'Shows', valor: '3'),
+                BlocoInfo(rotulo: 'Sozinho', valor: '1'),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      final cards = find.byType(Card);
+      expect(cards, findsNWidgets(3));
+      // Rótulo longo quebra linha, e o vizinho acompanha a altura.
+      expect(
+        tester.getSize(cards.at(0)).height,
+        tester.getSize(cards.at(1)).height,
+      );
+      // O terceiro, sozinho na linha, não ocupa a largura toda.
+      expect(
+        tester.getSize(cards.at(2)).width,
+        tester.getSize(cards.at(1)).width,
+      );
+    },
+  );
 }

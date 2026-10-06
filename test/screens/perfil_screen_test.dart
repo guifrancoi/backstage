@@ -1,5 +1,7 @@
 import 'package:backstage/providers/auth_provider.dart';
+import 'package:backstage/providers/avaliacao_provider.dart';
 import 'package:backstage/providers/perfil_provider.dart';
+import 'package:backstage/routes/app_routes.dart';
 import 'package:backstage/screens/perfil/perfil_screen.dart';
 import 'package:backstage/services/firebase_data_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -33,7 +35,10 @@ Future<(Widget, FakeFirebaseFirestore)> _app({
     await firestore.collection('perfis_musicos').doc('u1').set(perfilMusico);
   }
   if (estabelecimento != null) {
-    await firestore.collection('estabelecimentos').doc('u1').set(estabelecimento);
+    await firestore
+        .collection('estabelecimentos')
+        .doc('u1')
+        .set(estabelecimento);
   }
   final service = FirebaseDataService(
     auth: MockFirebaseAuth(
@@ -50,14 +55,24 @@ Future<(Widget, FakeFirebaseFirestore)> _app({
     providers: [
       ChangeNotifierProvider(create: (_) => AuthProvider(service: service)),
       ChangeNotifierProvider(create: (_) => PerfilProvider(service: service)),
+      ChangeNotifierProvider(
+        create: (_) => AvaliacaoProvider(service: service),
+      ),
     ],
-    child: const MaterialApp(home: PerfilScreen()),
+    child: MaterialApp(
+      home: const PerfilScreen(),
+      onGenerateRoute: (settings) => MaterialPageRoute(
+        builder: (_) => Text('${settings.name} ${settings.arguments}'),
+      ),
+    ),
   );
   return (app, firestore);
 }
 
 void main() {
-  testWidgets('perfil de músico em branco abre a edição sem erro e salva', (tester) async {
+  testWidgets('perfil de músico em branco abre a edição sem erro e salva', (
+    tester,
+  ) async {
     final (app, firestore) = await _app(
       tipoUsuario: 'musico',
       perfilMusico: {
@@ -78,9 +93,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    await tester.enterText(find.widgetWithText(TextFormField, 'Cidade'), 'Franca');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Cachê médio'), '800');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'), 'Duo');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Cidade'),
+      'Franca',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Cachê médio'),
+      '800',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Descrição'),
+      'Duo',
+    );
     await tester.ensureVisible(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<String>));
@@ -98,7 +122,9 @@ void main() {
     expect(doc.data()?['cidade'], 'Franca');
   });
 
-  testWidgets('dono vê o perfil do estabelecimento, não o de artista', (tester) async {
+  testWidgets('dono vê o perfil do estabelecimento, não o de artista', (
+    tester,
+  ) async {
     final (app, _) = await _app(
       tipoUsuario: 'casaShow',
       estabelecimento: _estabelecimento,
@@ -117,7 +143,10 @@ void main() {
     await tester.pumpWidget(app);
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(TextFormField, 'Nome do estabelecimento'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextFormField, 'Nome do estabelecimento'),
+      findsOneWidget,
+    );
     expect(find.text('Cancelar'), findsNothing);
   });
 
@@ -132,5 +161,25 @@ void main() {
     await tester.tap(find.text('Estabelecimento'));
     await tester.pumpAndSettle();
     expect(find.text('Bar Central'), findsOneWidget);
+  });
+
+  testWidgets('"Ver como os outros veem" abre o perfil público do dono', (
+    tester,
+  ) async {
+    final (app, _) = await _app(
+      tipoUsuario: 'casaShow',
+      estabelecimento: _estabelecimento,
+    );
+    await tester.pumpWidget(app);
+    await tester.pumpAndSettle();
+
+    // Contato é do dono: aparece com o aviso de quem mais o vê.
+    expect(find.text('16 99999-9999'), findsOneWidget);
+    await tester.ensureVisible(find.text('Ver como os outros veem'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver como os outros veem'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('${AppRoutes.detalheEstabelecimento} u1'), findsOneWidget);
   });
 }

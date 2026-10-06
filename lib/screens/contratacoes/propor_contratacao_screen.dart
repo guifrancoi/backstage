@@ -350,8 +350,9 @@ class _ProporContratacaoScreenState extends State<ProporContratacaoScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 2:1 para o rótulo "Número" caber inteiro.
                   Expanded(
-                    flex: 3,
+                    flex: 2,
                     child: CustomTextField(
                       controller: _logradouroController,
                       label: 'Logradouro',

@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../core/utils/foto_perfil.dart';
-import '../../widgets/dados_show_musico.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/utils/painel_numeros.dart';
 import '../../models/casa_show.dart';
 import '../../models/musico.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/avaliacao_provider.dart';
 import '../../providers/perfil_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../widgets/bloco_info.dart';
+import '../../widgets/cabecalho_perfil.dart';
+import '../../widgets/dados_show_musico.dart';
+import '../../widgets/estados.dart';
+import '../../widgets/etiqueta.dart';
+import '../../widgets/link_portfolio.dart';
+import '../../widgets/musico_card.dart' show InfoComIcone;
+import '../../widgets/primary_button.dart';
+import '../../widgets/titulo_secao.dart';
+import '../busca/card_local.dart';
 import 'perfil_estabelecimento_form.dart';
 import 'perfil_musico_form.dart';
 
@@ -49,14 +59,10 @@ class PerfilScreen extends StatelessWidget {
     } else if (auth.atuaComoDono) {
       corpo = const _PerfilEstabelecimentoAba();
     } else {
-      corpo = const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Complete seu cadastro para ter um perfil.',
-            textAlign: TextAlign.center,
-          ),
-        ),
+      corpo = const EstadoVazio(
+        icone: Icons.person_outline,
+        titulo: 'Sem perfil ainda',
+        mensagem: 'Complete seu cadastro para ter um perfil.',
       );
     }
 
@@ -160,34 +166,18 @@ class _PerfilMusicoAba extends StatefulWidget {
 class _PerfilMusicoAbaState extends State<_PerfilMusicoAba> {
   bool _editando = false;
 
-  Future<void> _abrirLink(String link) async {
-    var url = link.trim();
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
-    }
-
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      _avisar(context, 'Link inválido.');
-      return;
-    }
-
-    final abriu = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!abriu && mounted) _avisar(context, 'Não foi possível abrir o link.');
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PerfilProvider>();
     final perfil = provider.perfilMusico;
 
     if (perfil == null && provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const EstadoCarregando(mensagem: 'Carregando perfil...');
     }
 
     if (perfil == null || _editando) {
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: _margem,
         child: PerfilMusicoForm(
           key: ValueKey(perfil),
           inicial: perfil,
@@ -210,92 +200,62 @@ class _PerfilMusicoAbaState extends State<_PerfilMusicoAba> {
   }
 
   Widget _visualizacao(Musico perfil) {
-    final imagem = imagemDaFoto(perfil.foto);
+    final avaliacao = context.watch<AvaliacaoProvider>().resumoDe(perfil.id);
+    const espaco = SizedBox(height: AppSpacing.sm);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: _margem,
       children: [
-        Center(
-          child: CircleAvatar(
-            radius: 55,
-            backgroundColor: AppColors.primariaContainer,
-            backgroundImage: imagem,
-            child: imagem == null
-                ? const Icon(
-                    Icons.person,
-                    size: 55,
-                    color: AppColors.primariaTexto,
-                  )
-                : null,
-          ),
+        CabecalhoPerfil(
+          nome: perfil.nomeArtistico,
+          foto: perfil.foto,
+          etiquetas: [
+            if (perfil.generoMusical.isNotEmpty) Etiqueta(perfil.generoMusical),
+            if (perfil.cidade.isNotEmpty)
+              InfoComIcone(Icons.place_outlined, perfil.cidade),
+          ],
         ),
-        const SizedBox(height: 20),
-        Center(
-          child: Text(
-            perfil.nomeArtistico,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-        ),
-        if (!perfil.completo) ...[
-          const SizedBox(height: 8),
-          const Center(
-            child: Text(
-              'Perfil incompleto: ele só aparece bem na busca depois de preenchido.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.aviso),
+        if (!perfil.completo) ...[espaco, const _AvisoIncompleto()],
+        espaco,
+        GradeBlocos(
+          blocos: [
+            BlocoInfo(
+              rotulo: 'Cachê médio',
+              valor: formatarReais(perfil.cacheMedio),
+              cor: context.cores.dinheiro,
             ),
-          ),
+            BlocoInfo(
+              rotulo: 'Avaliação',
+              valor: avaliacao.temAvaliacao
+                  ? avaliacao.rotuloCurto.replaceFirst('★ ', '')
+                  : 'Sem avaliações',
+              icone: avaliacao.temAvaliacao ? Icons.star_rounded : null,
+              cor: avaliacao.temAvaliacao ? AppColors.estrela : null,
+            ),
+          ],
+        ),
+        if (perfil.descricao.trim().isNotEmpty) ...[
+          espaco,
+          CardSecao(titulo: 'Sobre', child: Text(perfil.descricao)),
         ],
-        const SizedBox(height: 24),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Gênero: ${perfil.generoMusical}'),
-                const SizedBox(height: 8),
-                Text('Cidade: ${perfil.cidade}'),
-                const SizedBox(height: 8),
-                Text(
-                  'Cachê médio: R\$ ${perfil.cacheMedio.toStringAsFixed(2)}',
-                ),
-                const SizedBox(height: 16),
-                Text('Descrição: ${perfil.descricao}'),
-                DadosShowMusico(musico: perfil),
-                const SizedBox(height: 16),
-                const Text(
-                  'Portfólio',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                if (perfil.portfolioLinks.isEmpty)
-                  const Text('Nenhum link cadastrado.')
-                else
-                  ...perfil.portfolioLinks.map(
-                    (link) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: InkWell(
-                        onTap: () => _abrirLink(link),
-                        child: Text(
-                          link,
-                          style: const TextStyle(
-                            color: AppColors.info,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+        DadosShowMusico(
+          musico: perfil,
+          padding: const EdgeInsets.only(top: AppSpacing.sm),
         ),
-        const SizedBox(height: 20),
-        ElevatedButton.icon(
-          onPressed: () => setState(() => _editando = true),
-          icon: const Icon(Icons.edit),
-          label: const Text('Editar perfil'),
+        const SizedBox(height: AppSpacing.lg),
+        const TituloSecao('Portfólio'),
+        if (perfil.portfolioLinks.isEmpty)
+          Text(
+            'Nenhum link cadastrado.',
+            style: TextStyle(color: context.cores.textoSecundario),
+          )
+        else
+          for (final link in perfil.portfolioLinks) LinkPortfolio(link),
+        const SizedBox(height: AppSpacing.lg),
+        _AcoesPerfil(
+          onEditar: () => setState(() => _editando = true),
+          rotaPublica: AppRoutes.detalheMusico,
+          id: perfil.id,
         ),
       ],
     );
@@ -319,12 +279,12 @@ class _PerfilEstabelecimentoAbaState extends State<_PerfilEstabelecimentoAba> {
     final perfil = provider.perfilEstabelecimento;
 
     if (perfil == null && provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const EstadoCarregando(mensagem: 'Carregando perfil...');
     }
 
     if (perfil == null || _editando) {
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: _margem,
         child: PerfilEstabelecimentoForm(
           key: ValueKey(perfil),
           inicial: perfil,
@@ -346,69 +306,170 @@ class _PerfilEstabelecimentoAbaState extends State<_PerfilEstabelecimentoAba> {
   }
 
   Widget _visualizacao(CasaShow perfil) {
-    final endereco = [
-      '${perfil.logradouro}, ${perfil.numero}',
-      '${perfil.cidade} - ${perfil.estado}',
-      if (perfil.cep != null) 'CEP ${perfil.cep}',
-    ].join('\n');
+    final cidade = perfil.estado.isEmpty
+        ? perfil.cidade
+        : '${perfil.cidade}, ${perfil.estado}';
+    final texto = Theme.of(context).textTheme;
+    const espaco = SizedBox(height: AppSpacing.sm);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: _margem,
       children: [
-        const Center(
-          child: CircleAvatar(
-            radius: 55,
-            child: Icon(Icons.storefront, size: 55),
-          ),
+        CabecalhoPerfil(
+          nome: perfil.nome,
+          etiquetas: [InfoComIcone(Icons.place_outlined, cidade)],
         ),
-        const SizedBox(height: 20),
-        Center(
-          child: Text(
-            perfil.nome,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        if (perfil.capacidade > 0) ...[
+          espaco,
+          GradeBlocos(
+            blocos: [
+              BlocoInfo(
+                rotulo: 'Capacidade',
+                valor: '${perfil.capacidade} pessoas',
+                icone: Icons.groups_outlined,
+              ),
+            ],
           ),
+        ],
+        espaco,
+        CardLocal(
+          logradouro: perfil.logradouro,
+          numero: perfil.numero,
+          cidade: perfil.cidade,
+          estado: perfil.estado,
+          cep: perfil.cep,
+          titulo: 'Endereço',
         ),
-        const SizedBox(height: 24),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        if (perfil.estilosDesejados.isNotEmpty) ...[
+          espaco,
+          CardSecao(
+            titulo: 'Estilos que procura',
+            child: Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
               children: [
-                const Text(
-                  'Endereço',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(endereco),
-                const SizedBox(height: 16),
-                Text('Contato: ${perfil.contato}'),
-                if (perfil.cnpj.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text('CNPJ: ${perfil.cnpj}'),
-                ],
-                if (perfil.capacidade > 0) ...[
-                  const SizedBox(height: 8),
-                  Text('Capacidade: ${perfil.capacidade} pessoas'),
-                ],
-                if (perfil.estilosDesejados.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text('Estilos: ${perfil.estilosDesejados.join(', ')}'),
-                ],
-                if (perfil.descricao.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text('Descrição: ${perfil.descricao}'),
-                ],
+                for (final estilo in perfil.estilosDesejados) Etiqueta(estilo),
               ],
             ),
           ),
+        ],
+        if (perfil.descricao.trim().isNotEmpty) ...[
+          espaco,
+          CardSecao(titulo: 'Sobre', child: Text(perfil.descricao)),
+        ],
+        espaco,
+        CardSecao(
+          titulo: 'Contato',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(perfil.contato),
+              if (perfil.cnpj.isNotEmpty)
+                Text('CNPJ: ${perfil.cnpj}', style: texto.bodySmall),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 16,
+                    color: context.cores.textoSecundario,
+                  ),
+                  const SizedBox(width: AppSpacing.xxs),
+                  Expanded(
+                    child: Text(
+                      'Visível só para quem tem interesse aceito com você.',
+                      style: texto.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 20),
-        ElevatedButton.icon(
-          onPressed: () => setState(() => _editando = true),
-          icon: const Icon(Icons.edit),
-          label: const Text('Editar perfil'),
+        const SizedBox(height: AppSpacing.lg),
+        _AcoesPerfil(
+          onEditar: () => setState(() => _editando = true),
+          rotaPublica: AppRoutes.detalheEstabelecimento,
+          id: perfil.id,
         ),
+      ],
+    );
+  }
+}
+
+const _margem = EdgeInsets.fromLTRB(
+  AppSpacing.md,
+  AppSpacing.xs,
+  AppSpacing.md,
+  AppSpacing.lg,
+);
+
+/// Perfil de artista sem os obrigatórios (conta criada antes do onboarding).
+class _AvisoIncompleto extends StatelessWidget {
+  const _AvisoIncompleto();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.avisoFundo,
+        borderRadius: AppRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 20,
+            color: AppColors.aviso,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              'Perfil incompleto: ele só aparece bem na busca depois de '
+              'preenchido.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.aviso),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Editar perfil" e "Ver como os outros veem" (abre o perfil público).
+class _AcoesPerfil extends StatelessWidget {
+  const _AcoesPerfil({
+    required this.onEditar,
+    required this.rotaPublica,
+    required this.id,
+  });
+
+  final VoidCallback onEditar;
+  final String rotaPublica;
+  final String id;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PrimaryButton(
+          text: 'Editar perfil',
+          icone: Icons.edit_outlined,
+          onPressed: onEditar,
+        ),
+        if (id.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          OutlinedButton.icon(
+            onPressed: () =>
+                Navigator.pushNamed(context, rotaPublica, arguments: id),
+            icon: const Icon(Icons.visibility_outlined),
+            label: const Text('Ver como os outros veem'),
+          ),
+        ],
       ],
     );
   }

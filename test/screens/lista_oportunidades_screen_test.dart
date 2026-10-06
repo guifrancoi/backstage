@@ -21,10 +21,16 @@ Widget _app(FirebaseDataService service, Widget home) {
   return MultiProvider(
     providers: [
       ChangeNotifierProvider(create: (_) => AuthProvider(service: service)),
-      ChangeNotifierProvider(create: (_) => AvaliacaoProvider(service: service)),
+      ChangeNotifierProvider(
+        create: (_) => AvaliacaoProvider(service: service),
+      ),
       ChangeNotifierProvider(create: (_) => PerfilProvider(service: service)),
-      ChangeNotifierProvider(create: (_) => InteresseProvider(service: service)),
-      ChangeNotifierProvider(create: (_) => OportunidadeProvider(service: service)),
+      ChangeNotifierProvider(
+        create: (_) => InteresseProvider(service: service),
+      ),
+      ChangeNotifierProvider(
+        create: (_) => OportunidadeProvider(service: service),
+      ),
       ChangeNotifierProvider(create: (_) => AgendaProvider(service: service)),
       Provider<LocationService>(
         create: (_) => LocationService(),
@@ -50,77 +56,109 @@ void main() {
   /// Músico m1 e dono e1; oportunidades de e1: duas futuras e uma vencida.
   setUp(() async {
     firestore = FakeFirebaseFirestore();
-    await firestore.collection('usuarios').doc('m1').set({'tipoUsuario': 'musico'});
-    await firestore.collection('usuarios').doc('e1').set({'tipoUsuario': 'casaShow'});
+    await firestore.collection('usuarios').doc('m1').set({
+      'tipoUsuario': 'musico',
+    });
+    await firestore.collection('usuarios').doc('e1').set({
+      'tipoUsuario': 'casaShow',
+    });
     await gravarCatalogo(
       firestore,
       oportunidades: [
-        oportunidadeTeste(id: 'rock', titulo: 'Noite do rock', donoId: 'e1')
-            .copyWith(dataEvento: DateTime(2099, 3, 1)),
+        oportunidadeTeste(
+          id: 'rock',
+          titulo: 'Noite do rock',
+          donoId: 'e1',
+        ).copyWith(dataEvento: DateTime(2099, 3, 1)),
         oportunidadeTeste(
           id: 'mpb',
           titulo: 'Sarau MPB',
           generoMusical: 'MPB',
           donoId: 'e1',
         ).copyWith(dataEvento: DateTime(2099, 3, 2)),
-        oportunidadeTeste(id: 'velha', titulo: 'Show de ontem', donoId: 'e1')
-            .copyWith(dataEvento: ontem),
+        oportunidadeTeste(
+          id: 'velha',
+          titulo: 'Show de ontem',
+          donoId: 'e1',
+        ).copyWith(dataEvento: ontem),
       ],
     );
   });
 
-  testWidgets('lista só as futuras; gênero pela faixa do topo, cidade pelo painel', (tester) async {
+  testWidgets(
+    'lista só as futuras; gênero pela faixa do topo, cidade pelo painel',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          servicoFake(firestore: firestore, uid: 'm1'),
+          const ListaOportunidadesScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 oportunidades'), findsOneWidget);
+      expect(find.text('Show de ontem'), findsNothing);
+
+      // Plano 8: gênero na faixa do topo (não conta no "Filtrar").
+      await tester.tap(find.widgetWithText(ChoiceChip, 'MPB'));
+      await tester.pumpAndSettle();
+      expect(find.text('Filtrar'), findsOneWidget);
+      expect(find.text('1 oportunidade'), findsOneWidget);
+      expect(find.text('Sarau MPB'), findsOneWidget);
+      expect(find.text('Noite do rock'), findsNothing);
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Todos'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 oportunidades'), findsOneWidget);
+
+      await tester.tap(find.text('Filtrar'));
+      await tester.pumpAndSettle();
+      // Músico vê as opções que dependem da agenda dele.
+      expect(find.text('Só dias em que estou livre'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Cidade'),
+        'Marília',
+      );
+      await tester.tap(find.text('Aplicar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Filtrar (1)'), findsOneWidget);
+      expect(find.text('0 oportunidades'), findsOneWidget);
+
+      // Remover o chip desliga o critério.
+      final chip = tester.widget<InputChip>(
+        find.widgetWithText(InputChip, 'Marília'),
+      );
+      chip.onDeleted!();
+      await tester.pumpAndSettle();
+      expect(find.text('2 oportunidades'), findsOneWidget);
+      expect(find.text('Filtrar'), findsOneWidget);
+    },
+  );
+
+  testWidgets('sem resultado mostra aviso; "Limpar" volta à lista completa', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      _app(servicoFake(firestore: firestore, uid: 'm1'), const ListaOportunidadesScreen()),
+      _app(
+        servicoFake(firestore: firestore, uid: 'm1'),
+        const ListaOportunidadesScreen(),
+      ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('2 oportunidades'), findsOneWidget);
-    expect(find.text('Show de ontem'), findsNothing);
-
-    // Plano 8: gênero na faixa do topo (não conta no "Filtrar").
-    await tester.tap(find.widgetWithText(ChoiceChip, 'MPB'));
-    await tester.pumpAndSettle();
-    expect(find.text('Filtrar'), findsOneWidget);
-    expect(find.text('1 oportunidade'), findsOneWidget);
-    expect(find.text('Sarau MPB'), findsOneWidget);
-    expect(find.text('Noite do rock'), findsNothing);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Todos'));
-    await tester.pumpAndSettle();
-    expect(find.text('2 oportunidades'), findsOneWidget);
-
     await tester.tap(find.text('Filtrar'));
     await tester.pumpAndSettle();
-    // Músico vê as opções que dependem da agenda dele.
-    expect(find.text('Só dias em que estou livre'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextField, 'Cidade'), 'Marília');
-    await tester.tap(find.text('Aplicar'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Filtrar (1)'), findsOneWidget);
-    expect(find.text('0 oportunidades'), findsOneWidget);
-
-    // Remover o chip desliga o critério.
-    final chip = tester.widget<InputChip>(find.widgetWithText(InputChip, 'Marília'));
-    chip.onDeleted!();
-    await tester.pumpAndSettle();
-    expect(find.text('2 oportunidades'), findsOneWidget);
-    expect(find.text('Filtrar'), findsOneWidget);
-  });
-
-  testWidgets('sem resultado mostra aviso; "Limpar" volta à lista completa', (tester) async {
-    await tester.pumpWidget(
-      _app(servicoFake(firestore: firestore, uid: 'm1'), const ListaOportunidadesScreen()),
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Cachê mínimo (R\$)'),
+      '99999',
     );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Filtrar'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Cachê mínimo (R\$)'), '99999');
     await tester.tap(find.text('Aplicar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nenhuma oportunidade com esses filtros.'), findsOneWidget);
+    expect(
+      find.text('Nenhuma oportunidade com esses filtros.'),
+      findsOneWidget,
+    );
     expect(find.text('A partir de R\$ 99999'), findsOneWidget);
 
     await tester.tap(find.text('Limpar'));
@@ -130,7 +168,10 @@ void main() {
 
   testWidgets('dono não vê as opções de agenda no painel', (tester) async {
     await tester.pumpWidget(
-      _app(servicoFake(firestore: firestore, uid: 'e1'), const ListaOportunidadesScreen()),
+      _app(
+        servicoFake(firestore: firestore, uid: 'e1'),
+        const ListaOportunidadesScreen(),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -140,9 +181,14 @@ void main() {
     expect(find.text('Só dias em que estou livre'), findsNothing);
   });
 
-  testWidgets('Minhas oportunidades separa próximas e encerradas', (tester) async {
+  testWidgets('Minhas oportunidades separa próximas e encerradas', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      _app(servicoFake(firestore: firestore, uid: 'e1'), const MinhasOportunidadesScreen()),
+      _app(
+        servicoFake(firestore: firestore, uid: 'e1'),
+        const MinhasOportunidadesScreen(),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -153,7 +199,9 @@ void main() {
     expect(find.text('Show de ontem'), findsOneWidget);
   });
 
-  testWidgets('detalhe de oportunidade vencida: sem candidatura e com aviso', (tester) async {
+  testWidgets('detalhe de oportunidade vencida: sem candidatura e com aviso', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         servicoFake(firestore: firestore, uid: 'm1'),
@@ -166,7 +214,9 @@ void main() {
     expect(find.text('Candidatar-se'), findsNothing);
   });
 
-  testWidgets('detalhe de oportunidade futura: músico pode se candidatar', (tester) async {
+  testWidgets('detalhe de oportunidade futura: músico pode se candidatar', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         servicoFake(firestore: firestore, uid: 'm1'),
@@ -180,7 +230,9 @@ void main() {
     expect(find.text('Ver músicos livres neste dia'), findsNothing);
   });
 
-  testWidgets('dono abre os músicos livres no dia da oportunidade (Plano 13)', (tester) async {
+  testWidgets('dono abre os músicos livres no dia da oportunidade (Plano 13)', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         servicoFake(firestore: firestore, uid: 'e1'),
@@ -201,55 +253,65 @@ void main() {
     expect(provider.livresEm, DateTime(2099, 3, 1));
   });
 
-  testWidgets('dono vê músicos sugeridos e convida já nesta oportunidade (Plano 15)', (tester) async {
-    await gravarCatalogo(
-      firestore,
-      musicos: [
-        musicoTeste(id: 'm2', nomeArtistico: 'Banda Compatível'),
-        musicoTeste(id: 'm3', nomeArtistico: 'Banda Ocupada'),
-        musicoTeste(
-          id: 'm4',
-          nomeArtistico: 'Duo Distante',
-          generoMusical: 'MPB',
-          cidade: 'Outra',
+  testWidgets(
+    'dono vê músicos sugeridos e convida já nesta oportunidade (Plano 15)',
+    (tester) async {
+      await gravarCatalogo(
+        firestore,
+        musicos: [
+          musicoTeste(id: 'm2', nomeArtistico: 'Banda Compatível'),
+          musicoTeste(id: 'm3', nomeArtistico: 'Banda Ocupada'),
+          musicoTeste(
+            id: 'm4',
+            nomeArtistico: 'Duo Distante',
+            generoMusical: 'MPB',
+            cidade: 'Outra',
+          ),
+        ],
+      );
+      await firestore.collection('ocupacoes').doc('m3_2099-03-01').set({
+        'musicoId': 'm3',
+        'dia': '2099-03-01',
+        'contratacaoId': 'c1',
+      });
+      await tester.pumpWidget(
+        _app(
+          servicoFake(firestore: firestore, uid: 'e1'),
+          const DetalheOportunidadeScreen(oportunidadeId: 'rock'),
         ),
-      ],
-    );
-    await firestore.collection('ocupacoes').doc('m3_2099-03-01').set({
-      'musicoId': 'm3',
-      'dia': '2099-03-01',
-      'contratacaoId': 'c1',
-    });
-    await tester.pumpWidget(
-      _app(
-        servicoFake(firestore: firestore, uid: 'e1'),
-        const DetalheOportunidadeScreen(oportunidadeId: 'rock'),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Músicos sugeridos'), findsOneWidget);
-    expect(find.text('Banda Compatível'), findsOneWidget);
-    expect(find.text('Banda Ocupada'), findsNothing);
-    expect(find.text('Duo Distante'), findsNothing);
-    expect(find.textContaining('Compatibilidade'), findsOneWidget);
+      expect(find.text('Músicos sugeridos'), findsOneWidget);
+      expect(find.text('Banda Compatível'), findsOneWidget);
+      expect(find.text('Banda Ocupada'), findsNothing);
+      expect(find.text('Duo Distante'), findsNothing);
+      expect(find.textContaining('Compatibilidade'), findsOneWidget);
 
-    await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Convidar'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Convidar'));
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pumpAndSettle();
-    // A oportunidade já vem marcada: é só enviar.
-    await tester.tap(find.text('Enviar convite'));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.widgetWithText(ElevatedButton, 'Convidar'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Convidar'));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+      // A oportunidade já vem marcada: é só enviar.
+      await tester.tap(find.text('Enviar convite'));
+      await tester.pumpAndSettle();
 
-    final convite = await firestore.collection('interesses').doc('e1_mu_m2_rock').get();
-    expect(convite.exists, isTrue);
-    // Com convite enviado, sai das sugestões.
-    expect(find.text('Banda Compatível'), findsNothing);
-  });
+      final convite = await firestore
+          .collection('interesses')
+          .doc('e1_mu_m2_rock')
+          .get();
+      expect(convite.exists, isTrue);
+      // Com convite enviado, sai das sugestões.
+      expect(find.text('Banda Compatível'), findsNothing);
+    },
+  );
 
-  testWidgets('contratante abre o perfil do estabelecimento (Plano 16)', (tester) async {
+  testWidgets('contratante abre o perfil do estabelecimento (Plano 16)', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         servicoFake(firestore: firestore, uid: 'm1'),
@@ -265,7 +327,9 @@ void main() {
     expect(find.text('${AppRoutes.detalheEstabelecimento} e1'), findsOneWidget);
   });
 
-  testWidgets('oportunidade vencida não oferece músicos livres', (tester) async {
+  testWidgets('oportunidade vencida não oferece músicos livres', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         servicoFake(firestore: firestore, uid: 'e1'),
@@ -277,17 +341,27 @@ void main() {
     expect(find.text('Ver músicos livres neste dia'), findsNothing);
   });
 
-  testWidgets('Plano 18: músico favorita oportunidade e filtra só favoritas', (tester) async {
+  testWidgets('Plano 18: músico favorita oportunidade e filtra só favoritas', (
+    tester,
+  ) async {
     final service = servicoFake(firestore: firestore, uid: 'm1');
     await tester.pumpWidget(_app(service, const ListaOportunidadesScreen()));
     await tester.pumpAndSettle();
 
-    final card = find.ancestor(of: find.text('Sarau MPB'), matching: find.byType(Card));
+    final card = find.ancestor(
+      of: find.text('Sarau MPB'),
+      matching: find.byType(Card),
+    );
     await tester.tap(
-      find.descendant(of: card, matching: find.byTooltip('Adicionar aos favoritos')),
+      find.descendant(
+        of: card,
+        matching: find.byTooltip('Adicionar aos favoritos'),
+      ),
     );
     await tester.pumpAndSettle();
-    final favorito = await firestore.doc('usuarios/m1/favoritos/oportunidade_mpb').get();
+    final favorito = await firestore
+        .doc('usuarios/m1/favoritos/oportunidade_mpb')
+        .get();
     expect(favorito.exists, isTrue);
 
     await tester.tap(find.text('Filtrar'));
@@ -302,12 +376,50 @@ void main() {
     expect(find.text('Noite do rock'), findsNothing);
   });
 
-  testWidgets('Plano 18: dono não vê coração nas oportunidades', (tester) async {
+  testWidgets('Plano 18: dono não vê coração nas oportunidades', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      _app(servicoFake(firestore: firestore, uid: 'e1'), const ListaOportunidadesScreen()),
+      _app(
+        servicoFake(firestore: firestore, uid: 'e1'),
+        const ListaOportunidadesScreen(),
+      ),
     );
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('Adicionar aos favoritos'), findsNothing);
+  });
+
+  testWidgets('Minhas oportunidades mostra as candidaturas pendentes no card', (
+    tester,
+  ) async {
+    Future<void> candidatura(String id, String status) =>
+        firestore.collection('interesses').doc(id).set({
+          'tipo': 'candidatura',
+          'remetenteId': id,
+          'remetenteNome': 'Banda $id',
+          'destinatarioId': 'e1',
+          'musicoId': id,
+          'musicoNome': 'Banda $id',
+          'oportunidadeId': 'rock',
+          'oportunidadeTitulo': 'Noite do rock',
+          'status': status,
+          'criadoEm': DateTime(2026, 10, 1),
+        });
+    await candidatura('m1', 'pendente');
+    await candidatura('m2', 'pendente');
+    await candidatura('m3', 'recusado');
+
+    await tester.pumpWidget(
+      _app(
+        servicoFake(firestore: firestore, uid: 'e1'),
+        const MinhasOportunidadesScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Só as pendentes contam, e só no card da oportunidade delas.
+    expect(find.text('2 candidaturas'), findsOneWidget);
+    expect(find.text('Editar'), findsWidgets);
   });
 }

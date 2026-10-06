@@ -1,13 +1,16 @@
-import '../../core/theme/app_colors.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_strings.dart';
-import '../../core/utils/foto_perfil.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/validators.dart';
 import '../../models/musico.dart';
+import '../../widgets/avatar_iniciais.dart';
+import '../../widgets/custom_text_field.dart';
+import '../../widgets/titulo_secao.dart';
+import 'botoes_formulario.dart';
 
 /// Formulário do perfil de artista, usado no onboarding e na tela de Perfil.
 /// Não grava nada: devolve o [Musico] montado em [onSalvar] (o id é
@@ -66,7 +69,10 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
     _cidadeController.text = perfil?.cidade ?? '';
     // Perfil antigo em branco tinha cachê 0: melhor campo vazio que "0.00".
     _cacheController.text = perfil != null && perfil.completo
-        ? perfil.cacheMedio.toStringAsFixed(2)
+        // "1100" em vez de "1100.00"; centavos só quando houver.
+        ? perfil.cacheMedio.toStringAsFixed(
+            perfil.cacheMedio == perfil.cacheMedio.roundToDouble() ? 0 : 2,
+          )
         : '';
     _descricaoController.text = perfil?.descricao ?? '';
     _portfolioController.text = perfil?.portfolioLinks.join('\n') ?? '';
@@ -174,7 +180,8 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
 
   @override
   Widget build(BuildContext context) {
-    final imagem = imagemDaFoto(_foto);
+    const espaco = SizedBox(height: AppSpacing.sm);
+    const entreSecoes = SizedBox(height: AppSpacing.lg);
 
     return Form(
       key: _formKey,
@@ -182,23 +189,25 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Center(
-            child: CircleAvatar(
-              radius: 55,
-              backgroundColor: AppColors.primariaContainer,
-              backgroundImage: imagem,
-              child: imagem == null
-                  ? const Icon(Icons.person, size: 55, color: AppColors.primariaTexto)
-                  : null,
+            // O nome digitado já vira as iniciais enquanto não há foto.
+            child: ListenableBuilder(
+              listenable: _nomeArtisticoController,
+              builder: (_, _) => AvatarIniciais(
+                nome: _nomeArtisticoController.text,
+                foto: _foto,
+                tamanho: 96,
+                circular: true,
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.xs),
           Wrap(
             alignment: WrapAlignment.center,
-            spacing: 8,
+            spacing: AppSpacing.xs,
             children: [
-              OutlinedButton.icon(
+              TextButton.icon(
                 onPressed: _selecionarImagem,
-                icon: const Icon(Icons.photo),
+                icon: const Icon(Icons.photo_camera_outlined),
                 label: Text(_foto == null ? 'Escolher foto' : 'Alterar foto'),
               ),
               if (_foto != null)
@@ -209,22 +218,22 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
                 ),
             ],
           ),
-          const SizedBox(height: 24),
-          TextFormField(
+          const SizedBox(height: AppSpacing.md),
+          const RotuloSecao('Identidade', destaque: true),
+          espaco,
+          CustomTextField(
             controller: _nomeArtisticoController,
-            decoration: const InputDecoration(
-              labelText: 'Nome artístico',
-              border: OutlineInputBorder(),
-            ),
+            label: 'Nome artístico',
+            icone: Icons.person_outline,
             validator: (value) =>
                 Validators.validarCampoObrigatorio(value, 'o nome artístico'),
           ),
-          const SizedBox(height: 16),
+          espaco,
           DropdownButtonFormField<String>(
             initialValue: _generoSelecionado,
             decoration: const InputDecoration(
               labelText: 'Gênero musical',
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.music_note_outlined),
             ),
             items: AppStrings.generosMusicais
                 .map(
@@ -237,84 +246,62 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
                 ? 'Selecione um gênero musical.'
                 : null,
           ),
-          const SizedBox(height: 16),
-          TextFormField(
+          espaco,
+          CustomTextField(
             controller: _cidadeController,
-            decoration: const InputDecoration(
-              labelText: 'Cidade',
-              border: OutlineInputBorder(),
-            ),
+            label: 'Cidade',
+            icone: Icons.place_outlined,
             validator: (value) =>
                 Validators.validarCampoObrigatorio(value, 'a cidade'),
           ),
-          const SizedBox(height: 16),
-          TextFormField(
+          espaco,
+          CustomTextField(
             controller: _cacheController,
+            label: 'Cachê médio',
+            icone: Icons.payments_outlined,
+            dica: 'Ex: 1500',
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Cachê médio',
-              hintText: 'Ex: 1500.00',
-              border: OutlineInputBorder(),
-            ),
             validator: _validarCache,
           ),
-          const SizedBox(height: 16),
-          TextFormField(
+          espaco,
+          CustomTextField(
             controller: _descricaoController,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Descrição',
-              border: OutlineInputBorder(),
-            ),
+            label: 'Descrição',
+            dica: 'Conte sua trajetória e o estilo do seu show',
+            linhas: 4,
             validator: (value) =>
                 Validators.validarCampoObrigatorio(value, 'a descrição'),
           ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _portfolioController,
-            maxLines: 5,
-            decoration: const InputDecoration(
-              labelText: 'Portfólio (opcional)',
-              hintText:
-                  'Informe um link por linha\nhttps://instagram.com/...\nhttps://youtube.com/...',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Sobre o show (opcional)',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<Formacao?>(
-            initialValue: _formacao,
-            decoration: const InputDecoration(
-              labelText: 'Formação',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem<Formacao?>(
-                value: null,
-                child: Text('Não informar'),
-              ),
+          entreSecoes,
+          const RotuloSecao('Sobre o show (opcional)', destaque: true),
+          espaco,
+          Text('Formação', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: AppSpacing.xs),
+          // Tocar de novo na escolhida desmarca (= não informar).
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
               for (final f in Formacao.values)
-                DropdownMenuItem<Formacao?>(value: f, child: Text(f.rotulo)),
+                ChoiceChip(
+                  label: Text(f.rotulo),
+                  selected: _formacao == f,
+                  onSelected: (sim) =>
+                      setState(() => _formacao = sim ? f : null),
+                ),
             ],
-            onChanged: (value) => setState(() => _formacao = value),
           ),
           if (_formacao == Formacao.banda) ...[
-            const SizedBox(height: 16),
-            TextFormField(
+            espaco,
+            CustomTextField(
               controller: _integrantesController,
+              label: 'Número de integrantes',
+              icone: Icons.groups_outlined,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Número de integrantes',
-                border: OutlineInputBorder(),
-              ),
               validator: _validarInteiro(2, 50, 'um número'),
             ),
           ],
-          const SizedBox(height: 8),
+          espaco,
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Tenho equipamento próprio'),
@@ -322,47 +309,39 @@ class _PerfilMusicoFormState extends State<PerfilMusicoForm> {
             value: _equipamentoProprio,
             onChanged: (value) => setState(() => _equipamentoProprio = value),
           ),
-          const SizedBox(height: 8),
-          TextFormField(
+          espaco,
+          CustomTextField(
             controller: _duracaoController,
+            label: 'Duração do show (minutos)',
+            icone: Icons.timer_outlined,
+            dica: 'Ex: 120',
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Duração do show (minutos)',
-              hintText: 'Ex: 120',
-              border: OutlineInputBorder(),
-            ),
             validator: _validarInteiro(10, 600, 'uma duração'),
           ),
-          const SizedBox(height: 16),
-          TextFormField(
+          espaco,
+          CustomTextField(
             controller: _repertorioController,
-            maxLines: 2,
+            label: 'Repertório',
+            dica: 'Ex: autoral + covers de rock nacional',
+            linhas: 2,
             maxLength: 200,
-            decoration: const InputDecoration(
-              labelText: 'Repertório',
-              hintText: 'Ex: autoral + covers de rock nacional',
-              border: OutlineInputBorder(),
-            ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              if (widget.onCancelar != null) ...[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _salvando ? null : widget.onCancelar,
-                    child: const Text('Cancelar'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _salvando ? null : _salvar,
-                  child: Text(_salvando ? 'Salvando...' : widget.textoSalvar),
-                ),
-              ),
-            ],
+          entreSecoes,
+          const RotuloSecao('Portfólio (opcional)', destaque: true),
+          espaco,
+          CustomTextField(
+            controller: _portfolioController,
+            label: 'Links',
+            dica: 'https://instagram.com/...\nhttps://youtube.com/...',
+            ajuda: 'Um link por linha: Instagram, YouTube, Spotify...',
+            linhas: 4,
+          ),
+          entreSecoes,
+          BotoesFormulario(
+            textoSalvar: widget.textoSalvar,
+            salvando: _salvando,
+            onSalvar: _salvar,
+            onCancelar: widget.onCancelar,
           ),
         ],
       ),

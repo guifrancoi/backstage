@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/data_hora.dart';
 import '../../core/utils/validators.dart';
 import '../../models/oportunidade.dart';
@@ -10,7 +11,9 @@ import '../../providers/oportunidade_provider.dart';
 import '../../providers/perfil_provider.dart';
 import '../../widgets/campo_horario.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/estados.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/titulo_secao.dart';
 
 /// Cria uma oportunidade ou, com [oportunidadeId], edita uma existente (dono
 /// ou admin). Na criação o endereço vem do perfil do estabelecimento e o
@@ -51,7 +54,9 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
     super.initState();
     final id = widget.oportunidadeId;
     if (id != null) {
-      final o = context.read<OportunidadeProvider>().buscarOportunidadePorId(id);
+      final o = context.read<OportunidadeProvider>().buscarOportunidadePorId(
+        id,
+      );
       _original = o;
       if (o != null) {
         _tituloController.text = o.titulo;
@@ -72,7 +77,9 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
       return;
     }
 
-    final estabelecimento = context.read<PerfilProvider>().perfilEstabelecimento;
+    final estabelecimento = context
+        .read<PerfilProvider>()
+        .perfilEstabelecimento;
     if (estabelecimento != null) {
       _cidadeController.text = estabelecimento.cidade;
       _estadoController.text = estabelecimento.estado;
@@ -138,7 +145,9 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
 
     final auth = context.read<AuthProvider>();
     final provider = context.read<OportunidadeProvider>();
-    final estabelecimento = context.read<PerfilProvider>().perfilEstabelecimento;
+    final estabelecimento = context
+        .read<PerfilProvider>()
+        .perfilEstabelecimento;
     final cep = _cepController.text.trim();
     final original = _original;
 
@@ -193,14 +202,18 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
   @override
   Widget build(BuildContext context) {
     final data = _dataEvento;
-    final dataTexto = data == null
-        ? 'Escolher data do evento'
-        : 'Data: ${formatarData(data)}';
+    final texto = Theme.of(context).textTheme;
+    const espaco = SizedBox(height: AppSpacing.sm);
+    const entreSecoes = SizedBox(height: AppSpacing.lg);
 
     if (_editando && _original == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Editar oportunidade')),
-        body: const Center(child: Text('Oportunidade não encontrada.')),
+        body: const EstadoVazio(
+          icone: Icons.search_off,
+          titulo: 'Oportunidade não encontrada.',
+          mensagem: 'Ela pode ter sido removida.',
+        ),
       );
     }
 
@@ -209,27 +222,34 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
         title: Text(_editando ? 'Editar oportunidade' : 'Nova oportunidade'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+          AppSpacing.lg,
+        ),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const RotuloSecao('O evento', destaque: true),
+              espaco,
               CustomTextField(
                 controller: _tituloController,
                 label: 'Título',
-                validator: (v) => Validators.validarCampoObrigatorio(v, 'o título'),
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _descricaoController,
-                label: 'Descrição',
+                icone: Icons.campaign_outlined,
+                dica: 'Ex: Noite de MPB ao vivo',
                 validator: (v) =>
-                    Validators.validarCampoObrigatorio(v, 'a descrição'),
+                    Validators.validarCampoObrigatorio(v, 'o título'),
               ),
-              const SizedBox(height: 16),
+              espaco,
               DropdownButtonFormField<String>(
                 initialValue: _genero,
-                decoration: const InputDecoration(labelText: 'Gênero musical'),
+                decoration: const InputDecoration(
+                  labelText: 'Gênero musical',
+                  prefixIcon: Icon(Icons.music_note_outlined),
+                ),
                 items: [
                   for (final genero in AppStrings.generosMusicais)
                     DropdownMenuItem(value: genero, child: Text(genero)),
@@ -237,16 +257,28 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
                 validator: (v) => v == null ? 'Escolha o gênero.' : null,
                 onChanged: (v) => setState(() => _genero = v),
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _escolherData,
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(dataTexto),
+              espaco,
+              CustomTextField(
+                controller: _descricaoController,
+                label: 'Descrição',
+                dica: 'Estrutura do palco, público esperado, repertório...',
+                linhas: 3,
+                validator: (v) =>
+                    Validators.validarCampoObrigatorio(v, 'a descrição'),
+              ),
+              entreSecoes,
+              const RotuloSecao('Quando', destaque: true),
+              espaco,
+              OutlinedButton.icon(
+                onPressed: _escolherData,
+                icon: const Icon(Icons.calendar_today_outlined),
+                label: Text(
+                  data == null
+                      ? 'Escolher data do evento'
+                      : 'Data: ${formatarData(data)}',
                 ),
               ),
-              const SizedBox(height: 8),
+              espaco,
               Row(
                 children: [
                   Expanded(
@@ -256,7 +288,7 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
                       onChanged: (v) => setState(() => _horaInicio = v),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: CampoHorario(
                       rotulo: 'Fim',
@@ -266,52 +298,90 @@ class _NovaOportunidadeScreenState extends State<NovaOportunidadeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              entreSecoes,
+              const RotuloSecao('Cachê', destaque: true),
+              espaco,
               CustomTextField(
                 controller: _cacheController,
                 label: 'Cachê oferecido (R\$)',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                icone: Icons.payments_outlined,
+                dica: 'Ex: 1500',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 validator: _validarCache,
               ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _logradouroController,
-                label: 'Logradouro',
-                validator: (v) =>
-                    Validators.validarCampoObrigatorio(v, 'o logradouro'),
+              entreSecoes,
+              const RotuloSecao('Local', destaque: true),
+              if (!_editando) ...[
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  'Preenchido com o endereço do seu estabelecimento; mude se '
+                  'o show for em outro lugar.',
+                  style: texto.bodySmall,
+                ),
+              ],
+              espaco,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 2:1 para o rótulo "Número" caber inteiro.
+                  Expanded(
+                    flex: 2,
+                    child: CustomTextField(
+                      controller: _logradouroController,
+                      label: 'Logradouro',
+                      validator: (v) =>
+                          Validators.validarCampoObrigatorio(v, 'o logradouro'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: CustomTextField(
+                      controller: _numeroController,
+                      label: 'Número',
+                      validator: (v) =>
+                          Validators.validarCampoObrigatorio(v, 'o número'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _numeroController,
-                label: 'Número',
-                validator: (v) => Validators.validarCampoObrigatorio(v, 'o número'),
+              espaco,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: CustomTextField(
+                      controller: _cidadeController,
+                      label: 'Cidade',
+                      validator: (v) =>
+                          Validators.validarCampoObrigatorio(v, 'a cidade'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: CustomTextField(
+                      controller: _estadoController,
+                      label: 'UF',
+                      validator: (v) =>
+                          Validators.validarCampoObrigatorio(v, 'o estado'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _cidadeController,
-                label: 'Cidade',
-                validator: (v) => Validators.validarCampoObrigatorio(v, 'a cidade'),
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _estadoController,
-                label: 'Estado (UF)',
-                validator: (v) => Validators.validarCampoObrigatorio(v, 'o estado'),
-              ),
-              const SizedBox(height: 16),
+              espaco,
               CustomTextField(
                 controller: _cepController,
                 label: 'CEP (opcional)',
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 24),
+              entreSecoes,
               PrimaryButton(
-                text: _salvando
-                    ? 'Salvando...'
-                    : _editando
-                    ? 'Salvar alterações'
-                    : 'Publicar oportunidade',
-                onPressed: _salvando ? null : _salvar,
+                text: _editando ? 'Salvar alterações' : 'Publicar oportunidade',
+                icone: _editando ? Icons.check : Icons.campaign_outlined,
+                carregando: _salvando,
+                onPressed: _salvar,
               ),
             ],
           ),

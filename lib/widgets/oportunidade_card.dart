@@ -30,6 +30,10 @@ class OportunidadeCard extends StatelessWidget {
   final VoidCallback? onFavoritar;
   final bool favorita;
 
+  /// Plano 8: troca a linha de botões do fim do card (ex.: Editar/Remover
+  /// em "Minhas oportunidades").
+  final Widget? rodape;
+
   const OportunidadeCard({
     super.key,
     required this.oportunidade,
@@ -39,6 +43,7 @@ class OportunidadeCard extends StatelessWidget {
     this.assinante = false,
     this.onFavoritar,
     this.favorita = false,
+    this.rodape,
   });
 
   /// "28 jun · 21:00 às 23:30" (sem o ano se for o ano corrente).
@@ -104,31 +109,32 @@ class OportunidadeCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: onVerDetalhes,
-                      child: const Text('Ver detalhes'),
-                    ),
-                  ),
-                  if (mostrarAcao) ...[
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: statusCandidatura == null
-                            ? onCandidatar
-                            : null,
-                        child: Text(
-                          statusCandidatura ?? 'Candidatar-se',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+              rodape ??
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onVerDetalhes,
+                          child: const Text('Ver detalhes'),
                         ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                      if (mostrarAcao) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: statusCandidatura == null
+                                ? onCandidatar
+                                : null,
+                            child: Text(
+                              statusCandidatura ?? 'Candidatar-se',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
             ],
           ),
         ),

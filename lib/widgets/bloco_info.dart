@@ -52,7 +52,8 @@ class BlocoInfo extends StatelessWidget {
   }
 }
 
-/// Blocos em grade de 2 colunas (1 em telas muito estreitas).
+/// Blocos em grade de 2 colunas (1 em telas muito estreitas). Os dois blocos
+/// de uma linha ficam com a mesma altura, mesmo quando um rótulo quebra.
 class GradeBlocos extends StatelessWidget {
   const GradeBlocos({super.key, required this.blocos});
 
@@ -63,13 +64,32 @@ class GradeBlocos extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, restricoes) {
         final colunas = restricoes.maxWidth < 280 ? 1 : 2;
-        final largura =
-            (restricoes.maxWidth - AppSpacing.sm * (colunas - 1)) / colunas;
-        return Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
+        final linhas = [
+          for (var i = 0; i < blocos.length; i += colunas)
+            blocos.sublist(i, (i + colunas).clamp(0, blocos.length)),
+        ];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final bloco in blocos) SizedBox(width: largura, child: bloco),
+            for (final (i, linha) in linhas.indexed) ...[
+              if (i > 0) const SizedBox(height: AppSpacing.sm),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var j = 0; j < colunas; j++) ...[
+                      if (j > 0) const SizedBox(width: AppSpacing.sm),
+                      // Linha incompleta: o espaço vazio mantém a largura.
+                      Expanded(
+                        child: j < linha.length
+                            ? linha[j]
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ],
         );
       },

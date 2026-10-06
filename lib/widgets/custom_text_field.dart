@@ -18,6 +18,14 @@ class CustomTextField extends StatefulWidget {
   final Iterable<String>? autofillHints;
   final ValueChanged<String>? onSubmitted;
 
+  /// Plano 8: campos de várias linhas (descrição, portfólio) e limite de
+  /// caracteres com contador.
+  final int linhas;
+  final int? maxLength;
+
+  /// Explicação fixa abaixo do campo (ex.: "Um link por linha").
+  final String? ajuda;
+
   const CustomTextField({
     super.key,
     required this.controller,
@@ -30,6 +38,9 @@ class CustomTextField extends StatefulWidget {
     this.textInputAction,
     this.autofillHints,
     this.onSubmitted,
+    this.linhas = 1,
+    this.maxLength,
+    this.ajuda,
   });
 
   @override
@@ -44,14 +55,24 @@ class _CustomTextFieldState extends State<CustomTextField> {
     return TextFormField(
       controller: widget.controller,
       obscureText: _oculto,
-      keyboardType: widget.keyboardType,
+      // Várias linhas de texto: o Enter quebra linha em vez de enviar.
+      keyboardType:
+          widget.linhas > 1 && widget.keyboardType == TextInputType.text
+          ? TextInputType.multiline
+          : widget.keyboardType,
       validator: widget.validator,
       textInputAction: widget.textInputAction,
       autofillHints: widget.autofillHints,
       onFieldSubmitted: widget.onSubmitted,
+      maxLines: widget.linhas,
+      maxLength: widget.maxLength,
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.dica,
+        helperText: widget.ajuda,
+        helperMaxLines: 2,
+        // Rótulo no alto em campo de várias linhas, como nos protótipos.
+        alignLabelWithHint: widget.linhas > 1,
         prefixIcon: widget.icone == null ? null : Icon(widget.icone),
         suffixIcon: widget.obscureText
             ? IconButton(

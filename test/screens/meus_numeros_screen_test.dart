@@ -69,7 +69,7 @@ void main() {
 
     expect(find.text('Como músico'), findsOneWidget);
     expect(find.text('Como contratante'), findsNothing);
-    expect(find.text('Próximos confirmados'), findsOneWidget);
+    expect(find.text('PRÓXIMOS CONFIRMADOS'), findsOneWidget);
     expect(find.text('R\$ 1.500'), findsOneWidget);
     expect(find.text('—'), findsOneWidget); // nenhuma candidatura respondida
     expect(find.byType(BarChart), findsOneWidget);
@@ -80,7 +80,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Como contratante'), findsOneWidget);
-    expect(find.text('Oportunidades abertas'), findsOneWidget);
+    expect(find.text('OPORTUNIDADES ABERTAS'), findsOneWidget);
     expect(find.text('Nenhum show realizado nesses meses.'), findsOneWidget);
     expect(find.byType(BarChart), findsNothing);
   });

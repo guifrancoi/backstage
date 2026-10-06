@@ -53,8 +53,10 @@ void main() {
     expect(find.text('Remover foto'), findsOneWidget);
 
     // Integrantes só aparece para banda.
-    expect(find.widgetWithText(TextFormField, 'Número de integrantes'), findsNothing);
-    await tocar(tester, 'Não informar');
+    expect(
+      find.widgetWithText(TextFormField, 'Número de integrantes'),
+      findsNothing,
+    );
     await tocar(tester, 'Banda');
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Número de integrantes'),
@@ -79,7 +81,9 @@ void main() {
     expect(salvo?.repertorio, 'Autoral');
   });
 
-  testWidgets('sem dados do show salva como antes (todos opcionais)', (tester) async {
+  testWidgets('sem dados do show salva como antes (todos opcionais)', (
+    tester,
+  ) async {
     await tester.pumpWidget(app());
 
     await tocar(tester, 'Salvar');
@@ -137,5 +141,18 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Remover foto'), findsNothing);
+  });
+
+  testWidgets('cachê inteiro aparece sem casas decimais', (tester) async {
+    await tester.pumpWidget(app());
+    expect(find.widgetWithText(TextFormField, '1000'), findsOneWidget);
+  });
+
+  testWidgets('cachê com centavos mantém as casas', (tester) async {
+    await tester.pumpWidget(
+      app(inicial: _inicial.copyWith(cacheMedio: 1275.5)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextFormField, '1275.50'), findsOneWidget);
   });
 }

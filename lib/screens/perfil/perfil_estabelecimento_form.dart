@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/validators.dart';
 import '../../models/casa_show.dart';
+import '../../widgets/custom_text_field.dart';
+import '../../widgets/titulo_secao.dart';
+import 'botoes_formulario.dart';
 
 /// Formulário do perfil de estabelecimento, usado no onboarding e na tela de
 /// Perfil. Obrigatórios: nome, cidade, endereço (logradouro, número, estado)
@@ -128,21 +132,20 @@ class _PerfilEstabelecimentoFormState extends State<PerfilEstabelecimentoForm> {
     TextEditingController controller,
     String rotulo, {
     String? Function(String?)? validator,
-    TextInputType? teclado,
-    int maxLines = 1,
+    TextInputType teclado = TextInputType.text,
+    int linhas = 1,
     String? dica,
+    IconData? icone,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: CustomTextField(
         controller: controller,
+        label: rotulo,
         keyboardType: teclado,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          labelText: rotulo,
-          hintText: dica,
-          border: const OutlineInputBorder(),
-        ),
+        linhas: linhas,
+        dica: dica,
+        icone: icone,
         validator: validator,
       ),
     );
@@ -153,19 +156,43 @@ class _PerfilEstabelecimentoFormState extends State<PerfilEstabelecimentoForm> {
 
   @override
   Widget build(BuildContext context) {
+    // Espaço para o rótulo flutuante do 1º campo não colar no título.
+    const espaco = SizedBox(height: AppSpacing.sm);
+    const entreSecoes = SizedBox(height: AppSpacing.lg);
+
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const RotuloSecao('Estabelecimento', destaque: true),
+          espaco,
           _campo(
             _nomeController,
             'Nome do estabelecimento',
+            icone: Icons.storefront_outlined,
             validator: _obrigatorio('o nome'),
           ),
           _campo(
+            _capacidadeController,
+            'Capacidade de público (opcional)',
+            icone: Icons.groups_outlined,
+            teclado: TextInputType.number,
+            validator: _validarCapacidade,
+          ),
+          _campo(
+            _descricaoController,
+            'Descrição (opcional)',
+            dica: 'Ambiente, público, estrutura de som...',
+            linhas: 4,
+          ),
+          entreSecoes,
+          const RotuloSecao('Endereço', destaque: true),
+          espaco,
+          _campo(
             _logradouroController,
             'Logradouro',
+            icone: Icons.place_outlined,
             dica: 'Ex: Rua das Flores',
             validator: _obrigatorio('o logradouro'),
           ),
@@ -179,7 +206,7 @@ class _PerfilEstabelecimentoFormState extends State<PerfilEstabelecimentoForm> {
                   validator: _obrigatorio('o número'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: _campo(
                   _cepController,
@@ -200,7 +227,7 @@ class _PerfilEstabelecimentoFormState extends State<PerfilEstabelecimentoForm> {
                   validator: _obrigatorio('a cidade'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: _campo(
                   _estadoController,
@@ -210,28 +237,33 @@ class _PerfilEstabelecimentoFormState extends State<PerfilEstabelecimentoForm> {
               ),
             ],
           ),
+          entreSecoes,
+          const RotuloSecao('Contato', destaque: true),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            'Só aparece para quem tiver um interesse aceito com você.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: AppSpacing.sm),
           _campo(
             _contatoController,
             'Contato',
+            icone: Icons.phone_outlined,
             dica: 'Telefone, WhatsApp ou e-mail',
             validator: _obrigatorio('o contato'),
           ),
-          _campo(_cnpjController, 'CNPJ (opcional)'),
           _campo(
-            _capacidadeController,
-            'Capacidade de público (opcional)',
+            _cnpjController,
+            'CNPJ (opcional)',
+            icone: Icons.badge_outlined,
             teclado: TextInputType.number,
-            validator: _validarCapacidade,
           ),
-          _campo(_descricaoController, 'Descrição (opcional)', maxLines: 4),
-          const Text(
-            'Estilos desejados (opcional)',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
+          entreSecoes,
+          const RotuloSecao('Estilos que procura (opcional)', destaque: true),
+          const SizedBox(height: AppSpacing.sm),
           Wrap(
-            spacing: 8,
-            runSpacing: 4,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: AppStrings.generosMusicais
                 .map(
                   (genero) => FilterChip(
@@ -246,25 +278,12 @@ class _PerfilEstabelecimentoFormState extends State<PerfilEstabelecimentoForm> {
                 )
                 .toList(),
           ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              if (widget.onCancelar != null) ...[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _salvando ? null : widget.onCancelar,
-                    child: const Text('Cancelar'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _salvando ? null : _salvar,
-                  child: Text(_salvando ? 'Salvando...' : widget.textoSalvar),
-                ),
-              ),
-            ],
+          const SizedBox(height: AppSpacing.lg),
+          BotoesFormulario(
+            textoSalvar: widget.textoSalvar,
+            salvando: _salvando,
+            onSalvar: _salvar,
+            onCancelar: widget.onCancelar,
           ),
         ],
       ),

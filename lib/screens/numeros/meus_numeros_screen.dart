@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/utils/painel_numeros.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/avaliacao_provider.dart';
 import '../../providers/contratacao_provider.dart';
 import '../../providers/interesse_provider.dart';
 import '../../providers/oportunidade_provider.dart';
+import '../../widgets/bloco_info.dart';
 import '../../widgets/grafico_shows_por_mes.dart';
+import '../../widgets/titulo_secao.dart';
 
 /// "Meus números" (Plano 20): indicadores por papel e o gráfico de shows
 /// realizados por mês. O músico vê o que tocou e recebeu; o dono, o que
@@ -30,13 +34,19 @@ class MeusNumerosScreen extends StatelessWidget {
       body: uid == null
           ? const SizedBox.shrink()
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                AppSpacing.lg,
+              ),
               children: [
                 if (avaliacao != null && avaliacao.temAvaliacao)
-                  _Indicador(
-                    valor: avaliacao.rotulo,
+                  BlocoInfo(
                     rotulo: 'Sua avaliação',
-                    largo: true,
+                    valor: avaliacao.rotulo.replaceFirst('★ ', ''),
+                    icone: Icons.star_rounded,
+                    cor: AppColors.estrela,
                   ),
                 if (auth.atuaComoMusico)
                   _Secao(
@@ -50,11 +60,12 @@ class MeusNumerosScreen extends StatelessWidget {
                     ano: agora.year,
                     extras: [
                       _taxaAceite(
-                        taxaDeAceite(context.watch<InteresseProvider>().enviados),
+                        taxaDeAceite(
+                          context.watch<InteresseProvider>().enviados,
+                        ),
                       ),
                     ],
-                    rotuloValor: 'Cachê recebido em ${agora.year}',
-                    rotuloPropostas: 'Propostas em negociação',
+                    rotuloValor: 'Recebido em ${agora.year}',
                   ),
                 if (auth.atuaComoDono)
                   _Secao(
@@ -67,25 +78,24 @@ class MeusNumerosScreen extends StatelessWidget {
                     ),
                     ano: agora.year,
                     extras: [
-                      _Indicador(
+                      BlocoInfo(
+                        rotulo: 'Oportunidades abertas',
                         valor:
                             '${context.watch<OportunidadeProvider>().minhasOportunidades(uid).where((o) => !o.vencida).length}',
-                        rotulo: 'Oportunidades abertas',
                       ),
                     ],
-                    rotuloValor: 'Total pago em ${agora.year}',
-                    rotuloPropostas: 'Propostas em negociação',
+                    rotuloValor: 'Pago em ${agora.year}',
                   ),
               ],
             ),
     );
   }
 
-  static Widget _taxaAceite(double? taxa) => _Indicador(
-    valor: taxa == null ? '—' : '${(taxa * 100).round()}%',
+  static Widget _taxaAceite(double? taxa) => BlocoInfo(
     rotulo: taxa == null
         ? 'Aceite das candidaturas (nenhuma respondida)'
         : 'Aceite das candidaturas',
+    valor: taxa == null ? '—' : '${(taxa * 100).round()}%',
   );
 }
 
@@ -96,7 +106,6 @@ class _Secao extends StatelessWidget {
     required this.ano,
     required this.extras,
     required this.rotuloValor,
-    required this.rotuloPropostas,
   });
 
   final String titulo;
@@ -104,96 +113,45 @@ class _Secao extends StatelessWidget {
   final int ano;
   final List<Widget> extras;
   final String rotuloValor;
-  final String rotuloPropostas;
 
   @override
   Widget build(BuildContext context) {
     final n = numeros;
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(titulo, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 1.9,
-            children: [
-              _Indicador(
-                valor: '${n.realizadosNoMes}',
-                rotulo: 'Shows realizados no mês',
+          TituloSecao(titulo),
+          GradeBlocos(
+            blocos: [
+              // O dinheiro abre a grade, como nos protótipos.
+              BlocoInfo(
+                rotulo: rotuloValor,
+                valor: formatarReais(n.valorNoAno),
+                cor: context.cores.dinheiro,
               ),
-              _Indicador(
-                valor: '${n.realizadosNoAno}',
-                rotulo: 'Shows realizados em $ano',
+              BlocoInfo(
+                rotulo: 'Próximos confirmados',
+                valor: '${n.proximos}',
+                icone: Icons.event_available_outlined,
               ),
-              _Indicador(valor: formatarReais(n.valorNoAno), rotulo: rotuloValor),
-              _Indicador(valor: '${n.proximos}', rotulo: 'Próximos confirmados'),
-              _Indicador(
+              BlocoInfo(rotulo: 'Shows no mês', valor: '${n.realizadosNoMes}'),
+              BlocoInfo(rotulo: 'Shows em $ano', valor: '${n.realizadosNoAno}'),
+              BlocoInfo(
+                rotulo: 'Em negociação',
                 valor: '${n.propostasPendentes}',
-                rotulo: rotuloPropostas,
+                cor: n.propostasPendentes > 0 ? AppColors.aviso : null,
               ),
               ...extras,
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Shows realizados por mês',
-            style: Theme.of(context).textTheme.titleSmall,
+          const SizedBox(height: AppSpacing.sm),
+          CardSecao(
+            titulo: 'Shows realizados por mês',
+            child: GraficoShowsPorMes(porMes: n.porMes),
           ),
-          const SizedBox(height: 8),
-          GraficoShowsPorMes(porMes: n.porMes),
         ],
-      ),
-    );
-  }
-}
-
-/// Um número grande com o rótulo embaixo.
-class _Indicador extends StatelessWidget {
-  const _Indicador({
-    required this.valor,
-    required this.rotulo,
-    this.largo = false,
-  });
-
-  final String valor;
-  final String rotulo;
-
-  /// Ocupa a linha toda (fora da grade).
-  final bool largo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: largo ? const EdgeInsets.only(bottom: 4) : EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              valor,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              rotulo,
-              style: Theme.of(context).textTheme.bodySmall,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
       ),
     );
   }

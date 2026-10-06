@@ -74,7 +74,8 @@ Future<void> confirmarBloqueio(
   if (!context.mounted) return;
   _avisar(
     context,
-    provider.errorMessage ?? (ok ? '$nome foi bloqueado.' : 'Não foi possível bloquear.'),
+    provider.errorMessage ??
+        (ok ? '$nome foi bloqueado.' : 'Não foi possível bloquear.'),
   );
 }
 
@@ -88,7 +89,9 @@ Future<void> desbloquear(
   if (!context.mounted) return;
   _avisar(
     context,
-    ok ? '$nome foi desbloqueado.' : provider.errorMessage ?? 'Não foi possível desbloquear.',
+    ok
+        ? '$nome foi desbloqueado.'
+        : provider.errorMessage ?? 'Não foi possível desbloquear.',
   );
 }
 
@@ -116,7 +119,9 @@ class MenuModeracao extends StatelessWidget {
   Widget build(BuildContext context) {
     final meuUid = context.watch<AuthProvider>().userId;
     if (alvoUid.isEmpty || alvoUid == meuUid) return const SizedBox.shrink();
-    final bloqueado = context.watch<OportunidadeProvider>().ehBloqueado(alvoUid);
+    final bloqueado = context.watch<OportunidadeProvider>().ehBloqueado(
+      alvoUid,
+    );
 
     return PopupMenuButton<String>(
       tooltip: 'Mais opções',
