@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/telefone.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
+import 'entrar_com_google.dart';
 import 'layout_auth.dart';
 
 /// Cadastro (protótipo "Criar conta", Plano 8). O tipo de conta (músico ou
@@ -141,8 +143,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.telephoneNumber],
-                validator: (value) =>
-                    Validators.validarCampoObrigatorio(value, 'o telefone'),
+                validator: Validators.validarTelefone,
+                formatadores: const [MascaraTelefone()],
               ),
               espaco,
               CustomTextField(
@@ -167,8 +169,10 @@ class _CadastroScreenState extends State<CadastroScreen> {
               PrimaryButton(
                 text: 'Criar conta',
                 carregando: authProvider.isLoading,
-                onPressed: _cadastrar,
+                onPressed: authProvider.entrandoComGoogle ? null : _cadastrar,
               ),
+              const SizedBox(height: AppSpacing.lg),
+              const EntrarComGoogle(),
               const SizedBox(height: AppSpacing.sm),
               // Wrap: em tela estreita (ou fonte grande) o link desce.
               Wrap(

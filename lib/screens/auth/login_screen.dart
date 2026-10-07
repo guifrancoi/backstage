@@ -9,6 +9,7 @@ import '../../routes/app_routes.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
+import 'entrar_com_google.dart';
 import 'layout_auth.dart';
 
 /// Login (protótipo, Plano 8): marca, e-mail e senha (com mostrar/ocultar),
@@ -123,9 +124,12 @@ class _LoginScreenState extends State<LoginScreen> {
               PrimaryButton(
                 text: 'Entrar',
                 carregando: authProvider.isLoading,
-                onPressed: _entrar,
+                // Bloqueado enquanto a escolha de conta Google está aberta.
+                onPressed: authProvider.entrandoComGoogle ? null : _entrar,
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.lg),
+              const EntrarComGoogle(),
+              const SizedBox(height: AppSpacing.sm),
               // Wrap: em tela estreita (ou fonte grande) o link desce.
               Wrap(
                 alignment: WrapAlignment.center,

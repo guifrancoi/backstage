@@ -3,12 +3,15 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/telefone.dart';
+import '../../core/utils/validators.dart';
 import '../../models/casa_show.dart';
 import '../../models/musico.dart';
 import '../../models/usuario.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/perfil_provider.dart';
 import '../../routes/app_routes.dart';
+import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
 import '../perfil/perfil_estabelecimento_form.dart';
 import '../perfil/perfil_musico_form.dart';
@@ -16,7 +19,8 @@ import '../perfil/perfil_musico_form.dart';
 /// Onboarding em 2 passos: (1) escolher o tipo de usuário, (2) preencher o
 /// perfil desse tipo. Quem já tem tipo (fechou o app no meio, ou conta antiga
 /// com perfil incompleto) abre direto no passo 2, pré-preenchido. Só vai para
-/// a Home depois de salvar o passo 2.
+/// a Home depois de salvar o passo 2. Conta sem telefone (criada pelo Google,
+/// Plano 23) informa o telefone no passo 1, junto com o tipo.
 class CompletarPerfilScreen extends StatefulWidget {
   const CompletarPerfilScreen({super.key});
 
@@ -27,6 +31,14 @@ class CompletarPerfilScreen extends StatefulWidget {
 class _CompletarPerfilScreenState extends State<CompletarPerfilScreen> {
   TipoUsuario? _tipoSelecionado;
   bool _carregandoPerfil = true;
+  final _formTelefone = GlobalKey<FormState>();
+  final _telefoneController = TextEditingController();
+
+  @override
+  void dispose() {
+    _telefoneController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -61,7 +73,13 @@ class _CompletarPerfilScreenState extends State<CompletarPerfilScreen> {
     if (tipo == null) return;
 
     final authProvider = context.read<AuthProvider>();
-    final sucesso = await authProvider.completarCadastro(tipo);
+    final pedeTelefone = authProvider.precisaTelefone;
+    if (pedeTelefone && !_formTelefone.currentState!.validate()) return;
+
+    final sucesso = await authProvider.completarCadastro(
+      tipo,
+      telefone: pedeTelefone ? _telefoneController.text.trim() : null,
+    );
 
     if (!mounted || sucesso) return;
     _mostrarErro(
@@ -158,6 +176,23 @@ class _CompletarPerfilScreenState extends State<CompletarPerfilScreen> {
               ],
             ),
           ),
+          if (authProvider.precisaTelefone) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Form(
+              key: _formTelefone,
+              child: CustomTextField(
+                controller: _telefoneController,
+                label: 'Telefone',
+                icone: Icons.phone_outlined,
+                dica: '(16) 99999-0000',
+                ajuda: 'Fica só na sua conta; não aparece no seu perfil.',
+                keyboardType: TextInputType.phone,
+                autofillHints: const [AutofillHints.telephoneNumber],
+                validator: Validators.validarTelefone,
+                formatadores: const [MascaraTelefone()],
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           PrimaryButton(
             text: 'Continuar',

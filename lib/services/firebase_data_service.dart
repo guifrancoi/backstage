@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../core/logging/app_logger.dart';
 import '../models/agenda_publica.dart';
@@ -16,16 +17,24 @@ import '../models/notificacao.dart';
 import '../models/musico.dart';
 import '../models/oportunidade.dart';
 import '../models/usuario.dart';
+import 'conta_google.dart';
 
 class FirebaseDataService {
-  /// [auth] e [firestore] são injetados nos testes (fakes); no app vêm das
-  /// instâncias padrão, já inicializadas por `FirebaseBootstrap`.
-  FirebaseDataService({FirebaseAuth? auth, FirebaseFirestore? firestore})
-    : _auth = auth,
-      _firestore = firestore;
+  /// [auth], [firestore] e [google] são injetados nos testes (fakes); no
+  /// app vêm das instâncias padrão, já inicializadas por `FirebaseBootstrap`.
+  FirebaseDataService({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+    ContaGoogle? google,
+  }) : _auth = auth,
+       _firestore = firestore,
+       _google = google;
 
   final FirebaseAuth? _auth;
   final FirebaseFirestore? _firestore;
+  final ContaGoogle? _google;
+
+  ContaGoogle get google => _google ?? ContaGoogleNativa();
 
   FirebaseAuth get auth => _auth ?? FirebaseAuth.instance;
   FirebaseFirestore get firestore => _firestore ?? FirebaseFirestore.instance;
@@ -84,8 +93,54 @@ class FirebaseDataService {
     return auth.sendPasswordResetEmail(email: email);
   }
 
-  Future<void> logout() {
-    return auth.signOut();
+  /// Plano 23: "Continuar com Google". `null` = a pessoa fechou a escolha de
+  /// conta. No primeiro acesso cria `usuarios/{uid}` com nome e e-mail da
+  /// conta Google, sem telefone nem `tipoUsuario` — o onboarding pede os dois.
+  /// O mesmo e-mail de um cadastro com senha entra na mesma conta (o Firebase
+  /// confia no Google), então os dados dela são mantidos.
+  Future<UserCredential?> entrarComGoogle() async {
+    final UserCredential credential;
+    if (kIsWeb) {
+      // No navegador o próprio Firebase abre a janela do Google.
+      credential = await auth.signInWithPopup(GoogleAuthProvider());
+    } else {
+      final token = await google.idToken();
+      if (token == null) return null;
+      credential = await auth
+          .signInWithCredential(GoogleAuthProvider.credential(idToken: token))
+          .timeout(const Duration(seconds: 15));
+    }
+
+    final user = credential.user!;
+    final doc = await firestore.collection('usuarios').doc(user.uid).get();
+    if (!doc.exists) {
+      await salvarUsuario(
+        uid: user.uid,
+        nome: user.displayName ?? '',
+        email: user.email ?? '',
+        telefone: '',
+      ).timeout(const Duration(seconds: 15));
+    }
+    return credential;
+  }
+
+  /// Sai do Firebase e, em quem entrou pelo Google, esquece a conta escolhida
+  /// (senão o próximo "Continuar com Google" nem pergunta qual conta).
+  Future<void> logout() async {
+    final peloGoogle =
+        auth.currentUser?.providerData.any(
+          (p) => p.providerId == GoogleAuthProvider.PROVIDER_ID,
+        ) ??
+        false;
+    await auth.signOut();
+    if (peloGoogle && !kIsWeb) {
+      try {
+        await google.sair();
+      } catch (erro, stack) {
+        // A sessão do app já acabou; só a conta fica lembrada no aparelho.
+        AppLogger.falha(_origem, 'Falha ao sair da conta Google', erro, stack);
+      }
+    }
   }
 
   Future<void> salvarUsuario({
@@ -120,9 +175,16 @@ class FirebaseDataService {
     });
   }
 
-  Future<void> definirTipoUsuario(String uid, TipoUsuario tipoUsuario) {
+  /// [telefone] vem junto quando o onboarding precisou pedir (Plano 23:
+  /// conta criada pelo Google não tem telefone).
+  Future<void> definirTipoUsuario(
+    String uid,
+    TipoUsuario tipoUsuario, {
+    String? telefone,
+  }) {
     return firestore.collection('usuarios').doc(uid).set({
       'tipoUsuario': tipoUsuario.name,
+      'telefone': ?telefone,
     }, SetOptions(merge: true));
   }
 
@@ -543,9 +605,8 @@ class FirebaseDataService {
   /// Quem [uid] bloqueou (lista privada do dono).
   Stream<List<UsuarioBloqueado>> streamBloqueados(String uid) {
     return _bloqueados(uid).snapshots().map(
-      (s) => s.docs
-          .map((d) => UsuarioBloqueado.fromMap(d.id, d.data()))
-          .toList(),
+      (s) =>
+          s.docs.map((d) => UsuarioBloqueado.fromMap(d.id, d.data())).toList(),
     );
   }
 
@@ -672,11 +733,11 @@ class FirebaseDataService {
   }
 
   Future<void> favoritar(String uid, String tipo, String alvoId) {
-    return _favorito(uid, tipo, alvoId).set({
-      'tipo': tipo,
-      'alvoId': alvoId,
-      'criadoEm': DateTime.now(),
-    });
+    return _favorito(
+      uid,
+      tipo,
+      alvoId,
+    ).set({'tipo': tipo, 'alvoId': alvoId, 'criadoEm': DateTime.now()});
   }
 
   Future<void> desfavoritar(String uid, String tipo, String alvoId) {

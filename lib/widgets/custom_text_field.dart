@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Campo de formulário padrão (estilo vem do `inputDecorationTheme`). Plano 8:
 /// ícone opcional à esquerda e, em senha, botão de mostrar/ocultar.
@@ -26,6 +27,9 @@ class CustomTextField extends StatefulWidget {
   /// Explicação fixa abaixo do campo (ex.: "Um link por linha").
   final String? ajuda;
 
+  /// Máscaras/limites de digitação (ex.: `MascaraTelefone`).
+  final List<TextInputFormatter>? formatadores;
+
   const CustomTextField({
     super.key,
     required this.controller,
@@ -41,6 +45,7 @@ class CustomTextField extends StatefulWidget {
     this.linhas = 1,
     this.maxLength,
     this.ajuda,
+    this.formatadores,
   });
 
   @override
@@ -66,6 +71,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       onFieldSubmitted: widget.onSubmitted,
       maxLines: widget.linhas,
       maxLength: widget.maxLength,
+      inputFormatters: widget.formatadores,
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.dica,

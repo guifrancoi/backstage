@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/logging/app_logger.dart';
 import '../models/usuario.dart';
@@ -21,6 +22,7 @@ class AuthProvider extends ChangeNotifier {
   final FirebaseDataService _service;
 
   bool _isLoading = false;
+  bool _entrandoComGoogle = false;
   bool _isLoggedIn = false;
   String? _userId;
   String? _userEmail;
@@ -29,6 +31,10 @@ class AuthProvider extends ChangeNotifier {
   bool _isAdmin = false;
 
   bool get isLoading => _isLoading;
+
+  /// Login com Google em andamento (Plano 23): o indicador fica no botão do
+  /// Google, não no "Entrar".
+  bool get entrandoComGoogle => _entrandoComGoogle;
   bool get isLoggedIn => _isLoggedIn;
   String? get userId => _userId;
   String? get userEmail => _userEmail;
@@ -135,6 +141,47 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Plano 23: "Continuar com Google". `true` = entrou (a tela confere o
+  /// onboarding como no login). `false` com `errorMessage` nulo = a pessoa
+  /// fechou a escolha de conta (não é erro, a tela não avisa nada).
+  Future<bool> entrarComGoogle() async {
+    _entrandoComGoogle = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final credential = await _service.entrarComGoogle();
+      if (credential == null) return false;
+      _userId = credential.user?.uid;
+      _userEmail = credential.user?.email;
+      _isLoggedIn = true;
+      AppLogger.info(_origem, 'Login com Google');
+      return true;
+    } on FirebaseAuthException catch (error, stack) {
+      // Fechar a janela do Google no navegador também chega como erro.
+      if (_desistiuNoNavegador.contains(error.code)) return false;
+      AppLogger.falha(_origem, 'Falha no login com Google', error, stack);
+      _errorMessage = _mensagemFirebaseAuth(error);
+      return false;
+    } on GoogleSignInException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no login com Google', error, stack);
+      _errorMessage = 'Não foi possível entrar com o Google. Tente novamente.';
+      return false;
+    } on FirebaseException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no login com Google', error, stack);
+      _errorMessage = _mensagemFirebase(error);
+      return false;
+    } on TimeoutException catch (error, stack) {
+      AppLogger.falha(_origem, 'Falha no login com Google', error, stack);
+      _errorMessage =
+          'O Firebase demorou para responder. Verifique a conexão e tente novamente.';
+      return false;
+    } finally {
+      _entrandoComGoogle = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> recuperarSenha(String email) async {
     _isLoading = true;
     _errorMessage = null;
@@ -179,13 +226,24 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> completarCadastro(TipoUsuario tipoUsuario) async {
+  /// Conta sem telefone (criada pelo Google, Plano 23) precisa informá-lo.
+  bool get precisaTelefone =>
+      !_isAdmin && (_usuario?.telefone.trim().isEmpty ?? false);
+
+  Future<bool> completarCadastro(
+    TipoUsuario tipoUsuario, {
+    String? telefone,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      await _service.definirTipoUsuario(_userId!, tipoUsuario);
+      await _service.definirTipoUsuario(
+        _userId!,
+        tipoUsuario,
+        telefone: telefone,
+      );
       _usuario = await _service.carregarUsuario(_userId!);
       return true;
     } on FirebaseException catch (error, stack) {
@@ -219,6 +277,12 @@ class AuthProvider extends ChangeNotifier {
 
 const _origem = 'AuthProvider';
 
+/// Códigos de quem fechou a janela do Google no navegador.
+const _desistiuNoNavegador = {
+  'popup-closed-by-user',
+  'cancelled-popup-request',
+};
+
 String _mensagemFirebaseAuth(FirebaseAuthException error) {
   return switch (error.code) {
     'invalid-email' => 'E-mail inválido.',
@@ -228,6 +292,8 @@ String _mensagemFirebaseAuth(FirebaseAuthException error) {
     'invalid-credential' => 'E-mail ou senha inválidos.',
     'email-already-in-use' => 'Este e-mail já está cadastrado.',
     'weak-password' => 'A senha deve ser mais forte.',
+    'account-exists-with-different-credential' =>
+      'Este e-mail já está cadastrado com outra forma de login.',
     _ => 'Não foi possível concluir a autenticação.',
   };
 }
@@ -235,8 +301,8 @@ String _mensagemFirebaseAuth(FirebaseAuthException error) {
 String _mensagemFirebase(FirebaseException error) {
   return switch (error.code) {
     'permission-denied' => 'Sem permissão para salvar os dados do cadastro.',
-    'unavailable' || 'deadline-exceeded' =>
-      'O Firebase está indisponível. Tente novamente.',
+    'unavailable' ||
+    'deadline-exceeded' => 'O Firebase está indisponível. Tente novamente.',
     _ => 'Não foi possível salvar os dados do cadastro.',
   };
 }

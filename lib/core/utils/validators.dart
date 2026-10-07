@@ -1,3 +1,5 @@
+import 'telefone.dart';
+
 class Validators {
   static String? validarEmail(String? value) {
     if (value == null || value.isEmpty) {
@@ -21,6 +23,20 @@ class Validators {
       return 'A senha deve ter ao menos 6 caracteres.';
     }
 
+    return null;
+  }
+
+  /// Telefone com DDD: 10 dígitos (fixo) ou 11 (celular, começando com 9),
+  /// com DDD de 11 a 99. Aceita o texto já mascarado.
+  static String? validarTelefone(String? value) {
+    final digitos = digitosDe(value ?? '');
+    if (digitos.isEmpty) return 'Informe o telefone.';
+    if (digitos.length < 10) return 'Informe o telefone com DDD.';
+    if (digitos.length > maximoDigitosTelefone ||
+        int.parse(digitos.substring(0, 2)) < 11 ||
+        (digitos.length == maximoDigitosTelefone && digitos[2] != '9')) {
+      return 'Informe um telefone válido.';
+    }
     return null;
   }
 

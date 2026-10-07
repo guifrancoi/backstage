@@ -36,7 +36,11 @@ Widget _app(FirebaseDataService service, AuthProvider auth) {
   );
 }
 
-Future<void> _preencher(WidgetTester tester, String rotulo, String texto) async {
+Future<void> _preencher(
+  WidgetTester tester,
+  String rotulo,
+  String texto,
+) async {
   final campo = find.widgetWithText(TextFormField, rotulo);
   await tester.ensureVisible(campo);
   await tester.enterText(campo, texto);
@@ -62,44 +66,55 @@ void main() {
     expect(botao.onPressed, isNull);
   });
 
-  testWidgets('músico: passo 1 salva o tipo e o passo 2 grava o perfil antes da Home', (tester) async {
-    final firestore = FakeFirebaseFirestore();
-    await firestore.collection('usuarios').doc('u1').set({'nome': 'Guilherme'});
-    final service = _service(firestore);
-    await tester.pumpWidget(_app(service, AuthProvider(service: service)));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'músico: passo 1 salva o tipo e o passo 2 grava o perfil antes da Home',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      await firestore.collection('usuarios').doc('u1').set({
+        'nome': 'Guilherme',
+        'telefone': '16999990000',
+      });
+      final service = _service(firestore);
+      await tester.pumpWidget(_app(service, AuthProvider(service: service)));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Músico'));
-    await tester.pump();
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Músico'));
+      await tester.pump();
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
 
-    // Passo 2: ainda não foi para a Home.
-    expect(find.text('Tela Home'), findsNothing);
-    expect(find.text('Seu perfil (2/2)'), findsOneWidget);
-    final usuario = await firestore.collection('usuarios').doc('u1').get();
-    expect(usuario.data()?['tipoUsuario'], 'musico');
+      // Passo 2: ainda não foi para a Home.
+      expect(find.text('Tela Home'), findsNothing);
+      expect(find.text('Seu perfil (2/2)'), findsOneWidget);
+      final usuario = await firestore.collection('usuarios').doc('u1').get();
+      expect(usuario.data()?['tipoUsuario'], 'musico');
 
-    // Nome artístico vem pré-preenchido com o nome da conta.
-    expect(find.widgetWithText(TextFormField, 'Guilherme'), findsOneWidget);
+      // Nome artístico vem pré-preenchido com o nome da conta.
+      expect(find.widgetWithText(TextFormField, 'Guilherme'), findsOneWidget);
 
-    await _preencher(tester, 'Cidade', 'Franca');
-    await _preencher(tester, 'Cachê médio', '1500');
-    await _preencher(tester, 'Descrição', 'Duo acústico');
-    await _tocar(tester, find.byType(DropdownButtonFormField<String>));
-    await tester.tap(find.text('Rock').last);
-    await tester.pumpAndSettle();
-    await _tocar(tester, find.text('Concluir'));
+      await _preencher(tester, 'Cidade', 'Franca');
+      await _preencher(tester, 'Cachê médio', '1500');
+      await _preencher(tester, 'Descrição', 'Duo acústico');
+      await _tocar(tester, find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.text('Rock').last);
+      await tester.pumpAndSettle();
+      await _tocar(tester, find.text('Concluir'));
 
-    expect(find.text('Tela Home'), findsOneWidget);
-    final perfil = await firestore.collection('perfis_musicos').doc('u1').get();
-    expect(perfil.data()?['nomeArtistico'], 'Guilherme');
-    expect(perfil.data()?['generoMusical'], 'Rock');
-  });
+      expect(find.text('Tela Home'), findsOneWidget);
+      final perfil = await firestore
+          .collection('perfis_musicos')
+          .doc('u1')
+          .get();
+      expect(perfil.data()?['nomeArtistico'], 'Guilherme');
+      expect(perfil.data()?['generoMusical'], 'Rock');
+    },
+  );
 
   testWidgets('formulário incompleto não sai do passo 2', (tester) async {
     final firestore = FakeFirebaseFirestore();
-    await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'casaShow'});
+    await firestore.collection('usuarios').doc('u1').set({
+      'tipoUsuario': 'casaShow',
+    });
     final service = _service(firestore);
     final auth = AuthProvider(service: service);
     await tester.pumpWidget(_app(service, auth));
@@ -111,32 +126,85 @@ void main() {
     expect(find.text('Informe o nome.'), findsOneWidget);
   });
 
-  testWidgets('dono com tipo já definido retoma no passo 2 com os dados salvos', (tester) async {
+  testWidgets(
+    'dono com tipo já definido retoma no passo 2 com os dados salvos',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      await firestore.collection('usuarios').doc('u1').set({
+        'tipoUsuario': 'casaShow',
+      });
+      // Perfil parcial: falta o endereço.
+      await firestore.collection('estabelecimentos').doc('u1').set({
+        'nome': 'Bar Central',
+        'cidade': 'Franca',
+        'contato': '16 99999-9999',
+      });
+      final service = _service(firestore);
+      final auth = AuthProvider(service: service);
+      await tester.pumpWidget(_app(service, auth));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Seu perfil (2/2)'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Bar Central'), findsOneWidget);
+
+      await _preencher(tester, 'Logradouro', 'Rua A');
+      await _preencher(tester, 'Número', '10');
+      await _preencher(tester, 'UF', 'sp');
+      await _tocar(tester, find.text('Concluir'));
+
+      expect(find.text('Tela Home'), findsOneWidget);
+      final doc = await firestore
+          .collection('estabelecimentos')
+          .doc('u1')
+          .get();
+      expect(doc.data()?['estado'], 'SP');
+      expect(doc.data()?['nome'], 'Bar Central');
+      expect(await auth.precisaCompletarPerfil(), isFalse);
+    },
+  );
+
+  testWidgets('conta do Google informa o telefone no passo 1 (Plano 23)', (
+    tester,
+  ) async {
     final firestore = FakeFirebaseFirestore();
-    await firestore.collection('usuarios').doc('u1').set({'tipoUsuario': 'casaShow'});
-    // Perfil parcial: falta o endereço.
-    await firestore.collection('estabelecimentos').doc('u1').set({
-      'nome': 'Bar Central',
-      'cidade': 'Franca',
-      'contato': '16 99999-9999',
+    // Criada pelo "Continuar com Google": sem telefone nem tipo.
+    await firestore.collection('usuarios').doc('u1').set({
+      'nome': 'Ana',
+      'email': 'a@b.com',
+      'telefone': '',
     });
     final service = _service(firestore);
-    final auth = AuthProvider(service: service);
-    await tester.pumpWidget(_app(service, auth));
+    await tester.pumpWidget(_app(service, AuthProvider(service: service)));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Músico'));
+    await tester.pump();
+    await _tocar(tester, find.text('Continuar'));
+
+    // Sem telefone não avança.
+    expect(find.text('Informe o telefone.'), findsOneWidget);
+    expect(find.text('Seu perfil (2/2)'), findsNothing);
+
+    await _preencher(tester, 'Telefone', '16999990000');
+    await _tocar(tester, find.text('Continuar'));
+
     expect(find.text('Seu perfil (2/2)'), findsOneWidget);
-    expect(find.widgetWithText(TextFormField, 'Bar Central'), findsOneWidget);
+    final usuario = await firestore.collection('usuarios').doc('u1').get();
+    // Gravado como aparece na tela (máscara).
+    expect(usuario.data()?['telefone'], '(16) 99999-0000');
+    expect(usuario.data()?['tipoUsuario'], 'musico');
+  });
 
-    await _preencher(tester, 'Logradouro', 'Rua A');
-    await _preencher(tester, 'Número', '10');
-    await _preencher(tester, 'UF', 'sp');
-    await _tocar(tester, find.text('Concluir'));
+  testWidgets('conta com telefone não vê o campo', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('usuarios').doc('u1').set({
+      'nome': 'Ana',
+      'telefone': '16999990000',
+    });
+    final service = _service(firestore);
+    await tester.pumpWidget(_app(service, AuthProvider(service: service)));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Tela Home'), findsOneWidget);
-    final doc = await firestore.collection('estabelecimentos').doc('u1').get();
-    expect(doc.data()?['estado'], 'SP');
-    expect(doc.data()?['nome'], 'Bar Central');
-    expect(await auth.precisaCompletarPerfil(), isFalse);
+    expect(find.widgetWithText(TextFormField, 'Telefone'), findsNothing);
   });
 }

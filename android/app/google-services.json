@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "553548688619-dmiurs335i33tepoucf7pp5nakvhuqgj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.backstage.app",
+            "certificate_hash": "1c9c762a499ccd5b1aa16a7890e98670978c2565"
+          }
+        },
+        {
           "client_id": "553548688619-aud1g2rnrk5n0odr9rvjmo4tur8c1fl2.apps.googleusercontent.com",
           "client_type": 3
         }
